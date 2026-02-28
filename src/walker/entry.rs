@@ -194,6 +194,7 @@ fn determine_entry_type(path: &Path, symlink_meta: &Metadata) -> Result<EntryTyp
     } else if file_type.is_file() {
         #[cfg(windows)]
         {
+            // Check for hard links first
             if let Ok(info) = crate::windows::attributes::get_file_id(path) {
                 if info.number_of_links > 1 {
                     return Ok(EntryType::HardLink {

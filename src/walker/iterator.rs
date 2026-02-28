@@ -24,11 +24,40 @@ struct WalkState {
 }
 
 impl TreeIterator {
+    /// Convert path to long path format on Windows if --long-paths is enabled
+    #[cfg(windows)]
+    fn to_long_path(path: &Path, use_long_paths: bool) -> PathBuf {
+        if use_long_paths {
+            let path_str = path.to_string_lossy();
+            // Only add \\?\ prefix if not already present and path is absolute
+            if !path_str.starts_with("\\\\?\\") && path.is_absolute() {
+                let mut long_path = String::from("\\\\?\\");
+                // Handle UNC paths
+                if let Some(stripped) = path_str.strip_prefix("\\\\") {
+                    long_path = String::from("\\\\?\\UNC\\");
+                    long_path.push_str(stripped);
+                    return PathBuf::from(long_path);
+                }
+                long_path.push_str(&path_str);
+                return PathBuf::from(long_path);
+            }
+        }
+        path.to_path_buf()
+    }
+
+    #[cfg(not(windows))]
+    fn to_long_path(path: &Path, _use_long_paths: bool) -> PathBuf {
+        path.to_path_buf()
+    }
+
     pub fn new(root: &Path, config: &Config) -> Result<Self, TreeError> {
+        // Convert root to long path if needed
+        let root = Self::to_long_path(root, config.long_paths);
+        
         let root_device = if config.one_fs {
             #[cfg(windows)]
             {
-                crate::windows::attributes::get_file_id(root)
+                crate::windows::attributes::get_file_id(&root)
                     .ok()
                     .map(|info| info.volume_serial)
             }
@@ -49,7 +78,7 @@ impl TreeIterator {
 
         // Initialize with root directory contents
         if root.is_dir() {
-            if let Ok(entries) = iterator.read_and_sort_dir(root) {
+            if let Ok(entries) = iterator.read_and_sort_dir(&root) {
                 if !entries.is_empty() {
                     iterator.stack.push(WalkState {
                         entries,
@@ -66,7 +95,10 @@ impl TreeIterator {
     }
 
     fn read_and_sort_dir(&self, path: &Path) -> Result<Vec<DirEntry>, TreeError> {
-        let read_dir = fs::read_dir(path).map_err(|e| TreeError::Io(path.to_path_buf(), e))?;
+        // Convert to long path format if needed
+        let long_path = Self::to_long_path(path, self.config.long_paths);
+        
+        let read_dir = fs::read_dir(&long_path).map_err(|e| TreeError::Io(path.to_path_buf(), e))?;
 
         let mut entries: Vec<DirEntry> = read_dir
             .filter_map(|e| e.ok())
@@ -77,6 +109,16 @@ impl TreeIterator {
 
         Ok(entries)
     }
+
+    /// Check if directory has any visible entries (for prune functionality)
+    fn dir_has_visible_entries(&self, path: &Path) -> bool {
+        if let Ok(read_dir) = fs::read_dir(path) {
+            read_dir.filter_map(|e| e.ok()).any(|e| self.should_include_entry(&e))
+        } else {
+            false
+        }
+    }
+
 
     fn should_include_entry(&self, entry: &DirEntry) -> bool {
         let name = entry.file_name();
@@ -136,6 +178,14 @@ impl TreeIterator {
                 if read_dir.count() > limit {
                     return false;
                 }
+            }
+        }
+
+        // Check prune - skip empty directories
+        #[allow(clippy::collapsible_if)]
+        if self.config.prune {
+            if !self.dir_has_visible_entries(path) {
+                return false;
             }
         }
 
@@ -279,6 +329,8 @@ impl Clone for Config {
             output_file: self.output_file.clone(),
             html_base: self.html_base.clone(),
             html_title: self.html_title.clone(),
+            html_intro: self.html_intro.clone(),
+            html_outro: self.html_outro.clone(),
             no_links: self.no_links,
             show_streams: self.show_streams,
             show_junctions: self.show_junctions,
