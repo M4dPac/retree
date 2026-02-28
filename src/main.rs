@@ -63,17 +63,21 @@ fn run(config: Config) -> u8 {
         match std::fs::File::create(output_path) {
             Ok(file) => Box::new(file),
             Err(e) => {
-                eprintln!("rtree: failed to create output file '{}': {}", output_path.display(), e);
+                eprintln!(
+                    "rtree: failed to create output file '{}': {}",
+                    output_path.display(),
+                    e
+                );
                 return 1;
             }
         }
     } else {
         Box::new(io::stdout().lock())
     };
-    
+
     // Use a scope to ensure stdout lock is released before we return
     let result = run_with_output(config, paths, output, stderr, &mut total_stats);
-    
+
     // Handle error types for exit codes:
     // 3 = path not found / not a directory
     // 1 = other errors
@@ -99,7 +103,6 @@ fn run_with_output<W: Write>(
     mut stderr: io::StderrLock,
     total_stats: &mut TreeStats,
 ) -> Result<(), TreeError> {
-
     for (idx, path) in paths.iter().enumerate() {
         if !path.exists() {
             let err = TreeError::NotFound(path.clone());
@@ -178,7 +181,11 @@ fn run_with_formatter<W: Write, F: TreeOutput>(
 ) -> Result<(), TreeError> {
     formatter.begin(stdout)?;
 
-    let root_entry = walker::TreeEntry::from_path(path, 0, true, vec![])?;
+    // Determine lazy metadata flags for root entry
+    let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
+    let needs_attrs = config.show_permissions;
+
+    let root_entry = walker::TreeEntry::from_path(path, 0, true, vec![], needs_file_id, needs_attrs)?;
     formatter.write_entry(stdout, &root_entry, config)?;
 
     if root_entry.entry_type.is_directory() {

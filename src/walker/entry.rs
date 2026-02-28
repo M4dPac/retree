@@ -116,6 +116,8 @@ impl TreeEntry {
         depth: usize,
         is_last: bool,
         ancestors_last: Vec<bool>,
+        needs_file_id: bool,
+        needs_attrs: bool,
     ) -> Result<Self, TreeError> {
         let name = path
             .file_name()
@@ -125,8 +127,8 @@ impl TreeEntry {
         let symlink_meta =
             fs::symlink_metadata(path).map_err(|e| TreeError::Io(path.to_path_buf(), e))?;
 
-        let entry_type = determine_entry_type(path, &symlink_meta)?;
-        let metadata = gather_metadata(path, &symlink_meta)?;
+        let entry_type = determine_entry_type(path, &symlink_meta, needs_file_id)?;
+        let metadata = gather_metadata(path, &symlink_meta, needs_file_id, needs_attrs)?;
 
         Ok(TreeEntry {
             path: path.to_path_buf(),
@@ -144,6 +146,8 @@ impl TreeEntry {
         depth: usize,
         is_last: bool,
         ancestors_last: Vec<bool>,
+        needs_file_id: bool,
+        needs_attrs: bool,
     ) -> Result<Self, TreeError> {
         let path = entry.path();
         let name = entry.file_name();
@@ -152,8 +156,8 @@ impl TreeEntry {
             .metadata()
             .map_err(|e| TreeError::Io(path.clone(), e))?;
 
-        let entry_type = determine_entry_type(&path, &symlink_meta)?;
-        let metadata = gather_metadata(&path, &symlink_meta)?;
+        let entry_type = determine_entry_type(&path, &symlink_meta, needs_file_id)?;
+        let metadata = gather_metadata(&path, &symlink_meta, needs_file_id, needs_attrs)?;
 
         Ok(TreeEntry {
             path,
@@ -171,7 +175,11 @@ impl TreeEntry {
     }
 }
 
-fn determine_entry_type(path: &Path, symlink_meta: &Metadata) -> Result<EntryType, TreeError> {
+fn determine_entry_type(
+    path: &Path,
+    symlink_meta: &Metadata,
+    needs_file_id: bool,
+) -> Result<EntryType, TreeError> {
     let file_type = symlink_meta.file_type();
 
     if file_type.is_symlink() {
@@ -194,12 +202,14 @@ fn determine_entry_type(path: &Path, symlink_meta: &Metadata) -> Result<EntryTyp
     } else if file_type.is_file() {
         #[cfg(windows)]
         {
-            // Check for hard links first
-            if let Ok(info) = crate::windows::attributes::get_file_id(path) {
-                if info.number_of_links > 1 {
-                    return Ok(EntryType::HardLink {
-                        link_count: info.number_of_links,
-                    });
+            // Lazy: only check for hard links if needed
+            if needs_file_id {
+                if let Ok(info) = crate::windows::attributes::get_file_id(path) {
+                    if info.number_of_links > 1 {
+                        return Ok(EntryType::HardLink {
+                            link_count: info.number_of_links,
+                        });
+                    }
                 }
             }
         }
@@ -209,7 +219,12 @@ fn determine_entry_type(path: &Path, symlink_meta: &Metadata) -> Result<EntryTyp
     }
 }
 
-fn gather_metadata(path: &Path, symlink_meta: &Metadata) -> Result<EntryMetadata, TreeError> {
+fn gather_metadata(
+    path: &Path,
+    symlink_meta: &Metadata,
+    needs_file_id: bool,
+    needs_attrs: bool,
+) -> Result<EntryMetadata, TreeError> {
     let mut meta = EntryMetadata {
         size: symlink_meta.len(),
         created: symlink_meta.created().ok(),
@@ -220,14 +235,20 @@ fn gather_metadata(path: &Path, symlink_meta: &Metadata) -> Result<EntryMetadata
 
     #[cfg(windows)]
     {
-        if let Ok(info) = crate::windows::attributes::get_file_id(path) {
-            meta.inode = info.file_id;
-            meta.device = info.volume_serial;
-            meta.nlinks = info.number_of_links;
+        // Lazy evaluation: only call GetFileAttributesW if needed
+        if needs_attrs {
+            if let Ok(attrs) = crate::windows::attributes::get_file_attributes(path) {
+                meta.attributes = WinAttributes::from_raw(attrs);
+            }
         }
 
-        if let Ok(attrs) = crate::windows::attributes::get_file_attributes(path) {
-            meta.attributes = WinAttributes::from_raw(attrs);
+        // Lazy evaluation: only call CreateFileW + GetFileInformationByHandle if needed
+        if needs_file_id {
+            if let Ok(info) = crate::windows::attributes::get_file_id(path) {
+                meta.inode = info.file_id;
+                meta.device = info.volume_serial;
+                meta.nlinks = info.number_of_links;
+            }
         }
     }
 

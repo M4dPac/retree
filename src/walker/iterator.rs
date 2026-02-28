@@ -53,7 +53,7 @@ impl TreeIterator {
     pub fn new(root: &Path, config: &Config) -> Result<Self, TreeError> {
         // Convert root to long path if needed
         let root = Self::to_long_path(root, config.long_paths);
-        
+
         let root_device = if config.one_fs {
             #[cfg(windows)]
             {
@@ -97,8 +97,9 @@ impl TreeIterator {
     fn read_and_sort_dir(&self, path: &Path) -> Result<Vec<DirEntry>, TreeError> {
         // Convert to long path format if needed
         let long_path = Self::to_long_path(path, self.config.long_paths);
-        
-        let read_dir = fs::read_dir(&long_path).map_err(|e| TreeError::Io(path.to_path_buf(), e))?;
+
+        let read_dir =
+            fs::read_dir(&long_path).map_err(|e| TreeError::Io(path.to_path_buf(), e))?;
 
         let mut entries: Vec<DirEntry> = read_dir
             .filter_map(|e| e.ok())
@@ -113,35 +114,40 @@ impl TreeIterator {
     /// Check if directory has any visible entries (for prune functionality)
     fn dir_has_visible_entries(&self, path: &Path) -> bool {
         if let Ok(read_dir) = fs::read_dir(path) {
-            read_dir.filter_map(|e| e.ok()).any(|e| self.should_include_entry(&e))
+            read_dir
+                .filter_map(|e| e.ok())
+                .any(|e| self.should_include_entry(&e))
         } else {
             false
         }
     }
 
-
     fn should_include_entry(&self, entry: &DirEntry) -> bool {
         let name = entry.file_name();
         let name_str = name.to_string_lossy();
 
-        // Check hidden files
+        // Check hidden files - name-based check first (no syscall)
         if !self.config.show_all {
             if name_str.starts_with('.') {
                 return false;
             }
 
+            // Only do attribute-based check if needed (lazy: avoids syscall)
             #[cfg(windows)]
             {
-                if let Ok(attrs_raw) =
-                    crate::windows::attributes::get_file_attributes(&entry.path())
-                {
-                    let attrs = WinAttributes::from_raw(attrs_raw);
-
-                    if attrs.hidden {
-                        return false;
-                    }
-                    if self.config.hide_system && attrs.system {
-                        return false;
+                // Only call GetFileAttributesW if we're filtering hidden/system files
+                // and the name doesn't start with dot
+                if self.config.hide_system {
+                    if let Ok(attrs_raw) =
+                        crate::windows::attributes::get_file_attributes(&entry.path())
+                    {
+                        let attrs = WinAttributes::from_raw(attrs_raw);
+                        if attrs.hidden {
+                            return false;
+                        }
+                        if attrs.system {
+                            return false;
+                        }
                     }
                 }
             }
@@ -240,9 +246,15 @@ impl Iterator for TreeIterator {
 
             let path = entry.path();
 
+            // Determine which metadata we actually need (lazy evaluation)
+            let needs_file_id = self.config.one_fs
+                || self.config.show_inodes
+                || self.config.show_device;
+            let needs_attrs = self.config.show_permissions;
+
             // Create tree entry
             let tree_entry =
-                match TreeEntry::from_dir_entry(entry, state.depth, is_last, ancestors.clone()) {
+                match TreeEntry::from_dir_entry(entry, state.depth, is_last, ancestors.clone(), needs_file_id, needs_attrs) {
                     Ok(e) => e,
                     Err(e) => return Some(Err(e)),
                 };

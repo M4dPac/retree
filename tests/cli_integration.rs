@@ -35,10 +35,7 @@ fn test_default_execution() {
 
 #[test]
 fn test_nonexistent_path() {
-    rtree()
-        .arg("/nonexistent/path")
-        .assert()
-        .failure();
+    rtree().arg("/nonexistent/path").assert().failure();
 }
 
 #[test]
@@ -53,10 +50,7 @@ fn test_help_flag() {
 
 #[test]
 fn test_version_flag() {
-    rtree()
-        .arg("--version")
-        .assert()
-        .success();
+    rtree().arg("--version").assert().success();
 }
 
 // ============================================================================
@@ -114,10 +108,10 @@ fn test_follow_symlinks() {
     #[cfg(windows)]
     {
         use std::os::windows::fs::symlink_dir;
-        
+
         fs::create_dir(dir_path.join("target")).unwrap();
         fs::write(dir_path.join("target/file.txt"), "content").unwrap();
-        
+
         if symlink_dir(dir_path.join("target"), dir_path.join("link")).is_ok() {
             rtree()
                 .arg("-l")
@@ -278,11 +272,7 @@ fn test_prune() {
     fs::create_dir_all(dir_path.join("empty_dir")).unwrap();
     fs::write(dir_path.join("file.txt"), "").unwrap();
 
-    rtree()
-        .arg("--prune")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("--prune").arg(dir_path).assert().success();
 }
 
 // ============================================================================
@@ -298,11 +288,7 @@ fn test_version_sort() {
     fs::write(dir_path.join("file2.txt"), "").unwrap();
     fs::write(dir_path.join("file10.txt"), "").unwrap();
 
-    rtree()
-        .arg("-v")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-v").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -313,11 +299,7 @@ fn test_time_sort() {
     fs::write(dir_path.join("file1.txt"), "").unwrap();
     fs::write(dir_path.join("file2.txt"), "").unwrap();
 
-    rtree()
-        .arg("-t")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-t").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -327,11 +309,7 @@ fn test_ctime_sort() {
 
     fs::write(dir_path.join("file.txt"), "").unwrap();
 
-    rtree()
-        .arg("-c")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-c").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -341,11 +319,7 @@ fn test_unsorted() {
 
     fs::write(dir_path.join("file.txt"), "").unwrap();
 
-    rtree()
-        .arg("-U")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-U").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -356,11 +330,7 @@ fn test_reverse_sort() {
     fs::write(dir_path.join("a.txt"), "").unwrap();
     fs::write(dir_path.join("b.txt"), "").unwrap();
 
-    rtree()
-        .arg("-r")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-r").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -371,11 +341,7 @@ fn test_dirs_first() {
     fs::create_dir(dir_path.join("subdir")).unwrap();
     fs::write(dir_path.join("file.txt"), "").unwrap();
 
-    rtree()
-        .arg("--dirsfirst")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("--dirsfirst").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -386,11 +352,7 @@ fn test_files_first() {
     fs::create_dir(dir_path.join("subdir")).unwrap();
     fs::write(dir_path.join("file.txt"), "").unwrap();
 
-    rtree()
-        .arg("--filesfirst")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("--filesfirst").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -435,11 +397,7 @@ fn test_no_indent() {
     fs::create_dir(dir_path.join("subdir")).unwrap();
     fs::write(dir_path.join("file.txt"), "").unwrap();
 
-    rtree()
-        .arg("-i")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-i").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -449,11 +407,7 @@ fn test_ansi() {
 
     fs::write(dir_path.join("file.txt"), "").unwrap();
 
-    rtree()
-        .arg("-A")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-A").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -463,11 +417,7 @@ fn test_cp437() {
 
     fs::write(dir_path.join("file.txt"), "").unwrap();
 
-    rtree()
-        .arg("-S")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-S").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -477,11 +427,7 @@ fn test_no_color() {
 
     fs::write(dir_path.join("file.txt"), "").unwrap();
 
-    rtree()
-        .arg("-n")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-n").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -491,11 +437,7 @@ fn test_color_always() {
 
     fs::write(dir_path.join("file.txt"), "").unwrap();
 
-    rtree()
-        .arg("-C")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-C").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -542,10 +484,7 @@ fn test_color_never_value() {
 
 #[test]
 fn test_color_invalid() {
-    rtree()
-        .args(["--color=invalid", "."])
-        .assert()
-        .failure();
+    rtree().args(["--color=invalid", "."]).assert().failure();
 }
 
 // ============================================================================
@@ -574,11 +513,7 @@ fn test_human_readable() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("-h")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-h").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -588,11 +523,7 @@ fn test_si_units() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("--si")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("--si").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -602,11 +533,7 @@ fn test_date_flag() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("-D")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-D").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -630,11 +557,7 @@ fn test_permissions() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("-p")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-p").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -644,11 +567,7 @@ fn test_uid() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("-u")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-u").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -658,11 +577,7 @@ fn test_gid() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("-g")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-g").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -672,11 +587,7 @@ fn test_inodes() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("--inodes")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("--inodes").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -686,11 +597,7 @@ fn test_device() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("--device")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("--device").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -703,16 +610,14 @@ fn test_classify() {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let mut perms = fs::metadata(dir_path.join("file.txt")).unwrap().permissions();
+        let mut perms = fs::metadata(dir_path.join("file.txt"))
+            .unwrap()
+            .permissions();
         perms.set_mode(0o755);
         fs::set_permissions(dir_path.join("file.txt"), perms).unwrap();
     }
 
-    rtree()
-        .arg("-F")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-F").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -722,11 +627,7 @@ fn test_safe_print() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("-q")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-q").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -736,11 +637,7 @@ fn test_literal() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("-N")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("-N").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -837,11 +734,7 @@ fn test_xml_output() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    let output = rtree()
-        .arg("-X")
-        .arg(dir_path)
-        .assert()
-        .success();
+    let output = rtree().arg("-X").arg(dir_path).assert().success();
 
     let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
     assert!(stdout.starts_with("<?xml"));
@@ -855,11 +748,7 @@ fn test_json_output() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    let output = rtree()
-        .arg("-J")
-        .arg(dir_path)
-        .assert()
-        .success();
+    let output = rtree().arg("-J").arg(dir_path).assert().success();
 
     let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).expect("Invalid JSON");
@@ -873,11 +762,7 @@ fn test_json_output_valid() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    let output = rtree()
-        .arg("-J")
-        .arg(dir_path)
-        .assert()
-        .success();
+    let output = rtree().arg("-J").arg(dir_path).assert().success();
 
     let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
     assert!(json.is_array());
@@ -936,11 +821,7 @@ fn test_no_icons() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("--no-icons")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("--no-icons").arg(dir_path).assert().success();
 }
 
 #[test]
@@ -1077,11 +958,7 @@ fn test_long_paths() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .arg("--long-paths")
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg("--long-paths").arg(dir_path).assert().success();
 }
 
 // ============================================================================
@@ -1126,9 +1003,7 @@ fn test_tree_lang_env() {
     // Test with TREE_LANG environment variable
     let mut cmd = rtree();
     cmd.env("TREE_LANG", "ru");
-    cmd.arg(dir_path)
-        .assert()
-        .success();
+    cmd.arg(dir_path).assert().success();
 }
 
 // ============================================================================
@@ -1142,11 +1017,7 @@ fn test_no_color_overrides_color_always() {
 
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
-    rtree()
-        .args(["-n", "-C"])
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().args(["-n", "-C"]).arg(dir_path).assert().success();
 }
 
 #[test]
@@ -1177,9 +1048,7 @@ fn test_no_color_env_variable() {
     // Test with NO_COLOR environment variable set
     let mut cmd = rtree();
     cmd.env("NO_COLOR", "1");
-    cmd.arg(dir_path)
-        .assert()
-        .success();
+    cmd.arg(dir_path).assert().success();
 }
 
 // ============================================================================
@@ -1198,7 +1067,12 @@ fn test_html_intro_file() {
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
     rtree()
-        .args(["-H", "http://localhost", "--hintro", intro_path.to_str().unwrap()])
+        .args([
+            "-H",
+            "http://localhost",
+            "--hintro",
+            intro_path.to_str().unwrap(),
+        ])
         .arg(dir_path)
         .assert()
         .success()
@@ -1217,7 +1091,12 @@ fn test_html_outro_file() {
     fs::write(dir_path.join("file.txt"), "content").unwrap();
 
     rtree()
-        .args(["-H", "http://localhost", "--houtro", outro_path.to_str().unwrap()])
+        .args([
+            "-H",
+            "http://localhost",
+            "--houtro",
+            outro_path.to_str().unwrap(),
+        ])
         .arg(dir_path)
         .assert()
         .success()
@@ -1236,11 +1115,7 @@ fn test_multiple_paths() {
     fs::write(dir1.path().join("file1.txt"), "content").unwrap();
     fs::write(dir2.path().join("file2.txt"), "content").unwrap();
 
-    rtree()
-        .arg(dir1.path())
-        .arg(dir2.path())
-        .assert()
-        .success();
+    rtree().arg(dir1.path()).arg(dir2.path()).assert().success();
 }
 
 // ============================================================================
@@ -1252,10 +1127,7 @@ fn test_empty_directory() {
     let dir = tempdir().unwrap();
     let dir_path = dir.path();
 
-    rtree()
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg(dir_path).assert().success();
 }
 
 #[test]
@@ -1282,8 +1154,5 @@ fn test_special_characters_in_filename() {
     fs::write(dir_path.join("file with spaces.txt"), "content").unwrap();
     fs::write(dir_path.join("file-with-dashes.txt"), "content").unwrap();
 
-    rtree()
-        .arg(dir_path)
-        .assert()
-        .success();
+    rtree().arg(dir_path).assert().success();
 }

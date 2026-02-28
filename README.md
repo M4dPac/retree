@@ -767,10 +767,33 @@ cargo test test_natural_sort
 
 # Run integration tests
 cargo test --test cli_tests
-
-# Run benchmarks
-cargo bench
 ```
+
+### Performance Tests
+
+Performance tests measure the full pipeline: filesystem walk → filtering → sorting → formatting.
+
+```powershell
+# Run performance tests (requires --release for accurate results)
+cargo test --release -- --ignored
+
+# Run specific performance test
+cargo test --release --test performance perf_small_project -- --ignored
+
+# Run with output to see timing
+cargo test --release --test performance -- --ignored --nocapture
+```
+
+**Performance test scenarios:**
+
+| Scenario | Files | Time Limit |
+|----------|-------|------------|
+| Small project | 100 | < 50ms |
+| Medium project | 10,000 | < 1s |
+| Large project | 100,000 | < 5s |
+| Very large | 1,000,000 | < 30s |
+
+> ⚠️ Performance tests are marked as `#[ignore]` and are not run in CI. Run them manually to verify performance requirements.
 
 ### Test Coverage
 
@@ -787,15 +810,6 @@ cargo tarpaulin --out Html
 ## ⚡ Performance
 
 rtree is optimized for handling large directory structures efficiently.
-
-### Benchmarks
-
-| Scenario | Files | Time |
-|----------|-------|------|
-| Small project | 100 | < 50ms |
-| Medium project | 10,000 | < 1s |
-| Large project | 100,000 | < 5s |
-| Very large | 1,000,000 | < 30s |
 
 ### Optimization Techniques
 

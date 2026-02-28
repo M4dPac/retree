@@ -180,9 +180,7 @@ impl TextFormatter {
                         s.push(if meta.attributes.readonly { '-' } else { 'x' });
                         s
                     }
-                    crate::cli::PermMode::Windows => {
-                        meta.attributes.to_string_short()
-                    }
+                    crate::cli::PermMode::Windows => meta.attributes.to_string_short(),
                 };
                 info.push_str(&format!("[{}]  ", perm_str));
             }

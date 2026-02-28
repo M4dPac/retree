@@ -225,7 +225,11 @@ pub struct Args {
 
     // === Icons ===
     /// Show icons (default: auto) / Показывать иконки
-    #[arg(long = "icons", default_value = "auto", default_missing_value = "always")]
+    #[arg(
+        long = "icons",
+        default_value = "auto",
+        default_missing_value = "always"
+    )]
     pub icons: String,
 
     /// Disable icons / Без иконок

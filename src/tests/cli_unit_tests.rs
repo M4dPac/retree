@@ -1,8 +1,8 @@
 //! Unit tests for CLI argument parsing
 //! Tests Args parsing without running the binary
 
+use crate::cli::{Args, ColorWhen, IconStyle, IconsWhen, PermMode, SortType};
 use clap::Parser;
-use crate::cli::{Args, ColorWhen, IconsWhen, IconStyle, PermMode, SortType};
 
 /// Helper to parse args and unwrap
 fn parse_args(args: &[&str]) -> Args {
@@ -19,7 +19,8 @@ fn parse_args_should_fail(args: &[&str]) {
         .chain(args.iter().copied())
         .collect::<Vec<_>>();
     let args_owned: Vec<String> = args_with_bin.iter().map(|s| s.to_string()).collect();
-    Args::try_parse_from(args_owned.iter().map(|s| s.as_str())).expect_err("Expected parse failure");
+    Args::try_parse_from(args_owned.iter().map(|s| s.as_str()))
+        .expect_err("Expected parse failure");
 }
 
 // ============================================================================
@@ -556,13 +557,19 @@ fn test_charset_flag() {
 #[test]
 fn test_output_file_flag() {
     let args = parse_args(&["-o", "output.txt"]);
-    assert_eq!(args.output_file.map(|p| p.to_string_lossy().to_string()), Some("output.txt".to_string()));
+    assert_eq!(
+        args.output_file.map(|p| p.to_string_lossy().to_string()),
+        Some("output.txt".to_string())
+    );
 }
 
 #[test]
 fn test_output_file_flag_long() {
     let args = parse_args(&["--output", "output.txt"]);
-    assert_eq!(args.output_file.map(|p| p.to_string_lossy().to_string()), Some("output.txt".to_string()));
+    assert_eq!(
+        args.output_file.map(|p| p.to_string_lossy().to_string()),
+        Some("output.txt".to_string())
+    );
 }
 
 #[test]
@@ -598,13 +605,19 @@ fn test_no_links_flag() {
 #[test]
 fn test_html_intro_flag() {
     let args = parse_args(&["--hintro", "intro.html"]);
-    assert_eq!(args.html_intro.map(|p| p.to_string_lossy().to_string()), Some("intro.html".to_string()));
+    assert_eq!(
+        args.html_intro.map(|p| p.to_string_lossy().to_string()),
+        Some("intro.html".to_string())
+    );
 }
 
 #[test]
 fn test_html_outro_flag() {
     let args = parse_args(&["--houtro", "outro.html"]);
-    assert_eq!(args.html_outro.map(|p| p.to_string_lossy().to_string()), Some("outro.html".to_string()));
+    assert_eq!(
+        args.html_outro.map(|p| p.to_string_lossy().to_string()),
+        Some("outro.html".to_string())
+    );
 }
 
 #[test]

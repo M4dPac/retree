@@ -22,12 +22,14 @@ impl HtmlFormatter {
         let default_title = get_message(i18n::current(), MessageKey::HtmlTitle);
 
         // Load custom intro/outro files if specified
-        let intro = config.html_intro.as_ref().and_then(|path| {
-            fs::read_to_string(path).ok()
-        });
-        let outro = config.html_outro.as_ref().and_then(|path| {
-            fs::read_to_string(path).ok()
-        });
+        let intro = config
+            .html_intro
+            .as_ref()
+            .and_then(|path| fs::read_to_string(path).ok());
+        let outro = config
+            .html_outro
+            .as_ref()
+            .and_then(|path| fs::read_to_string(path).ok());
 
         HtmlFormatter {
             base_url: config.html_base.clone(),
