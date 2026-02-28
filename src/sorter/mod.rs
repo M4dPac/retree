@@ -25,11 +25,16 @@ impl Default for SortConfig {
 }
 
 pub fn sort_entries(entries: &mut [DirEntry], config: &SortConfig) {
-    if matches!(config.sort_type, SortType::None) {
+    // Skip sorting if:
+    // 1. SortType::None (unsorted)
+    // 2. 0 or 1 entries (nothing to sort)
+    if matches!(config.sort_type, SortType::None) || entries.len() <= 1 {
         return;
     }
 
-    entries.sort_by(|a, b| {
+    // Use sort_unstable_by for better performance
+    // (avoids maintaining stable order, which is faster)
+    entries.sort_unstable_by(|a, b| {
         // Handle dirs_first / files_first
         if config.dirs_first || config.files_first {
             let a_is_dir = a.path().is_dir();
