@@ -73,7 +73,6 @@
 - 🔒 **Windows attributes** — Hidden, System, ReadOnly, Archive flags
 - 📏 **Long paths** — Support for paths longer than 260 characters
 - 🌐 **UNC paths** — Network share support (`\\server\share`)
-- 🔐 **ACL integration** — Display file owners and permissions
 
 ### Quality of Life
 
@@ -333,8 +332,8 @@ rtree -i
 | `-D` | `--date` | Print modification date |
 | | `--timefmt FMT` | Date format (strftime syntax) |
 | `-p` | `--perm` | Print file permissions/attributes |
-| `-u` | `--uid` | Print file owner username |
-| `-g` | `--gid` | Print file group |
+| `-u` | `--uid` | Print file owner (planned for future) |
+| `-g` | `--gid` | Print file group (planned for future) |
 | | `--inodes` | Print inode numbers |
 | | `--device` | Print device numbers |
 | `-F` | `--classify` | Append / for dirs, @ for links, * for executables |
@@ -353,11 +352,11 @@ rtree -D
 # Custom date format
 rtree -D --timefmt="%Y-%m-%d"
 
-# Show permissions and owner
-rtree -p -u
+# Show permissions
+rtree -p
 
 # Full details
-rtree -h -D -p -u -g -F
+rtree -h -D -p -F
 ```
 
 ### Export Options
@@ -444,67 +443,10 @@ rtree --lang=ru
 
 ## ⚙️ Configuration
 
-rtree can be configured using a TOML configuration file located at:
+> **Note**: TOML configuration file support is planned for future releases.
+> Currently, rtree can be configured via command-line flags and environment variables.
 
-- `~/.rtree/config.toml`
-- `%APPDATA%\rtree\config.toml`
-
-### Configuration File Example
-
-```toml
-# ~/.rtree/config.toml
-
-[display]
-# When to use colors: auto, always, never
-color = "auto"
-
-# When to show icons: auto, always, never
-icons = "auto"
-
-# Line graphics charset: ansi, cp437, ascii
-charset = "ansi"
-
-[listing]
-# Show hidden files by default
-show_hidden = false
-
-# Follow symbolic links by default
-follow_symlinks = false
-
-# Default depth limit (0 = unlimited)
-default_depth = 0
-
-[sorting]
-# Default sort type: name, size, mtime, ctime, version, none
-default = "name"
-
-# List directories before files
-dirs_first = true
-
-# Use natural (version) sort
-natural_sort = true
-
-[output]
-# Default output format: text, json, xml, html
-format = "text"
-
-# Omit report by default
-no_report = false
-
-[windows]
-# Show hidden files (Windows hidden attribute)
-show_hidden_attr = false
-
-# Show system files
-show_system_files = false
-
-# Show alternate data streams
-show_streams = false
-
-[language]
-# Interface language: en, ru (auto-detected if not set)
-lang = "en"
-```
+### Environment Variables
 
 ### Environment Variables
 
