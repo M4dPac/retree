@@ -1,6 +1,9 @@
-use std::collections::HashSet;
 use std::fs::{self, DirEntry};
 use std::path::{Path, PathBuf};
+
+// Use FxHashSet for faster hashing (FxHash is much faster than SipHash)
+// rustc-hash uses a fast non-cryptographic hash optimized for in-memory keys
+use rustc_hash::FxHashSet;
 
 use super::{TreeEntry, WinAttributes};
 use crate::config::Config;
@@ -10,7 +13,7 @@ use crate::sorter;
 pub struct TreeIterator {
     stack: Vec<WalkState>,
     config: Config,
-    visited: HashSet<u64>,
+    visited: FxHashSet<u64>,
     root_device: Option<u32>,
 }
 
@@ -69,10 +72,14 @@ impl TreeIterator {
             None
         };
 
+        // Pre-allocate visited set with capacity hint to reduce reallocations
+        let mut visited = FxHashSet::default();
+        visited.reserve(1024); // Reserve for typical directory structures
+
         let mut iterator = TreeIterator {
             stack: Vec::new(),
             config: config.clone(),
-            visited: HashSet::new(),
+            visited,
             root_device,
         };
 
