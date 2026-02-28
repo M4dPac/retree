@@ -1,6 +1,8 @@
 mod entry;
+mod engine;
 mod iterator;
 
+pub use engine::OrderedEngine;
 pub use entry::{EntryType, TreeEntry, WinAttributes};
 pub use iterator::TreeIterator;
 

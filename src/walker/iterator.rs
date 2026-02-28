@@ -357,6 +357,9 @@ impl Clone for Config {
             long_paths: self.long_paths,
             color_scheme: self.color_scheme.clone(),
             icon_set: self.icon_set.clone(),
+            parallel: self.parallel,
+            threads: self.threads,
+            queue_cap: self.queue_cap,
         }
     }
 }

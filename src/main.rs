@@ -23,7 +23,7 @@ use std::process::ExitCode;
 use config::Config;
 use error::TreeError;
 use format::{HtmlFormatter, JsonFormatter, TextFormatter, TreeOutput, XmlFormatter};
-use walker::{TreeIterator, TreeStats};
+use walker::{OrderedEngine, TreeStats};
 
 fn main() -> ExitCode {
     let args = cli::parse_args();
@@ -194,9 +194,11 @@ fn run_with_formatter<W: Write, F: TreeOutput>(
         stats.files += 1;
     }
 
-    let iterator = TreeIterator::new(path, config)?;
+    // Use OrderedEngine for traversal (supports parallel mode)
+    let engine = OrderedEngine::new(config);
+    let walker = engine.traverse(path, config)?;
 
-    for entry_result in iterator {
+    for entry_result in walker {
         match entry_result {
             Ok(entry) => {
                 formatter.write_entry(stdout, &entry, config)?;

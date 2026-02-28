@@ -265,6 +265,19 @@ pub struct Args {
     /// Interface language (en/ru) / Язык интерфейса
     #[arg(long = "lang", value_name = "LANG", env = "TREE_LANG")]
     pub lang: Option<String>,
+
+    // === Parallel execution ===
+    /// Enable parallel directory traversal (faster for large directories)
+    #[arg(long = "parallel")]
+    pub parallel: bool,
+
+    /// Number of worker threads for parallel mode (default: CPU cores)
+    #[arg(long = "threads", value_name = "N")]
+    pub threads: Option<usize>,
+
+    /// Internal queue capacity per thread for parallel mode
+    #[arg(long = "queue-cap", value_name = "N", default_value = "4096")]
+    pub queue_cap: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]

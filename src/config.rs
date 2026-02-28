@@ -85,6 +85,11 @@ pub struct Config {
     // Style
     pub color_scheme: ColorScheme,
     pub icon_set: IconSet,
+
+    // Parallel execution
+    pub parallel: bool,
+    pub threads: Option<usize>,
+    pub queue_cap: Option<usize>,
 }
 
 impl Config {
@@ -199,6 +204,10 @@ impl Config {
 
             color_scheme,
             icon_set,
+
+            parallel: args.parallel,
+            threads: args.threads,
+            queue_cap: args.queue_cap,
         })
     }
 }
