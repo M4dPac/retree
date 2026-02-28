@@ -162,7 +162,28 @@ impl TextFormatter {
             }
 
             if config.show_permissions {
-                let perm_str = meta.attributes.to_string_short();
+                let perm_str = match config.perm_mode {
+                    crate::cli::PermMode::Posix => {
+                        // Generate POSIX-style permissions (rwxr-xr-x format)
+                        let mut s = String::new();
+                        // Owner permissions
+                        s.push(if meta.attributes.readonly { '-' } else { 'r' });
+                        s.push(if meta.attributes.readonly { '-' } else { 'w' });
+                        s.push(if meta.attributes.readonly { '-' } else { 'x' });
+                        // Group permissions
+                        s.push(if meta.attributes.readonly { '-' } else { 'r' });
+                        s.push(if meta.attributes.readonly { '-' } else { 'w' });
+                        s.push(if meta.attributes.readonly { '-' } else { 'x' });
+                        // Other permissions
+                        s.push(if meta.attributes.readonly { '-' } else { 'r' });
+                        s.push(if meta.attributes.readonly { '-' } else { 'w' });
+                        s.push(if meta.attributes.readonly { '-' } else { 'x' });
+                        s
+                    }
+                    crate::cli::PermMode::Windows => {
+                        meta.attributes.to_string_short()
+                    }
+                };
                 info.push_str(&format!("[{}]  ", perm_str));
             }
 
