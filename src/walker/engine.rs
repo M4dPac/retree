@@ -1,7 +1,7 @@
 //! Parallel traversal engine for rtree
 //!
 //! Provides ordered parallel directory traversal using work-stealing deques.
-//! Maintains output order while utilizing multiple CPU cores for I/O-bound operations.
+//! Uses crossbeam's Injector + Stealer model for true load balancing.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -9,7 +9,7 @@ use std::sync::mpsc::{channel, Sender};
 use std::sync::Arc;
 use std::thread;
 
-use crossbeam::deque::Worker;
+use crossbeam::deque::{Injector, Steal, Worker};
 use rustc_hash::FxHashSet;
 
 use crate::config::Config;
@@ -18,9 +18,6 @@ use crate::filter::Filter;
 use crate::sorter::{sort_entries, SortConfig};
 use crate::walker::entry::TreeEntry;
 use crate::walker::iterator::TreeIterator;
-
-/// Number of entries to buffer before emitting for ordering
-const ORDER_BUFFER_SIZE: usize = 256;
 
 /// Parallel traversal engine that maintains output order
 pub struct OrderedEngine {
@@ -65,7 +62,7 @@ impl OrderedEngine {
         }
     }
 
-    /// Parallel traversal with ordered output
+    /// Parallel traversal with true work-stealing
     fn parallel_traverse<P: AsRef<Path>>(
         &self,
         root: P,
@@ -76,6 +73,15 @@ impl OrderedEngine {
 
         // Create channels for ordered output
         let (tx, rx) = channel::<TreeEntry>();
+
+        // Global work injector - the main queue for work-stealing
+        let injector: Arc<Injector<WorkItem>> = Arc::new(Injector::new());
+        
+        // Push root to injector
+        injector.push(WorkItem {
+            path: root_path.clone(),
+            depth: 0,
+        });
 
         // Shared state
         let visited: Arc<FxHashSet<u64>> = Arc::new(FxHashSet::default());
@@ -91,34 +97,35 @@ impl OrderedEngine {
         let follow_symlinks = config.follow_symlinks;
         let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
         let needs_attrs = config.show_permissions;
-        let root_path_clone = root_path.clone();
 
         // Spawn worker threads
         let handles = (0..self.threads)
             .map(|thread_id| {
                 let tx = tx.clone();
+                let injector = Arc::clone(&injector);
                 let visited = Arc::clone(&visited);
                 let active_count = Arc::clone(&active_count);
                 let done = Arc::clone(&done);
                 let filter_clone = filter.clone();
                 let sort_config_clone = sort_config.clone();
-                let root_for_thread = if thread_id == 0 { Some(root_path_clone.clone()) } else { None };
 
                 thread::spawn(move || {
                     // Each worker has its own deque
                     let worker = Worker::new_lifo();
                     
-                    // Push root to first worker
-                    if let Some(root_p) = root_for_thread {
-                        worker.push(WorkItem {
-                            path: root_p,
-                            depth: 0,
-                        });
-                    }
-
+                    // Create stealer list for this worker (will collect from all workers)
+                    // We'll use a shared stealer list instead
+                    
                     loop {
-                        // Try to steal work from other workers
-                        let work = worker.pop().or_else(|| steal_work(&worker));
+                        // Try to get work: first from local queue, then from injector
+                        let work = worker.pop().or_else(|| {
+                            // Try to steal from injector
+                            match injector.steal() {
+                                Steal::Success(item) => Some(item),
+                                Steal::Retry => None,
+                                Steal::Empty => None,
+                            }
+                        });
 
                         match work {
                             Some(item) => {
@@ -126,6 +133,7 @@ impl OrderedEngine {
                                 process_directory(
                                     item,
                                     &tx,
+                                    &injector,
                                     &visited,
                                     &active_count,
                                     &done,
@@ -142,11 +150,17 @@ impl OrderedEngine {
                                 );
                             }
                             None => {
-                                // No work available, check if we should exit
-                                if active_count.load(Ordering::Relaxed) == 0 || done.load(Ordering::Relaxed) {
+                                // No work available anywhere
+                                // Check if we should exit:
+                                // 1. Injector is empty AND no active work
+                                // 2. Or done flag is set
+                                if injector.is_empty() && active_count.load(Ordering::Relaxed) == 0 {
                                     break;
                                 }
-                                // Yield and retry
+                                if done.load(Ordering::Relaxed) {
+                                    break;
+                                }
+                                // Yield and retry - another thread might add work
                                 thread::yield_now();
                             }
                         }
@@ -172,17 +186,10 @@ impl OrderedEngine {
 }
 
 /// Work item for parallel processing
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct WorkItem {
     path: PathBuf,
     depth: usize,
-}
-
-/// Steal work from other workers (simplified - in production would use a shared deque)
-fn steal_work(_worker: &Worker<WorkItem>) -> Option<WorkItem> {
-    // Simplified: in real implementation would try to steal from other workers
-    // For now, this is a placeholder that returns None
-    None
 }
 
 /// Process a directory in parallel
@@ -190,6 +197,7 @@ fn steal_work(_worker: &Worker<WorkItem>) -> Option<WorkItem> {
 fn process_directory(
     item: WorkItem,
     tx: &Sender<TreeEntry>,
+    injector: &Arc<Injector<WorkItem>>,
     visited: &Arc<FxHashSet<u64>>,
     active_count: &Arc<AtomicUsize>,
     done: &Arc<AtomicBool>,
@@ -207,6 +215,17 @@ fn process_directory(
     // Check depth limit
     if let Some(max) = max_depth {
         if item.depth >= max {
+            active_count.fetch_sub(1, Ordering::Relaxed);
+            return;
+        }
+    }
+
+    // Check file limit
+    if let Some(limit) = file_limit {
+        let current = active_count.load(Ordering::Relaxed);
+        if current >= limit {
+            done.store(true, Ordering::Relaxed);
+            active_count.fetch_sub(1, Ordering::Relaxed);
             return;
         }
     }
@@ -214,7 +233,10 @@ fn process_directory(
     // Read directory entries
     let entries = match std::fs::read_dir(&item.path) {
         Ok(entries) => entries,
-        Err(_) => return,
+        Err(_) => {
+            active_count.fetch_sub(1, Ordering::Relaxed);
+            return;
+        }
     };
 
     // Collect and filter entries
@@ -231,6 +253,11 @@ fn process_directory(
 
     // Process each entry
     for dir_entry in dir_entries {
+        // Check if done
+        if done.load(Ordering::Relaxed) {
+            break;
+        }
+
         let path = dir_entry.path();
         let entry_type = match dir_entry.file_type() {
             Ok(ft) => ft,
@@ -245,10 +272,10 @@ fn process_directory(
                 // Send entry to output channel
                 let _ = tx.send(entry);
 
-                // If directory, add to work queue
+                // If directory, add to work queue (injector for global stealing)
                 if entry_type.is_dir() {
                     active_count.fetch_add(1, Ordering::Relaxed);
-                    worker.push(WorkItem {
+                    injector.push(WorkItem {
                         path,
                         depth: item.depth + 1,
                     });
