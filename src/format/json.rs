@@ -4,7 +4,6 @@ use serde::Serialize;
 
 use crate::config::Config;
 use crate::error::TreeError;
-use crate::i18n::{self, get_message, MessageKey};
 use crate::walker::{EntryType, TreeEntry, TreeStats};
 
 use super::TreeOutput;
@@ -47,17 +46,17 @@ impl JsonFormatter {
     }
 
     fn entry_type_str(entry_type: &EntryType) -> String {
-        let key = match entry_type {
-            EntryType::File => MessageKey::TypeFile,
-            EntryType::Directory => MessageKey::TypeDirectory,
-            EntryType::Symlink { .. } => MessageKey::TypeLink,
-            EntryType::Junction { .. } => MessageKey::TypeJunction,
-            EntryType::HardLink { .. } => MessageKey::TypeFile,
-            EntryType::Ads { .. } => MessageKey::TypeStream,
-            EntryType::Other => MessageKey::TypeOther,
-        };
-
-        get_message(i18n::current(), key).to_string()
+        // Use English keys for JSON API stability
+        // Localized output is only for text format
+        match entry_type {
+            EntryType::File => "file".to_string(),
+            EntryType::Directory => "directory".to_string(),
+            EntryType::Symlink { .. } => "symlink".to_string(),
+            EntryType::Junction { .. } => "junction".to_string(),
+            EntryType::HardLink { .. } => "file".to_string(),
+            EntryType::Ads { .. } => "stream".to_string(),
+            EntryType::Other => "other".to_string(),
+        }
     }
 }
 
