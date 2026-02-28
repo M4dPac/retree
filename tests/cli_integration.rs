@@ -1164,6 +1164,67 @@ fn test_no_icons_overrides_icons_always() {
 }
 
 // ============================================================================
+// NO_COLOR Environment Variable Tests
+// ============================================================================
+
+#[test]
+fn test_no_color_env_variable() {
+    let dir = tempdir().unwrap();
+    let dir_path = dir.path();
+
+    fs::write(dir_path.join("file.txt"), "content").unwrap();
+
+    // Test with NO_COLOR environment variable set
+    let mut cmd = rtree();
+    cmd.env("NO_COLOR", "1");
+    cmd.arg(dir_path)
+        .assert()
+        .success();
+}
+
+// ============================================================================
+// HTML Intro/Outro Tests
+// ============================================================================
+
+#[test]
+fn test_html_intro_file() {
+    let dir = tempdir().unwrap();
+    let dir_path = dir.path();
+
+    // Create intro file
+    let intro_path = dir.path().join("intro.html");
+    fs::write(&intro_path, "<!-- Custom Intro -->").unwrap();
+
+    fs::write(dir_path.join("file.txt"), "content").unwrap();
+
+    rtree()
+        .args(["-H", "http://localhost", "--hintro", intro_path.to_str().unwrap()])
+        .arg(dir_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Custom Intro"));
+}
+
+#[test]
+fn test_html_outro_file() {
+    let dir = tempdir().unwrap();
+    let dir_path = dir.path();
+
+    // Create outro file
+    let outro_path = dir.path().join("outro.html");
+    fs::write(&outro_path, "<!-- Custom Outro -->").unwrap();
+
+    fs::write(dir_path.join("file.txt"), "content").unwrap();
+
+    rtree()
+        .args(["-H", "http://localhost", "--houtro", outro_path.to_str().unwrap()])
+        .arg(dir_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Custom Outro"));
+}
+
+// ============================================================================
 // Multiple Paths Tests
 // ============================================================================
 
