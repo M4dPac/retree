@@ -13,6 +13,11 @@ impl ColorScheme {
     pub fn load() -> Self {
         let mut scheme = ColorScheme::default();
 
+        // Check NO_COLOR first - if set, disable colors entirely
+        if env::var("NO_COLOR").is_ok() {
+            return scheme;
+        }
+
         // Try TREE_COLORS first, then LS_COLORS
         if let Ok(colors) = env::var("TREE_COLORS") {
             scheme.parse_ls_colors(&colors);
