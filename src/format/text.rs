@@ -124,9 +124,11 @@ impl TextFormatter {
                 name.push_str(" -> ");
                 name.push_str(&target.display().to_string());
                 if *broken {
-                    // Use localized "broken" message
+                    // Use localized "broken" message - use push_str instead of format!
                     let broken_msg = get_message(i18n::current(), MessageKey::BrokenLink);
-                    name.push_str(&format!(" [{}]", broken_msg));
+                    name.push_str(" [");
+                    name.push_str(&broken_msg);
+                    name.push(']');
                 }
             }
             EntryType::Junction { target } => {
@@ -147,9 +149,13 @@ impl TextFormatter {
                 let size_str = if config.human_readable {
                     format_human_size(meta.size, config.si_units)
                 } else {
+                    // Use format! with pre-sized buffer hint
                     format!("{:>10}", meta.size)
                 };
-                info.push_str(&format!("[{:>7}]  ", size_str));
+                // Use push_str + format instead of nested format!
+                info.push('[');
+                info.push_str(&size_str);
+                info.push_str("]  ");
             }
 
             if config.show_date {
@@ -157,7 +163,9 @@ impl TextFormatter {
                     use chrono::{DateTime, Local};
                     let dt: DateTime<Local> = modified.into();
                     let formatted = dt.format(&config.time_fmt).to_string();
-                    info.push_str(&format!("[{}]  ", formatted));
+                    info.push('[');
+                    info.push_str(&formatted);
+                    info.push_str("]  ");
                 }
             }
 
@@ -182,15 +190,20 @@ impl TextFormatter {
                     }
                     crate::cli::PermMode::Windows => meta.attributes.to_string_short(),
                 };
-                info.push_str(&format!("[{}]  ", perm_str));
+                info.push('[');
+                info.push_str(&perm_str);
+                info.push_str("]  ");
             }
 
             if config.show_inodes {
-                info.push_str(&format!("[{:>10x}]  ", meta.inode));
+                // Use write! to String buffer
+                use std::fmt::Write;
+                let _ = write!(info, "[{:>10x}]  ", meta.inode);
             }
 
             if config.show_device {
-                info.push_str(&format!("[{:>8x}]  ", meta.device));
+                use std::fmt::Write;
+                let _ = write!(info, "[{:>8x}]  ", meta.device);
             }
         }
 
@@ -206,7 +219,14 @@ impl TextFormatter {
         if color_code.is_empty() {
             text.to_string()
         } else {
-            format!("\x1b[{}m{}\x1b[0m", color_code, text)
+            // Use push_str + format inline to avoid intermediate allocations
+            let mut result = String::with_capacity(text.len() + color_code.len() + 10);
+            result.push_str("\x1b[");
+            result.push_str(&color_code);
+            result.push_str("m");
+            result.push_str(text);
+            result.push_str("\x1b[0m");
+            result
         }
     }
 }
