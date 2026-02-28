@@ -72,6 +72,8 @@ pub struct Config {
     pub output_file: Option<PathBuf>,
     pub html_base: Option<String>,
     pub html_title: Option<String>,
+    pub html_intro: Option<PathBuf>,
+    pub html_outro: Option<PathBuf>,
     pub no_links: bool,
 
     // Windows
@@ -186,6 +188,8 @@ impl Config {
             output_file: args.output_file,
             html_base: args.html_base,
             html_title: args.html_title,
+            html_intro: args.html_intro,
+            html_outro: args.html_outro,
             no_links: args.no_links,
 
             show_streams: args.show_streams,

@@ -1,3 +1,4 @@
+use std::fs;
 use std::io::Write;
 
 use crate::config::Config;
@@ -11,12 +12,22 @@ pub struct HtmlFormatter {
     base_url: Option<String>,
     title: String,
     no_links: bool,
+    intro: Option<String>,
+    outro: Option<String>,
 }
 
 impl HtmlFormatter {
     pub fn new(config: &Config) -> Self {
         // Use localized default title if not specified
         let default_title = get_message(i18n::current(), MessageKey::HtmlTitle);
+
+        // Load custom intro/outro files if specified
+        let intro = config.html_intro.as_ref().and_then(|path| {
+            fs::read_to_string(path).ok()
+        });
+        let outro = config.html_outro.as_ref().and_then(|path| {
+            fs::read_to_string(path).ok()
+        });
 
         HtmlFormatter {
             base_url: config.html_base.clone(),
@@ -25,6 +36,8 @@ impl HtmlFormatter {
                 .clone()
                 .unwrap_or_else(|| default_title.to_string()),
             no_links: config.no_links,
+            intro,
+            outro,
         }
     }
 
@@ -38,6 +51,13 @@ impl HtmlFormatter {
 
 impl TreeOutput for HtmlFormatter {
     fn begin<W: Write>(&mut self, writer: &mut W) -> Result<(), TreeError> {
+        // Write custom intro if provided
+        if let Some(ref intro) = self.intro {
+            writer.write_all(intro.as_bytes())?;
+            return Ok(());
+        }
+
+        // Default HTML template
         writeln!(writer, "<!DOCTYPE html>")?;
         writeln!(writer, "<html>")?;
         writeln!(writer, "<head>")?;
@@ -127,6 +147,13 @@ impl TreeOutput for HtmlFormatter {
         stats: &TreeStats,
         config: &Config,
     ) -> Result<(), TreeError> {
+        // Write custom outro if provided
+        if let Some(ref outro) = self.outro {
+            writer.write_all(outro.as_bytes())?;
+            return Ok(());
+        }
+
+        // Default ending
         if !config.no_report {
             writeln!(writer, "<br>")?;
             let report = format_report(
