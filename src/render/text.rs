@@ -320,4 +320,3 @@ fn is_executable(path: &std::path::Path) -> bool {
         false
     }
 }
-

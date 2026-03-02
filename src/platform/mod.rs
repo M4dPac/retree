@@ -37,7 +37,7 @@ pub fn is_tty() -> bool {
     }
     #[cfg(not(windows))]
     {
-        return unix::is_tty();
+        unix::is_tty()
     }
 }
 

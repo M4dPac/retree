@@ -160,4 +160,3 @@ impl Renderer for XmlRenderer {
         Ok(())
     }
 }
-
