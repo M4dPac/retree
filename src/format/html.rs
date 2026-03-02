@@ -2,9 +2,9 @@ use std::fs;
 use std::io::Write;
 
 use crate::config::Config;
+use crate::core::walker::{TreeEntry, TreeStats};
 use crate::error::TreeError;
 use crate::i18n::{self, format_report, get_message, MessageKey};
-use crate::walker::{TreeEntry, TreeStats};
 
 use super::TreeOutput;
 
