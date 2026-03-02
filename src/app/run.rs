@@ -27,7 +27,7 @@ pub fn run(args: Args) -> ExitCode {
     }
 
     // Build configuration from arguments
-    let config = match Config::from_args(args) {
+    let config = match Config::build(args) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("rtree: {}", e);

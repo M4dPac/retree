@@ -240,4 +240,3 @@ fn gather_metadata(
 
     Ok(meta)
 }
-

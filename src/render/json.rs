@@ -139,4 +139,3 @@ impl Renderer for JsonRenderer {
         Ok(())
     }
 }
-
