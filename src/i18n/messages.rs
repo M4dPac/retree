@@ -434,3 +434,7 @@ pub fn format_report(lang: Language, dirs: u64, files: u64) -> String {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "i18n_tests.rs"]
+mod tests;
