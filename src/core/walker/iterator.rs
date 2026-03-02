@@ -5,16 +5,17 @@ use std::path::{Path, PathBuf};
 // rustc-hash uses a fast non-cryptographic hash optimized for in-memory keys
 use rustc_hash::FxHashSet;
 
-use super::{TreeEntry, WinAttributes};
 use crate::config::Config;
+#[allow(unused_imports)]
+use crate::core::entry::{Entry as TreeEntry, EntryType, WinAttributes};
+use crate::core::sorter;
 use crate::error::TreeError;
-use crate::sorter;
 
 pub struct TreeIterator {
     stack: Vec<WalkState>,
     config: Config,
     visited: FxHashSet<u64>,
-    root_device: Option<u32>,
+    _root_device: Option<u32>,
 }
 
 struct WalkState {
@@ -80,7 +81,7 @@ impl TreeIterator {
             stack: Vec::new(),
             config: config.clone(),
             visited,
-            root_device,
+            _root_device: root_device,
         };
 
         // Initialize with root directory contents
@@ -135,6 +136,7 @@ impl TreeIterator {
 
         // Check hidden files - name-based check first (no syscall)
         if !self.config.show_all {
+            #[warn(clippy::collapsible_if)]
             if name_str.starts_with('.') {
                 return false;
             }
@@ -203,8 +205,8 @@ impl TreeIterator {
         }
 
         // Check filesystem boundary
+        #[cfg(windows)]
         if let Some(root_dev) = self.root_device {
-            #[cfg(windows)]
             {
                 if let Ok(info) = crate::windows::attributes::get_file_id(path) {
                     if info.volume_serial != root_dev {
@@ -254,17 +256,22 @@ impl Iterator for TreeIterator {
             let path = entry.path();
 
             // Determine which metadata we actually need (lazy evaluation)
-            let needs_file_id = self.config.one_fs
-                || self.config.show_inodes
-                || self.config.show_device;
+            let needs_file_id =
+                self.config.one_fs || self.config.show_inodes || self.config.show_device;
             let needs_attrs = self.config.show_permissions;
 
             // Create tree entry
-            let tree_entry =
-                match TreeEntry::from_dir_entry(entry, state.depth, is_last, ancestors.clone(), needs_file_id, needs_attrs) {
-                    Ok(e) => e,
-                    Err(e) => return Some(Err(e)),
-                };
+            let tree_entry = match TreeEntry::from_dir_entry(
+                entry,
+                state.depth,
+                is_last,
+                ancestors.clone(),
+                needs_file_id,
+                needs_attrs,
+            ) {
+                Ok(e) => e,
+                Err(e) => return Some(Err(e)),
+            };
 
             // Handle directory descent
             if path.is_dir() && self.should_descend(&path, depth) {
@@ -281,8 +288,8 @@ impl Iterator for TreeIterator {
 
                 // Follow symlinks if configured
                 let should_follow = match tree_entry.entry_type {
-                    crate::walker::EntryType::Symlink { .. } => self.config.follow_symlinks,
-                    crate::walker::EntryType::Junction { .. } => self.config.show_junctions,
+                    EntryType::Symlink { .. } => self.config.follow_symlinks,
+                    EntryType::Junction { .. } => self.config.show_junctions,
                     _ => true,
                 };
 
