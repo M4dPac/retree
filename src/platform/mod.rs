@@ -72,8 +72,7 @@ pub fn get_file_id(path: &Path) -> Option<FileIdInfo> {
     }
     #[cfg(not(windows))]
     {
-        let _ = path;
-        None
+        unix::get_file_id(path)
     }
 }
 
