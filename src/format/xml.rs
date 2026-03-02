@@ -1,8 +1,8 @@
 use std::io::Write;
 
 use crate::config::Config;
+use crate::core::walker::{EntryType, TreeEntry, TreeStats};
 use crate::error::TreeError;
-use crate::walker::{EntryType, TreeEntry, TreeStats};
 
 use super::TreeOutput;
 

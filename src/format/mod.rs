@@ -11,8 +11,8 @@ pub use xml::XmlFormatter;
 use std::io::Write;
 
 use crate::config::Config;
+use crate::core::walker::{TreeEntry, TreeStats};
 use crate::error::TreeError;
-use crate::walker::{TreeEntry, TreeStats};
 
 pub trait TreeOutput {
     fn begin<W: Write>(&mut self, writer: &mut W) -> Result<(), TreeError>;

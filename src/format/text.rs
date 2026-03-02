@@ -1,9 +1,9 @@
 use std::io::Write;
 
 use crate::config::{Config, LineStyle};
+use crate::core::walker::{EntryType, TreeEntry, TreeStats};
 use crate::error::TreeError;
 use crate::i18n::{self, format_report, get_message, MessageKey};
-use crate::walker::{EntryType, TreeEntry, TreeStats};
 
 use super::TreeOutput;
 
@@ -127,7 +127,7 @@ impl TextFormatter {
                     // Use localized "broken" message - use push_str instead of format!
                     let broken_msg = get_message(i18n::current(), MessageKey::BrokenLink);
                     name.push_str(" [");
-                    name.push_str(&broken_msg);
+                    name.push_str(broken_msg);
                     name.push(']');
                 }
             }
@@ -223,7 +223,7 @@ impl TextFormatter {
             let mut result = String::with_capacity(text.len() + color_code.len() + 10);
             result.push_str("\x1b[");
             result.push_str(&color_code);
-            result.push_str("m");
+            result.push('m');
             result.push_str(text);
             result.push_str("\x1b[0m");
             result
