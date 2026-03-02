@@ -1,18 +1,21 @@
 use std::io::Write;
 
 use crate::config::Config;
-use crate::core::walker::{EntryType, TreeEntry, TreeStats};
+use crate::core::entry::{Entry, EntryType};
+use crate::core::walker::TreeStats;
+use crate::core::BuildResult;
 use crate::error::TreeError;
 
-use super::TreeOutput;
+use super::context::RenderContext;
+use super::traits::Renderer;
 
-pub struct XmlFormatter {
+pub struct XmlRenderer {
     depth_stack: Vec<usize>,
 }
 
-impl XmlFormatter {
+impl XmlRenderer {
     pub fn new(_config: &Config) -> Self {
-        XmlFormatter {
+        XmlRenderer {
             depth_stack: Vec::new(),
         }
     }
@@ -28,22 +31,8 @@ impl XmlFormatter {
     fn indent(depth: usize) -> String {
         "  ".repeat(depth)
     }
-}
 
-impl TreeOutput for XmlFormatter {
-    fn begin<W: Write>(&mut self, writer: &mut W) -> Result<(), TreeError> {
-        writeln!(writer, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")?;
-        writeln!(writer, "<tree>")?;
-        self.depth_stack.clear();
-        Ok(())
-    }
-
-    fn write_entry<W: Write>(
-        &mut self,
-        writer: &mut W,
-        entry: &TreeEntry,
-        _config: &Config,
-    ) -> Result<(), TreeError> {
+    fn write_entry<W: Write>(&mut self, writer: &mut W, entry: &Entry) -> Result<(), TreeError> {
         // Close previous elements if we're going back up
         while let Some(&prev_depth) = self.depth_stack.last() {
             if prev_depth >= entry.depth {
@@ -61,7 +50,6 @@ impl TreeOutput for XmlFormatter {
             EntryType::Directory => {
                 write!(writer, "{}<directory name=\"{}\"", indent, name)?;
 
-                // Add attributes
                 if let Some(ref meta) = entry.metadata {
                     if let Some(modified) = meta.modified {
                         use chrono::{DateTime, Utc};
@@ -113,13 +101,44 @@ impl TreeOutput for XmlFormatter {
 
         Ok(())
     }
+}
 
-    fn end<W: Write>(
+impl Renderer for XmlRenderer {
+    fn render<W: Write>(
         &mut self,
+        result: &BuildResult,
+        ctx: &RenderContext,
         writer: &mut W,
-        stats: &TreeStats,
-        config: &Config,
+        stats: &mut TreeStats,
     ) -> Result<(), TreeError> {
+        let config = ctx.config;
+
+        // Header
+        writeln!(writer, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")?;
+        writeln!(writer, "<tree>")?;
+        self.depth_stack.clear();
+
+        // Root entry
+        self.write_entry(writer, &result.root)?;
+        if result.root.entry_type.is_directory() {
+            stats.directories += 1;
+        } else {
+            stats.files += 1;
+        }
+
+        // Child entries
+        for entry in &result.entries {
+            self.write_entry(writer, entry)?;
+            if entry.entry_type.is_directory() {
+                stats.directories += 1;
+            } else {
+                stats.files += 1;
+            }
+            if entry.entry_type.is_symlink() {
+                stats.symlinks += 1;
+            }
+        }
+
         // Close remaining open elements
         while let Some(depth) = self.depth_stack.pop() {
             writeln!(writer, "{}</directory>", Self::indent(depth + 1))?;
@@ -141,3 +160,4 @@ impl TreeOutput for XmlFormatter {
         Ok(())
     }
 }
+
