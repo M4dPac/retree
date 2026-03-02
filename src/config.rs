@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
 use crate::cli::{Args, ColorWhen, IconStyle, IconsWhen, PermMode, SortType};
+use crate::core::filter::Filter;
+use crate::core::sorter::SortConfig;
 use crate::error::TreeError;
-use crate::filter::Filter;
-use crate::sorter::SortConfig;
 use crate::style::colors::ColorScheme;
 use crate::style::icons::IconSet;
 
