@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
 use crate::cli::IconStyle;
-use crate::walker::{EntryType, TreeEntry};
+use crate::core::walker::{EntryType, TreeEntry};
 
 #[derive(Debug, Clone)]
 pub struct IconSet {

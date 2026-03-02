@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 
-use crate::walker::{EntryType, TreeEntry};
+use crate::core::walker::{EntryType, TreeEntry};
 
 #[derive(Debug, Clone)]
 pub struct ColorScheme {
