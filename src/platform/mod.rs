@@ -89,6 +89,19 @@ pub fn get_file_attributes_raw(path: &Path) -> Option<u32> {
     }
 }
 
+/// Get POSIX file mode (Unix only, returns None on Windows)
+pub fn get_file_mode(path: &Path) -> Option<u32> {
+    #[cfg(windows)]
+    {
+        let _ = path;
+        None
+    }
+    #[cfg(not(windows))]
+    {
+        unix::get_file_mode(path)
+    }
+}
+
 /// Convert path to long path format (\\?\) on Windows, identity on other platforms
 pub fn to_long_path(path: &Path, use_long_paths: bool) -> PathBuf {
     #[cfg(windows)]

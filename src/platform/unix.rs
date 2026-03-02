@@ -24,3 +24,9 @@ pub fn get_file_id_from_metadata(metadata: &Metadata) -> FileIdInfo {
         number_of_links: metadata.nlink() as u32,
     }
 }
+
+/// Get POSIX file mode (permissions bits)
+pub fn get_file_mode(path: &Path) -> Option<u32> {
+    let metadata = std::fs::symlink_metadata(path).ok()?;
+    Some(metadata.mode())
+}
