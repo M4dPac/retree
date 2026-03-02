@@ -22,9 +22,8 @@ pub fn run(args: Args) -> ExitCode {
     i18n::init(args.lang.as_deref());
 
     // Platform-specific initialization
-    #[cfg(windows)]
     if args.effective_color() != crate::cli::ColorWhen::Never {
-        crate::windows::console::enable_ansi();
+        crate::platform::enable_ansi();
     }
 
     // Build configuration from arguments
@@ -155,4 +154,3 @@ fn render_tree<W: Write>(
     // Dispatch to appropriate render backend
     crate::render::dispatch(&result, config, output, stats)
 }
-

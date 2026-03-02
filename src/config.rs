@@ -213,12 +213,5 @@ impl Config {
 }
 
 fn is_tty() -> bool {
-    #[cfg(windows)]
-    {
-        crate::windows::console::is_tty()
-    }
-    #[cfg(not(windows))]
-    {
-        atty::is(atty::Stream::Stdout)
-    }
+    crate::platform::is_tty()
 }

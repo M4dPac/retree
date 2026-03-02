@@ -1,12 +1,9 @@
 use std::fs::{self, DirEntry};
 use std::path::{Path, PathBuf};
 
-// Use FxHashSet for faster hashing (FxHash is much faster than SipHash)
-// rustc-hash uses a fast non-cryptographic hash optimized for in-memory keys
 use rustc_hash::FxHashSet;
 
 use crate::config::Config;
-#[allow(unused_imports)]
 use crate::core::entry::{Entry as TreeEntry, EntryType, WinAttributes};
 use crate::core::sorter;
 use crate::error::TreeError;
@@ -15,7 +12,7 @@ pub struct TreeIterator {
     stack: Vec<WalkState>,
     config: Config,
     visited: FxHashSet<u64>,
-    _root_device: Option<u32>,
+    root_device: Option<u32>,
 }
 
 struct WalkState {
@@ -28,63 +25,26 @@ struct WalkState {
 }
 
 impl TreeIterator {
-    /// Convert path to long path format on Windows if --long-paths is enabled
-    #[cfg(windows)]
-    fn to_long_path(path: &Path, use_long_paths: bool) -> PathBuf {
-        if use_long_paths {
-            let path_str = path.to_string_lossy();
-            // Only add \\?\ prefix if not already present and path is absolute
-            if !path_str.starts_with("\\\\?\\") && path.is_absolute() {
-                let mut long_path = String::from("\\\\?\\");
-                // Handle UNC paths
-                if let Some(stripped) = path_str.strip_prefix("\\\\") {
-                    long_path = String::from("\\\\?\\UNC\\");
-                    long_path.push_str(stripped);
-                    return PathBuf::from(long_path);
-                }
-                long_path.push_str(&path_str);
-                return PathBuf::from(long_path);
-            }
-        }
-        path.to_path_buf()
-    }
-
-    #[cfg(not(windows))]
-    fn to_long_path(path: &Path, _use_long_paths: bool) -> PathBuf {
-        path.to_path_buf()
-    }
-
     pub fn new(root: &Path, config: &Config) -> Result<Self, TreeError> {
-        // Convert root to long path if needed
-        let root = Self::to_long_path(root, config.long_paths);
+        // Convert root to long path if needed (no-op on non-Windows)
+        let root = crate::platform::to_long_path(root, config.long_paths);
 
         let root_device = if config.one_fs {
-            #[cfg(windows)]
-            {
-                crate::windows::attributes::get_file_id(&root)
-                    .ok()
-                    .map(|info| info.volume_serial)
-            }
-            #[cfg(not(windows))]
-            {
-                None
-            }
+            crate::platform::get_file_id(&root).map(|info| info.volume_serial)
         } else {
             None
         };
 
-        // Pre-allocate visited set with capacity hint to reduce reallocations
         let mut visited = FxHashSet::default();
-        visited.reserve(1024); // Reserve for typical directory structures
+        visited.reserve(1024);
 
         let mut iterator = TreeIterator {
             stack: Vec::new(),
             config: config.clone(),
             visited,
-            _root_device: root_device,
+            root_device,
         };
 
-        // Initialize with root directory contents
         if root.is_dir() {
             if let Ok(entries) = iterator.read_and_sort_dir(&root) {
                 if !entries.is_empty() {
@@ -103,8 +63,7 @@ impl TreeIterator {
     }
 
     fn read_and_sort_dir(&self, path: &Path) -> Result<Vec<DirEntry>, TreeError> {
-        // Convert to long path format if needed
-        let long_path = Self::to_long_path(path, self.config.long_paths);
+        let long_path = crate::platform::to_long_path(path, self.config.long_paths);
 
         let read_dir =
             fs::read_dir(&long_path).map_err(|e| TreeError::Io(path.to_path_buf(), e))?;
@@ -119,7 +78,6 @@ impl TreeIterator {
         Ok(entries)
     }
 
-    /// Check if directory has any visible entries (for prune functionality)
     fn dir_has_visible_entries(&self, path: &Path) -> bool {
         if let Ok(read_dir) = fs::read_dir(path) {
             read_dir
@@ -134,35 +92,22 @@ impl TreeIterator {
         let name = entry.file_name();
         let name_str = name.to_string_lossy();
 
-        // Check hidden files - name-based check first (no syscall)
         if !self.config.show_all {
-            #[warn(clippy::collapsible_if)]
             if name_str.starts_with('.') {
                 return false;
             }
 
-            // Only do attribute-based check if needed (lazy: avoids syscall)
-            #[cfg(windows)]
-            {
-                // Only call GetFileAttributesW if we're filtering hidden/system files
-                // and the name doesn't start with dot
-                if self.config.hide_system {
-                    if let Ok(attrs_raw) =
-                        crate::windows::attributes::get_file_attributes(&entry.path())
-                    {
-                        let attrs = WinAttributes::from_raw(attrs_raw);
-                        if attrs.hidden {
-                            return false;
-                        }
-                        if attrs.system {
-                            return false;
-                        }
+            // Check Windows hidden/system attributes via platform facade
+            if self.config.hide_system {
+                if let Some(attrs_raw) = crate::platform::get_file_attributes_raw(&entry.path()) {
+                    let attrs = WinAttributes::from_raw(attrs_raw);
+                    if attrs.hidden || attrs.system {
+                        return false;
                     }
                 }
             }
         }
 
-        // Check dirs_only
         if self.config.dirs_only {
             if let Ok(ft) = entry.file_type() {
                 if !ft.is_dir() && !ft.is_symlink() {
@@ -171,7 +116,6 @@ impl TreeIterator {
             }
         }
 
-        // Apply pattern filters
         if !self.config.filter.matches(&name_str, entry.path().is_dir()) {
             return false;
         }
@@ -180,14 +124,12 @@ impl TreeIterator {
     }
 
     fn should_descend(&self, path: &Path, depth: usize) -> bool {
-        // Check depth limit
         if let Some(max) = self.config.max_depth {
             if depth >= max {
                 return false;
             }
         }
 
-        // Check file limit
         if let Some(limit) = self.config.file_limit {
             if let Ok(read_dir) = fs::read_dir(path) {
                 if read_dir.count() > limit {
@@ -196,22 +138,15 @@ impl TreeIterator {
             }
         }
 
-        // Check prune - skip empty directories
-        #[allow(clippy::collapsible_if)]
-        if self.config.prune {
-            if !self.dir_has_visible_entries(path) {
-                return false;
-            }
+        if self.config.prune && !self.dir_has_visible_entries(path) {
+            return false;
         }
 
-        // Check filesystem boundary
-        #[cfg(windows)]
+        // Check filesystem boundary via platform facade
         if let Some(root_dev) = self.root_device {
-            {
-                if let Ok(info) = crate::windows::attributes::get_file_id(path) {
-                    if info.volume_serial != root_dev {
-                        return false;
-                    }
+            if let Some(info) = crate::platform::get_file_id(path) {
+                if info.volume_serial != root_dev {
+                    return false;
                 }
             }
         }
@@ -230,16 +165,13 @@ impl Iterator for TreeIterator {
                 return None;
             }
 
-            // Берём индекс последнего состояния
             let idx = len - 1;
 
-            // Проверяем границы без удержания mutable borrow
             if self.stack[idx].index >= self.stack[idx].entries.len() {
                 self.stack.pop();
                 continue;
             }
 
-            // Теперь берём mutable ссылку локально
             let state = &mut self.stack[idx];
 
             let entry = &state.entries[state.index];
@@ -249,18 +181,12 @@ impl Iterator for TreeIterator {
             let depth = state.depth;
             let ancestors = state.ancestors_last.clone();
 
-            if !ancestors.is_empty() || state.depth > 1 {
-                // Add parent's is_last status for tree drawing
-            }
-
             let path = entry.path();
 
-            // Determine which metadata we actually need (lazy evaluation)
             let needs_file_id =
                 self.config.one_fs || self.config.show_inodes || self.config.show_device;
             let needs_attrs = self.config.show_permissions;
 
-            // Create tree entry
             let tree_entry = match TreeEntry::from_dir_entry(
                 entry,
                 state.depth,
@@ -273,20 +199,13 @@ impl Iterator for TreeIterator {
                 Err(e) => return Some(Err(e)),
             };
 
-            // Handle directory descent
             if path.is_dir() && self.should_descend(&path, depth) {
-                // Check for cycles via inode
-                #[allow(clippy::collapsible_if)]
                 if let Some(ref meta) = tree_entry.metadata {
-                    if meta.inode != 0 {
-                        if !self.visited.insert(meta.inode) {
-                            // Already visited, skip to avoid cycle
-                            return Some(Ok(tree_entry));
-                        }
+                    if meta.inode != 0 && !self.visited.insert(meta.inode) {
+                        return Some(Ok(tree_entry));
                     }
                 }
 
-                // Follow symlinks if configured
                 let should_follow = match tree_entry.entry_type {
                     EntryType::Symlink { .. } => self.config.follow_symlinks,
                     EntryType::Junction { .. } => self.config.show_junctions,
@@ -316,7 +235,6 @@ impl Iterator for TreeIterator {
     }
 }
 
-// Helper trait for config cloning (needed because Filter doesn't implement Clone directly)
 impl Clone for Config {
     fn clone(&self) -> Self {
         Config {
@@ -370,3 +288,4 @@ impl Clone for Config {
         }
     }
 }
+
