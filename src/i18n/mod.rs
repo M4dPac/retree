@@ -36,11 +36,12 @@ impl Language {
             return Self::from_code(&lang);
         }
 
-        // Windows-specific: check LANGUAGE or system locale
-        #[cfg(windows)]
-        {
-            if let Some(lang) = detect_windows_language() {
-                return lang;
+        // Platform-specific: check system locale (Windows UI language)
+        if let Some(lang_id) = crate::platform::detect_system_language_id() {
+            let primary_lang = lang_id & 0x3FF;
+            // Russian = 0x19
+            if primary_lang == 0x19 {
+                return Language::Russian;
             }
         }
 
@@ -63,23 +64,6 @@ impl Language {
             Language::Russian => "ru",
         }
     }
-}
-
-#[cfg(windows)]
-fn detect_windows_language() -> Option<Language> {
-    use windows_sys::Win32::Globalization::GetUserDefaultUILanguage;
-
-    unsafe {
-        let lang_id = GetUserDefaultUILanguage();
-        let primary_lang = lang_id & 0x3FF;
-
-        // Russian = 0x19
-        if primary_lang == 0x19 {
-            return Some(Language::Russian);
-        }
-    }
-
-    None
 }
 
 /// Initialize the language system

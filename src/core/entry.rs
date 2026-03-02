@@ -77,27 +77,22 @@ pub struct WinAttributes {
 }
 
 impl WinAttributes {
-    #[cfg(windows)]
+    /// Parse raw Windows file attribute flags.
+    /// Uses hardcoded constants (stable since Windows NT).
+    /// Works on all platforms — on non-Windows, raw attrs always come as 0.
     pub fn from_raw(attrs: u32) -> Self {
-        use windows_sys::Win32::Storage::FileSystem::*;
-
         WinAttributes {
-            readonly: attrs & FILE_ATTRIBUTE_READONLY != 0,
-            hidden: attrs & FILE_ATTRIBUTE_HIDDEN != 0,
-            system: attrs & FILE_ATTRIBUTE_SYSTEM != 0,
-            archive: attrs & FILE_ATTRIBUTE_ARCHIVE != 0,
-            compressed: attrs & FILE_ATTRIBUTE_COMPRESSED != 0,
-            encrypted: attrs & FILE_ATTRIBUTE_ENCRYPTED != 0,
-            offline: attrs & FILE_ATTRIBUTE_OFFLINE != 0,
-            sparse: attrs & FILE_ATTRIBUTE_SPARSE_FILE != 0,
-            temporary: attrs & FILE_ATTRIBUTE_TEMPORARY != 0,
-            reparse: attrs & FILE_ATTRIBUTE_REPARSE_POINT != 0,
+            readonly: attrs & 0x1 != 0,
+            hidden: attrs & 0x2 != 0,
+            system: attrs & 0x4 != 0,
+            archive: attrs & 0x20 != 0,
+            compressed: attrs & 0x800 != 0,
+            encrypted: attrs & 0x4000 != 0,
+            offline: attrs & 0x1000 != 0,
+            sparse: attrs & 0x200 != 0,
+            temporary: attrs & 0x100 != 0,
+            reparse: attrs & 0x400 != 0,
         }
-    }
-
-    #[cfg(not(windows))]
-    pub fn from_raw(_attrs: u32) -> Self {
-        WinAttributes::default()
     }
 
     pub fn to_string_short(&self) -> String {
@@ -180,7 +175,7 @@ impl Entry {
 fn determine_entry_type(
     path: &Path,
     symlink_meta: &Metadata,
-    _needs_file_id: bool,
+    needs_file_id: bool,
 ) -> Result<EntryType, TreeError> {
     let file_type = symlink_meta.file_type();
 
@@ -193,23 +188,19 @@ fn determine_entry_type(
             Err(e) => Err(TreeError::SymlinkError(path.to_path_buf(), e)),
         }
     } else if file_type.is_dir() {
-        #[cfg(windows)]
-        {
-            if let Some(target) = crate::windows::reparse::get_junction_target(path) {
-                return Ok(EntryType::Junction { target });
-            }
+        // Check for junction point (Windows-only, returns None on other platforms)
+        if let Some(target) = crate::platform::get_junction_target(path) {
+            return Ok(EntryType::Junction { target });
         }
         Ok(EntryType::Directory)
     } else if file_type.is_file() {
-        #[cfg(windows)]
-        {
-            if _needs_file_id {
-                if let Ok(info) = crate::windows::attributes::get_file_id(path) {
-                    if info.number_of_links > 1 {
-                        return Ok(EntryType::HardLink {
-                            link_count: info.number_of_links,
-                        });
-                    }
+        // Check for hard links (Windows-only via file ID, returns None on other platforms)
+        if needs_file_id {
+            if let Some(info) = crate::platform::get_file_id(path) {
+                if info.number_of_links > 1 {
+                    return Ok(EntryType::HardLink {
+                        link_count: info.number_of_links,
+                    });
                 }
             }
         }
@@ -220,12 +211,12 @@ fn determine_entry_type(
 }
 
 fn gather_metadata(
-    _path: &Path,
+    path: &Path,
     symlink_meta: &Metadata,
-    _needs_file_id: bool,
-    _needs_attrs: bool,
+    needs_file_id: bool,
+    needs_attrs: bool,
 ) -> Result<EntryMetadata, TreeError> {
-    let meta = EntryMetadata {
+    let mut meta = EntryMetadata {
         size: symlink_meta.len(),
         created: symlink_meta.created().ok(),
         modified: symlink_meta.modified().ok(),
@@ -233,22 +224,20 @@ fn gather_metadata(
         ..Default::default()
     };
 
-    #[cfg(windows)]
-    {
-        if _needs_attrs {
-            if let Ok(attrs) = crate::windows::attributes::get_file_attributes(_path) {
-                meta.attributes = WinAttributes::from_raw(attrs);
-            }
+    if needs_attrs {
+        if let Some(attrs) = crate::platform::get_file_attributes_raw(path) {
+            meta.attributes = WinAttributes::from_raw(attrs);
         }
+    }
 
-        if _needs_file_id {
-            if let Ok(info) = crate::windows::attributes::get_file_id(_path) {
-                meta.inode = info.file_id;
-                meta.device = info.volume_serial;
-                meta.nlinks = info.number_of_links;
-            }
+    if needs_file_id {
+        if let Some(info) = crate::platform::get_file_id(path) {
+            meta.inode = info.file_id;
+            meta.device = info.volume_serial;
+            meta.nlinks = info.number_of_links;
         }
     }
 
     Ok(meta)
 }
+

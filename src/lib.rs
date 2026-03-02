@@ -9,11 +9,9 @@ pub mod config;
 pub mod core;
 pub mod error;
 pub mod i18n;
+pub mod platform;
 pub mod render;
 pub mod style;
-
-#[cfg(windows)]
-pub mod windows;
 
 // Re-export main entry point for convenience
 pub use app::run;
