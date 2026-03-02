@@ -170,22 +170,7 @@ impl TextRenderer {
             }
 
             if config.show_permissions {
-                let perm_str = match config.perm_mode {
-                    crate::cli::PermMode::Posix => {
-                        let mut s = String::new();
-                        s.push(if meta.attributes.readonly { '-' } else { 'r' });
-                        s.push(if meta.attributes.readonly { '-' } else { 'w' });
-                        s.push(if meta.attributes.readonly { '-' } else { 'x' });
-                        s.push(if meta.attributes.readonly { '-' } else { 'r' });
-                        s.push(if meta.attributes.readonly { '-' } else { 'w' });
-                        s.push(if meta.attributes.readonly { '-' } else { 'x' });
-                        s.push(if meta.attributes.readonly { '-' } else { 'r' });
-                        s.push(if meta.attributes.readonly { '-' } else { 'w' });
-                        s.push(if meta.attributes.readonly { '-' } else { 'x' });
-                        s
-                    }
-                    crate::cli::PermMode::Windows => meta.attributes.to_string_short(),
-                };
+                let perm_str = format_permissions(meta, config.perm_mode);
                 info.push('[');
                 info.push_str(&perm_str);
                 info.push_str("]  ");
@@ -307,6 +292,56 @@ fn format_human_size(size: u64, si: bool) -> String {
     } else {
         format!("{:.1}{}", size, units[unit_idx])
     }
+}
+
+fn format_permissions(
+    meta: &crate::core::entry::EntryMetadata,
+    perm_mode: crate::cli::PermMode,
+) -> String {
+    // If we have POSIX mode, use it (Unix)
+    if let Some(mode) = meta.mode {
+        return format_posix_mode(mode);
+    }
+
+    // Otherwise use Windows attributes
+    match perm_mode {
+        crate::cli::PermMode::Posix => {
+            // Fallback for Windows in POSIX mode
+            let mut s = String::new();
+            s.push('r');
+            s.push(if meta.attributes.readonly { '-' } else { 'w' });
+            s.push('-'); // no execute info on Windows
+            s.push('r');
+            s.push(if meta.attributes.readonly { '-' } else { 'w' });
+            s.push('-');
+            s.push('r');
+            s.push(if meta.attributes.readonly { '-' } else { 'w' });
+            s.push('-');
+            s
+        }
+        crate::cli::PermMode::Windows => meta.attributes.to_string_short(),
+    }
+}
+
+fn format_posix_mode(mode: u32) -> String {
+    let mut s = String::with_capacity(9);
+
+    // Owner
+    s.push(if mode & 0o400 != 0 { 'r' } else { '-' });
+    s.push(if mode & 0o200 != 0 { 'w' } else { '-' });
+    s.push(if mode & 0o100 != 0 { 'x' } else { '-' });
+
+    // Group
+    s.push(if mode & 0o040 != 0 { 'r' } else { '-' });
+    s.push(if mode & 0o020 != 0 { 'w' } else { '-' });
+    s.push(if mode & 0o010 != 0 { 'x' } else { '-' });
+
+    // Other
+    s.push(if mode & 0o004 != 0 { 'r' } else { '-' });
+    s.push(if mode & 0o002 != 0 { 'w' } else { '-' });
+    s.push(if mode & 0o001 != 0 { 'x' } else { '-' });
+
+    s
 }
 
 fn is_executable(path: &std::path::Path) -> bool {

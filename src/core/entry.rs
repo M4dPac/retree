@@ -59,6 +59,7 @@ pub struct EntryMetadata {
     pub inode: u64,
     pub device: u32,
     pub nlinks: u32,
+    pub mode: Option<u32>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -237,6 +238,9 @@ fn gather_metadata(
             meta.nlinks = info.number_of_links;
         }
     }
+
+    // Get Posix mode (Unix only)
+    meta.mode = crate::platform::get_file_mode(path);
 
     Ok(meta)
 }
