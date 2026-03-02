@@ -2,13 +2,16 @@ use std::fs;
 use std::io::Write;
 
 use crate::config::Config;
-use crate::core::walker::{TreeEntry, TreeStats};
+use crate::core::entry::Entry;
+use crate::core::walker::TreeStats;
+use crate::core::BuildResult;
 use crate::error::TreeError;
 use crate::i18n::{self, format_report, get_message, MessageKey};
 
-use super::TreeOutput;
+use super::context::RenderContext;
+use super::traits::Renderer;
 
-pub struct HtmlFormatter {
+pub struct HtmlRenderer {
     base_url: Option<String>,
     title: String,
     no_links: bool,
@@ -16,12 +19,10 @@ pub struct HtmlFormatter {
     outro: Option<String>,
 }
 
-impl HtmlFormatter {
+impl HtmlRenderer {
     pub fn new(config: &Config) -> Self {
-        // Use localized default title if not specified
         let default_title = get_message(i18n::current(), MessageKey::HtmlTitle);
 
-        // Load custom intro/outro files if specified
         let intro = config
             .html_intro
             .as_ref()
@@ -31,7 +32,7 @@ impl HtmlFormatter {
             .as_ref()
             .and_then(|path| fs::read_to_string(path).ok());
 
-        HtmlFormatter {
+        HtmlRenderer {
             base_url: config.html_base.clone(),
             title: config
                 .html_title
@@ -49,17 +50,13 @@ impl HtmlFormatter {
             .replace('>', "&gt;")
             .replace('"', "&quot;")
     }
-}
 
-impl TreeOutput for HtmlFormatter {
-    fn begin<W: Write>(&mut self, writer: &mut W) -> Result<(), TreeError> {
-        // Write custom intro if provided
+    fn write_header<W: Write>(&self, writer: &mut W) -> Result<(), TreeError> {
         if let Some(ref intro) = self.intro {
             writer.write_all(intro.as_bytes())?;
             return Ok(());
         }
 
-        // Default HTML template
         writeln!(writer, "<!DOCTYPE html>")?;
         writeln!(writer, "<html>")?;
         writeln!(writer, "<head>")?;
@@ -89,12 +86,7 @@ impl TreeOutput for HtmlFormatter {
         Ok(())
     }
 
-    fn write_entry<W: Write>(
-        &mut self,
-        writer: &mut W,
-        entry: &TreeEntry,
-        _config: &Config,
-    ) -> Result<(), TreeError> {
+    fn write_entry<W: Write>(&self, writer: &mut W, entry: &Entry) -> Result<(), TreeError> {
         let mut prefix = String::new();
         for &is_last in &entry.ancestors_last {
             if is_last {
@@ -143,19 +135,17 @@ impl TreeOutput for HtmlFormatter {
         Ok(())
     }
 
-    fn end<W: Write>(
-        &mut self,
+    fn write_footer<W: Write>(
+        &self,
         writer: &mut W,
         stats: &TreeStats,
         config: &Config,
     ) -> Result<(), TreeError> {
-        // Write custom outro if provided
         if let Some(ref outro) = self.outro {
             writer.write_all(outro.as_bytes())?;
             return Ok(());
         }
 
-        // Default ending
         if !config.no_report {
             writeln!(writer, "<br>")?;
             let report = format_report(
@@ -172,3 +162,43 @@ impl TreeOutput for HtmlFormatter {
         Ok(())
     }
 }
+
+impl Renderer for HtmlRenderer {
+    fn render<W: Write>(
+        &mut self,
+        result: &BuildResult,
+        ctx: &RenderContext,
+        writer: &mut W,
+        stats: &mut TreeStats,
+    ) -> Result<(), TreeError> {
+        let config = ctx.config;
+
+        self.write_header(writer)?;
+
+        // Root entry
+        self.write_entry(writer, &result.root)?;
+        if result.root.entry_type.is_directory() {
+            stats.directories += 1;
+        } else {
+            stats.files += 1;
+        }
+
+        // Child entries
+        for entry in &result.entries {
+            self.write_entry(writer, entry)?;
+            if entry.entry_type.is_directory() {
+                stats.directories += 1;
+            } else {
+                stats.files += 1;
+            }
+            if entry.entry_type.is_symlink() {
+                stats.symlinks += 1;
+            }
+        }
+
+        self.write_footer(writer, stats, config)?;
+
+        Ok(())
+    }
+}
+

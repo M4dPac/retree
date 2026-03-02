@@ -4,29 +4,19 @@
 //! 1. Initialize localization and platform features
 //! 2. Build configuration from CLI arguments
 //! 3. Delegate tree construction to core::build_tree()
-//! 4. Delegate rendering to format layer
+//! 4. Delegate rendering to render::dispatch()
 
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use crate::cli::Args;
-use crate::config::{Config, OutputFormat};
+use crate::config::Config;
 use crate::core::walker::TreeStats;
 use crate::error::TreeError;
-use crate::format::{HtmlFormatter, JsonFormatter, TextFormatter, TreeOutput, XmlFormatter};
 use crate::i18n;
 
 /// Main application entry point.
-///
-/// Accepts parsed CLI arguments and orchestrates the entire execution flow.
-/// Returns an appropriate exit code based on execution result.
-///
-/// # Exit Codes
-/// - `0` - Success
-/// - `1` - Runtime error or files with errors
-/// - `2` - Configuration error
-/// - `3` - Path not found or not a directory
 pub fn run(args: Args) -> ExitCode {
     // Initialize localization first
     i18n::init(args.lang.as_deref());
@@ -46,7 +36,6 @@ pub fn run(args: Args) -> ExitCode {
         }
     };
 
-    // Execute main logic
     let exit_code = execute(config);
     ExitCode::from(exit_code)
 }
@@ -120,36 +109,7 @@ fn process_paths<W: Write>(
 
         let mut stats = TreeStats::default();
 
-        let result = match config.output_format {
-            OutputFormat::Text => render_tree(
-                TextFormatter::new(config),
-                config,
-                path,
-                &mut output,
-                &mut stats,
-            ),
-            OutputFormat::Html => render_tree(
-                HtmlFormatter::new(config),
-                config,
-                path,
-                &mut output,
-                &mut stats,
-            ),
-            OutputFormat::Xml => render_tree(
-                XmlFormatter::new(config),
-                config,
-                path,
-                &mut output,
-                &mut stats,
-            ),
-            OutputFormat::Json => render_tree(
-                JsonFormatter::new(config),
-                config,
-                path,
-                &mut output,
-                &mut stats,
-            ),
-        };
+        let result = render_tree(config, path, &mut output, &mut stats);
 
         if let Err(ref e) = result {
             eprintln!("rtree: {}", e);
@@ -169,12 +129,8 @@ fn process_paths<W: Write>(
     Ok(())
 }
 
-/// Render directory tree using the specified formatter.
-///
-/// Delegates tree construction to `core::build_tree()` and handles
-/// only rendering and error reporting.
-fn render_tree<W: Write, F: TreeOutput>(
-    mut formatter: F,
+/// Build tree and dispatch to renderer.
+fn render_tree<W: Write>(
     config: &Config,
     path: &std::path::Path,
     output: &mut W,
@@ -196,35 +152,7 @@ fn render_tree<W: Write, F: TreeOutput>(
     }
     stats.errors += result.errors.len() as u64;
 
-    // Begin rendering
-    formatter.begin(output)?;
-
-    // Render root entry
-    formatter.write_entry(output, &result.root, config)?;
-
-    if result.root.entry_type.is_directory() {
-        stats.directories += 1;
-    } else {
-        stats.files += 1;
-    }
-
-    // Render all child entries
-    for entry in &result.entries {
-        formatter.write_entry(output, entry, config)?;
-
-        if entry.entry_type.is_directory() {
-            stats.directories += 1;
-        } else {
-            stats.files += 1;
-        }
-
-        if entry.entry_type.is_symlink() {
-            stats.symlinks += 1;
-        }
-    }
-
-    // Finalize
-    formatter.end(output, stats, config)?;
-
-    Ok(())
+    // Dispatch to appropriate render backend
+    crate::render::dispatch(&result, config, output, stats)
 }
+

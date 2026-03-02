@@ -1,13 +1,16 @@
 use std::io::Write;
 
 use crate::config::{Config, LineStyle};
-use crate::core::walker::{EntryType, TreeEntry, TreeStats};
+use crate::core::entry::{Entry, EntryType};
+use crate::core::walker::TreeStats;
+use crate::core::BuildResult;
 use crate::error::TreeError;
 use crate::i18n::{self, format_report, get_message, MessageKey};
 
-use super::TreeOutput;
+use super::context::RenderContext;
+use super::traits::Renderer;
 
-pub struct TextFormatter {
+pub struct TextRenderer {
     line_style: LineStyle,
     color_enabled: bool,
     icons_enabled: bool,
@@ -46,9 +49,9 @@ const ASCII_CHARS: TreeChars = TreeChars {
     space: "    ",
 };
 
-impl TextFormatter {
+impl TextRenderer {
     pub fn new(config: &Config) -> Self {
-        TextFormatter {
+        TextRenderer {
             line_style: config.line_style,
             color_enabled: config.color_enabled,
             icons_enabled: config.icons_enabled,
@@ -63,7 +66,7 @@ impl TextFormatter {
         }
     }
 
-    fn format_prefix(&self, entry: &TreeEntry, config: &Config) -> String {
+    fn format_prefix(&self, entry: &Entry, config: &Config) -> String {
         if config.no_indent {
             return String::new();
         }
@@ -90,7 +93,7 @@ impl TextFormatter {
         prefix
     }
 
-    fn format_name(&self, entry: &TreeEntry, config: &Config) -> String {
+    fn format_name(&self, entry: &Entry, config: &Config) -> String {
         let mut name = String::new();
 
         if self.icons_enabled {
@@ -124,7 +127,6 @@ impl TextFormatter {
                 name.push_str(" -> ");
                 name.push_str(&target.display().to_string());
                 if *broken {
-                    // Use localized "broken" message - use push_str instead of format!
                     let broken_msg = get_message(i18n::current(), MessageKey::BrokenLink);
                     name.push_str(" [");
                     name.push_str(broken_msg);
@@ -141,7 +143,7 @@ impl TextFormatter {
         name
     }
 
-    fn format_info(&self, entry: &TreeEntry, config: &Config) -> String {
+    fn format_info(&self, entry: &Entry, config: &Config) -> String {
         let mut info = String::new();
 
         if let Some(ref meta) = entry.metadata {
@@ -149,10 +151,8 @@ impl TextFormatter {
                 let size_str = if config.human_readable {
                     format_human_size(meta.size, config.si_units)
                 } else {
-                    // Use format! with pre-sized buffer hint
                     format!("{:>10}", meta.size)
                 };
-                // Use push_str + format instead of nested format!
                 info.push('[');
                 info.push_str(&size_str);
                 info.push_str("]  ");
@@ -172,17 +172,13 @@ impl TextFormatter {
             if config.show_permissions {
                 let perm_str = match config.perm_mode {
                     crate::cli::PermMode::Posix => {
-                        // Generate POSIX-style permissions (rwxr-xr-x format)
                         let mut s = String::new();
-                        // Owner permissions
                         s.push(if meta.attributes.readonly { '-' } else { 'r' });
                         s.push(if meta.attributes.readonly { '-' } else { 'w' });
                         s.push(if meta.attributes.readonly { '-' } else { 'x' });
-                        // Group permissions
                         s.push(if meta.attributes.readonly { '-' } else { 'r' });
                         s.push(if meta.attributes.readonly { '-' } else { 'w' });
                         s.push(if meta.attributes.readonly { '-' } else { 'x' });
-                        // Other permissions
                         s.push(if meta.attributes.readonly { '-' } else { 'r' });
                         s.push(if meta.attributes.readonly { '-' } else { 'w' });
                         s.push(if meta.attributes.readonly { '-' } else { 'x' });
@@ -196,7 +192,6 @@ impl TextFormatter {
             }
 
             if config.show_inodes {
-                // Use write! to String buffer
                 use std::fmt::Write;
                 let _ = write!(info, "[{:>10x}]  ", meta.inode);
             }
@@ -210,7 +205,7 @@ impl TextFormatter {
         info
     }
 
-    fn apply_color(&self, entry: &TreeEntry, text: &str, config: &Config) -> String {
+    fn apply_color(&self, entry: &Entry, text: &str, config: &Config) -> String {
         if !self.color_enabled {
             return text.to_string();
         }
@@ -219,7 +214,6 @@ impl TextFormatter {
         if color_code.is_empty() {
             text.to_string()
         } else {
-            // Use push_str + format inline to avoid intermediate allocations
             let mut result = String::with_capacity(text.len() + color_code.len() + 10);
             result.push_str("\x1b[");
             result.push_str(&color_code);
@@ -229,17 +223,11 @@ impl TextFormatter {
             result
         }
     }
-}
-
-impl TreeOutput for TextFormatter {
-    fn begin<W: Write>(&mut self, _writer: &mut W) -> Result<(), TreeError> {
-        Ok(())
-    }
 
     fn write_entry<W: Write>(
-        &mut self,
+        &self,
         writer: &mut W,
-        entry: &TreeEntry,
+        entry: &Entry,
         config: &Config,
     ) -> Result<(), TreeError> {
         let prefix = self.format_prefix(entry, config);
@@ -251,20 +239,45 @@ impl TreeOutput for TextFormatter {
 
         Ok(())
     }
+}
 
-    fn end<W: Write>(
+impl Renderer for TextRenderer {
+    fn render<W: Write>(
         &mut self,
+        result: &BuildResult,
+        ctx: &RenderContext,
         writer: &mut W,
-        stats: &TreeStats,
-        config: &Config,
+        stats: &mut TreeStats,
     ) -> Result<(), TreeError> {
+        let config = ctx.config;
+
+        // Root entry
+        self.write_entry(writer, &result.root, config)?;
+        if result.root.entry_type.is_directory() {
+            stats.directories += 1;
+        } else {
+            stats.files += 1;
+        }
+
+        // Child entries
+        for entry in &result.entries {
+            self.write_entry(writer, entry, config)?;
+            if entry.entry_type.is_directory() {
+                stats.directories += 1;
+            } else {
+                stats.files += 1;
+            }
+            if entry.entry_type.is_symlink() {
+                stats.symlinks += 1;
+            }
+        }
+
+        // Report
         if !config.no_report {
             writeln!(writer)?;
-
-            // Use localized report with proper pluralization
             let report = format_report(
                 i18n::current(),
-                stats.directories.saturating_sub(1), // Subtract root
+                stats.directories.saturating_sub(1),
                 stats.files,
             );
             writeln!(writer, "{}", report)?;
@@ -307,3 +320,4 @@ fn is_executable(path: &std::path::Path) -> bool {
         false
     }
 }
+

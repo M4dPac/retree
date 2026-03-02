@@ -8,8 +8,8 @@ pub mod cli;
 pub mod config;
 pub mod core;
 pub mod error;
-pub mod format;
 pub mod i18n;
+pub mod render;
 pub mod style;
 
 #[cfg(windows)]

@@ -3,12 +3,15 @@ use std::io::Write;
 use serde::Serialize;
 
 use crate::config::Config;
-use crate::core::walker::{EntryType, TreeEntry, TreeStats};
+use crate::core::entry::{Entry, EntryType};
+use crate::core::walker::TreeStats;
+use crate::core::BuildResult;
 use crate::error::TreeError;
 
-use super::TreeOutput;
+use super::context::RenderContext;
+use super::traits::Renderer;
 
-pub struct JsonFormatter {
+pub struct JsonRenderer {
     entries: Vec<JsonEntry>,
     stack: Vec<usize>,
 }
@@ -37,17 +40,15 @@ struct JsonReport {
     files: u64,
 }
 
-impl JsonFormatter {
+impl JsonRenderer {
     pub fn new(_config: &Config) -> Self {
-        JsonFormatter {
+        JsonRenderer {
             entries: Vec::new(),
             stack: Vec::new(),
         }
     }
 
     fn entry_type_str(entry_type: &EntryType) -> String {
-        // Use English keys for JSON API stability
-        // Localized output is only for text format
         match entry_type {
             EntryType::File => "file".to_string(),
             EntryType::Directory => "directory".to_string(),
@@ -58,21 +59,8 @@ impl JsonFormatter {
             EntryType::Other => "other".to_string(),
         }
     }
-}
 
-impl TreeOutput for JsonFormatter {
-    fn begin<W: Write>(&mut self, _writer: &mut W) -> Result<(), TreeError> {
-        self.entries.clear();
-        self.stack.clear();
-        Ok(())
-    }
-
-    fn write_entry<W: Write>(
-        &mut self,
-        _writer: &mut W,
-        entry: &TreeEntry,
-        _config: &Config,
-    ) -> Result<(), TreeError> {
+    fn accumulate_entry(&mut self, entry: &Entry) {
         let target = match &entry.entry_type {
             EntryType::Symlink { target, .. } => Some(target.display().to_string()),
             EntryType::Junction { target } => Some(target.display().to_string()),
@@ -106,18 +94,43 @@ impl TreeOutput for JsonFormatter {
                 self.stack.push(self.entries.len() - 1);
             }
         }
-
-        Ok(())
     }
+}
 
-    fn end<W: Write>(
+impl Renderer for JsonRenderer {
+    fn render<W: Write>(
         &mut self,
+        result: &BuildResult,
+        _ctx: &RenderContext,
         writer: &mut W,
-        _stats: &TreeStats,
-        _config: &Config,
+        stats: &mut TreeStats,
     ) -> Result<(), TreeError> {
-        let output = self.entries.clone();
+        self.entries.clear();
+        self.stack.clear();
 
+        // Root entry
+        self.accumulate_entry(&result.root);
+        if result.root.entry_type.is_directory() {
+            stats.directories += 1;
+        } else {
+            stats.files += 1;
+        }
+
+        // Child entries
+        for entry in &result.entries {
+            self.accumulate_entry(entry);
+            if entry.entry_type.is_directory() {
+                stats.directories += 1;
+            } else {
+                stats.files += 1;
+            }
+            if entry.entry_type.is_symlink() {
+                stats.symlinks += 1;
+            }
+        }
+
+        // Serialize and write
+        let output = self.entries.clone();
         let json =
             serde_json::to_string_pretty(&output).map_err(|e| TreeError::Generic(e.to_string()))?;
 
@@ -126,3 +139,4 @@ impl TreeOutput for JsonFormatter {
         Ok(())
     }
 }
+
