@@ -77,6 +77,97 @@ impl JsonRenderer {
             contents: Vec::new(),
         }
     }
+
+    /// Format JSON in tree-compatible style (compact objects with indented nesting)
+    fn format_tree_style(output: &[serde_json::Value]) -> Result<String, TreeError> {
+        let mut result = String::new();
+        result.push_str("[\n");
+
+        for (i, item) in output.iter().enumerate() {
+            if let Some(obj) = item.as_object() {
+                if obj.get("type").and_then(|v| v.as_str()) == Some("report") {
+                    // Report entry - simple compact format
+                    result.push_str(",\n");
+                    let compact = serde_json::to_string(item)
+                        .map_err(|e| TreeError::Generic(e.to_string()))?;
+                    result.push_str(&format!("  {}\n", compact));
+                } else {
+                    // Directory/file entry - tree-style format
+                    if i > 0 {
+                        result.push_str(",\n");
+                    }
+                    Self::format_entry(&mut result, item, 1)?;
+                    result.push('\n');
+                }
+            }
+        }
+
+        result.push(']');
+        Ok(result)
+    }
+
+    /// Recursively format a single entry in tree-compatible style
+    fn format_entry(
+        out: &mut String,
+        value: &serde_json::Value,
+        depth: usize,
+    ) -> Result<(), TreeError> {
+        let indent = "  ".repeat(depth);
+
+        if let Some(obj) = value.as_object() {
+            // Build the object on one line, but contents array is special
+            out.push_str(&indent);
+            out.push('{');
+
+            let mut first = true;
+            for (key, val) in obj.iter() {
+                if key == "contents" {
+                    continue; // Handle contents separately
+                }
+
+                if !first {
+                    out.push(',');
+                }
+                first = false;
+
+                let key_json =
+                    serde_json::to_string(key).map_err(|e| TreeError::Generic(e.to_string()))?;
+                let val_json =
+                    serde_json::to_string(val).map_err(|e| TreeError::Generic(e.to_string()))?;
+                out.push_str(&format!("{}:{}", key_json, val_json));
+            }
+
+            // Handle contents array
+            if let Some(contents) = obj.get("contents") {
+                if let Some(arr) = contents.as_array() {
+                    if !arr.is_empty() {
+                        if !first {
+                            out.push(',');
+                        }
+                        out.push_str("\"contents\":[\n");
+
+                        for (i, child) in arr.iter().enumerate() {
+                            if i > 0 {
+                                out.push_str(",\n");
+                            }
+                            Self::format_entry(out, child, depth + 1)?;
+                        }
+
+                        out.push_str(&format!("\n{}]", indent));
+                    }
+                }
+            }
+
+            out.push('}');
+        } else {
+            let json =
+                serde_json::to_string(value).map_err(|e| TreeError::Generic(e.to_string()))?;
+            out.push_str(&indent);
+            out.push_str(&json);
+        }
+
+        Ok(())
+    }
 }
 
 impl Renderer for JsonRenderer {
@@ -97,8 +188,6 @@ impl Renderer for JsonRenderer {
         }
 
         // Stack-based tree building from flat entries.
-        // Stack represents the current path from root down.
-        // stack[0] = root (depth 0), stack[1] = child at depth 1, etc.
         let mut stack: Vec<JsonEntry> = vec![Self::make_json_entry(&result.root, config)];
 
         for entry in &result.entries {
@@ -113,8 +202,6 @@ impl Renderer for JsonRenderer {
             }
 
             // Pop stack until we're at the parent's level.
-            // entry.depth tells us how deep this entry is.
-            // We want stack to contain exactly `entry.depth` items (the ancestors).
             while stack.len() > entry.depth {
                 let child = stack.pop().unwrap();
                 stack.last_mut().unwrap().contents.push(child);
@@ -145,8 +232,15 @@ impl Renderer for JsonRenderer {
             }));
         }
 
-        let json_str =
-            serde_json::to_string_pretty(&output).map_err(|e| TreeError::Generic(e.to_string()))?;
+        // Choose format based on --json-pretty flag
+        let json_str = if config.json_pretty {
+            // Fully formatted (pretty-print)
+            serde_json::to_string_pretty(&output).map_err(|e| TreeError::Generic(e.to_string()))?
+        } else {
+            // Tree-compatible compact style
+            Self::format_tree_style(&output)?
+        };
+
         writeln!(writer, "{}", json_str)?;
 
         Ok(())

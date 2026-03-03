@@ -223,6 +223,10 @@ pub struct Args {
     #[arg(short = 'J', long = "json")]
     pub json: bool,
 
+    /// Pretty-print JSON output (fully formatted) / Форматированный JSON
+    #[arg(long = "json-pretty")]
+    pub json_pretty: bool,
+
     // === Icons ===
     /// Show icons (default: auto) / Показывать иконки
     #[arg(

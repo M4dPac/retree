@@ -124,6 +124,7 @@ impl Config {
 
             output_format,
             output_file: args.output_file,
+            json_pretty: args.json_pretty,
             html_base: args.html_base,
             html_title: args.html_title,
             html_intro: args.html_intro,
