@@ -2,6 +2,8 @@
 //!
 //! Provides `dispatch()` as the single entry point for rendering.
 
+pub mod helpers;
+
 mod html;
 mod json;
 mod text;

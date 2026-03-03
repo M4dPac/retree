@@ -9,6 +9,7 @@ use crate::core::BuildResult;
 use crate::error::TreeError;
 
 use super::context::RenderContext;
+use super::helpers;
 use super::traits::Renderer;
 
 pub struct JsonRenderer;
@@ -31,18 +32,6 @@ struct JsonEntry {
 impl JsonRenderer {
     pub fn new(_config: &Config) -> Self {
         JsonRenderer
-    }
-
-    fn entry_type_str(entry_type: &EntryType) -> String {
-        match entry_type {
-            EntryType::File => "file".to_string(),
-            EntryType::Directory => "directory".to_string(),
-            EntryType::Symlink { .. } => "symlink".to_string(),
-            EntryType::Junction { .. } => "junction".to_string(),
-            EntryType::HardLink { .. } => "file".to_string(),
-            EntryType::Ads { .. } => "stream".to_string(),
-            EntryType::Other => "other".to_string(),
-        }
     }
 
     fn make_json_entry(entry: &Entry, config: &Config) -> JsonEntry {
@@ -69,7 +58,7 @@ impl JsonRenderer {
         };
 
         JsonEntry {
-            entry_type: Self::entry_type_str(&entry.entry_type),
+            entry_type: helpers::entry_type_str(&entry.entry_type).to_string(),
             name: entry.name_str().to_string(),
             size,
             time,
@@ -86,13 +75,11 @@ impl JsonRenderer {
         for (i, item) in output.iter().enumerate() {
             if let Some(obj) = item.as_object() {
                 if obj.get("type").and_then(|v| v.as_str()) == Some("report") {
-                    // Report entry - simple compact format
                     result.push_str(",\n");
                     let compact = serde_json::to_string(item)
                         .map_err(|e| TreeError::Generic(e.to_string()))?;
                     result.push_str(&format!("  {}\n", compact));
                 } else {
-                    // Directory/file entry - tree-style format
                     if i > 0 {
                         result.push_str(",\n");
                     }
@@ -115,14 +102,13 @@ impl JsonRenderer {
         let indent = "  ".repeat(depth);
 
         if let Some(obj) = value.as_object() {
-            // Build the object on one line, but contents array is special
             out.push_str(&indent);
             out.push('{');
 
             let mut first = true;
             for (key, val) in obj.iter() {
                 if key == "contents" {
-                    continue; // Handle contents separately
+                    continue;
                 }
 
                 if !first {
@@ -137,7 +123,6 @@ impl JsonRenderer {
                 out.push_str(&format!("{}:{}", key_json, val_json));
             }
 
-            // Handle contents array
             if let Some(contents) = obj.get("contents") {
                 if let Some(arr) = contents.as_array() {
                     if !arr.is_empty() {
@@ -181,27 +166,14 @@ impl Renderer for JsonRenderer {
         let config = ctx.config;
 
         // Count stats for root
-        if result.root.entry_type.is_directory() {
-            stats.directories += 1;
-        } else {
-            stats.files += 1;
-        }
+        helpers::count_stats(&result.root, stats);
 
         // Stack-based tree building from flat entries.
         let mut stack: Vec<JsonEntry> = vec![Self::make_json_entry(&result.root, config)];
 
         for entry in &result.entries {
-            // Count stats
-            if entry.entry_type.is_directory() {
-                stats.directories += 1;
-            } else {
-                stats.files += 1;
-            }
-            if entry.entry_type.is_symlink() {
-                stats.symlinks += 1;
-            }
+            helpers::count_stats(entry, stats);
 
-            // Pop stack until we're at the parent's level.
             while stack.len() > entry.depth {
                 let child = stack.pop().unwrap();
                 stack.last_mut().unwrap().contents.push(child);
@@ -218,12 +190,10 @@ impl Renderer for JsonRenderer {
 
         let root = stack.pop().unwrap();
 
-        // Build output array
         let root_value =
             serde_json::to_value(&root).map_err(|e| TreeError::Generic(e.to_string()))?;
         let mut output = vec![root_value];
 
-        // Add report entry unless --noreport
         if !config.no_report {
             output.push(serde_json::json!({
                 "type": "report",
@@ -232,12 +202,9 @@ impl Renderer for JsonRenderer {
             }));
         }
 
-        // Choose format based on --json-pretty flag
         let json_str = if config.json_pretty {
-            // Fully formatted (pretty-print)
             serde_json::to_string_pretty(&output).map_err(|e| TreeError::Generic(e.to_string()))?
         } else {
-            // Tree-compatible compact style
             Self::format_tree_style(&output)?
         };
 
@@ -246,3 +213,4 @@ impl Renderer for JsonRenderer {
         Ok(())
     }
 }
+

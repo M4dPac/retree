@@ -8,6 +8,7 @@ use crate::error::TreeError;
 use crate::i18n::{self, format_report, get_message, MessageKey};
 
 use super::context::RenderContext;
+use super::helpers;
 use super::traits::Renderer;
 
 pub struct TextRenderer {
@@ -149,7 +150,7 @@ impl TextRenderer {
         if let Some(ref meta) = entry.metadata {
             if config.show_size {
                 let size_str = if config.human_readable {
-                    format_human_size(meta.size, config.si_units)
+                    helpers::format_human_size(meta.size, config.si_units)
                 } else {
                     format!("{:>10}", meta.size)
                 };
@@ -252,23 +253,12 @@ impl Renderer for TextRenderer {
 
         // Root entry
         self.write_entry(writer, &result.root, config)?;
-        if result.root.entry_type.is_directory() {
-            stats.directories += 1;
-        } else {
-            stats.files += 1;
-        }
+        helpers::count_stats(&result.root, stats);
 
         // Child entries
         for entry in &result.entries {
             self.write_entry(writer, entry, config)?;
-            if entry.entry_type.is_directory() {
-                stats.directories += 1;
-            } else {
-                stats.files += 1;
-            }
-            if entry.entry_type.is_symlink() {
-                stats.symlinks += 1;
-            }
+            helpers::count_stats(entry, stats);
         }
 
         // Report
@@ -286,45 +276,20 @@ impl Renderer for TextRenderer {
     }
 }
 
-fn format_human_size(size: u64, si: bool) -> String {
-    let (divisor, units) = if si {
-        (1000.0, ["B", "KB", "MB", "GB", "TB", "PB"])
-    } else {
-        (1024.0, ["B", "KiB", "MiB", "GiB", "TiB", "PiB"])
-    };
-
-    let mut size = size as f64;
-    let mut unit_idx = 0;
-
-    while size >= divisor && unit_idx < units.len() - 1 {
-        size /= divisor;
-        unit_idx += 1;
-    }
-
-    if unit_idx == 0 {
-        format!("{:.0}{}", size, units[unit_idx])
-    } else {
-        format!("{:.1}{}", size, units[unit_idx])
-    }
-}
-
 fn format_permissions(
     meta: &crate::core::entry::EntryMetadata,
     perm_mode: crate::cli::PermMode,
 ) -> String {
-    // If we have POSIX mode, use it (Unix)
     if let Some(mode) = meta.mode {
         return format_posix_mode(mode);
     }
 
-    // Otherwise use Windows attributes
     match perm_mode {
         crate::cli::PermMode::Posix => {
-            // Fallback for Windows in POSIX mode
             let mut s = String::new();
             s.push('r');
             s.push(if meta.attributes.readonly { '-' } else { 'w' });
-            s.push('-'); // no execute info on Windows
+            s.push('-');
             s.push('r');
             s.push(if meta.attributes.readonly { '-' } else { 'w' });
             s.push('-');
@@ -340,17 +305,14 @@ fn format_permissions(
 fn format_posix_mode(mode: u32) -> String {
     let mut s = String::with_capacity(9);
 
-    // Owner
     s.push(if mode & 0o400 != 0 { 'r' } else { '-' });
     s.push(if mode & 0o200 != 0 { 'w' } else { '-' });
     s.push(if mode & 0o100 != 0 { 'x' } else { '-' });
 
-    // Group
     s.push(if mode & 0o040 != 0 { 'r' } else { '-' });
     s.push(if mode & 0o020 != 0 { 'w' } else { '-' });
     s.push(if mode & 0o010 != 0 { 'x' } else { '-' });
 
-    // Other
     s.push(if mode & 0o004 != 0 { 'r' } else { '-' });
     s.push(if mode & 0o002 != 0 { 'w' } else { '-' });
     s.push(if mode & 0o001 != 0 { 'x' } else { '-' });
@@ -369,3 +331,4 @@ fn is_executable(path: &std::path::Path) -> bool {
         false
     }
 }
+
