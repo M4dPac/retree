@@ -1,4 +1,4 @@
-/// — -v, -t, -c, -U, -r, --dirsfirst, --filesfirst, --sort=*
+/// -v, -t, -c, -U, -r, --dirsfirst, --filesfirst, --sort=*
 mod common;
 use common::{rtree, CLEAN};
 

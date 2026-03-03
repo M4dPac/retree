@@ -1,4 +1,4 @@
-/// — -P, -I, --matchdirs, --ignore-case, --prune
+/// -P, -I, --matchdirs, --ignore-case, --prune
 mod common;
 use common::rtree;
 
