@@ -11,10 +11,7 @@ use crate::error::TreeError;
 use super::context::RenderContext;
 use super::traits::Renderer;
 
-pub struct JsonRenderer {
-    entries: Vec<JsonEntry>,
-    stack: Vec<usize>,
-}
+pub struct JsonRenderer;
 
 #[derive(Serialize, Clone)]
 struct JsonEntry {
@@ -31,21 +28,9 @@ struct JsonEntry {
     contents: Vec<JsonEntry>,
 }
 
-#[derive(Serialize)]
-#[allow(dead_code)]
-struct JsonReport {
-    #[serde(rename = "type")]
-    entry_type: String,
-    directories: u64,
-    files: u64,
-}
-
 impl JsonRenderer {
     pub fn new(_config: &Config) -> Self {
-        JsonRenderer {
-            entries: Vec::new(),
-            stack: Vec::new(),
-        }
+        JsonRenderer
     }
 
     fn entry_type_str(entry_type: &EntryType) -> String {
@@ -60,39 +45,36 @@ impl JsonRenderer {
         }
     }
 
-    fn accumulate_entry(&mut self, entry: &Entry) {
+    fn make_json_entry(entry: &Entry, config: &Config) -> JsonEntry {
         let target = match &entry.entry_type {
             EntryType::Symlink { target, .. } => Some(target.display().to_string()),
             EntryType::Junction { target } => Some(target.display().to_string()),
             _ => None,
         };
 
-        let time = entry.metadata.as_ref().and_then(|m| m.modified).map(|t| {
-            use chrono::{DateTime, Utc};
-            let dt: DateTime<Utc> = t.into();
-            dt.format("%Y-%m-%dT%H:%M:%S").to_string()
-        });
+        let time = if config.show_date {
+            entry.metadata.as_ref().and_then(|m| m.modified).map(|t| {
+                use chrono::{DateTime, Utc};
+                let dt: DateTime<Utc> = t.into();
+                dt.format("%Y-%m-%dT%H:%M:%S").to_string()
+            })
+        } else {
+            None
+        };
 
-        let json_entry = JsonEntry {
+        let size = if config.show_size || config.human_readable {
+            entry.metadata.as_ref().map(|m| m.size)
+        } else {
+            None
+        };
+
+        JsonEntry {
             entry_type: Self::entry_type_str(&entry.entry_type),
             name: entry.name_str().to_string(),
-            size: entry.metadata.as_ref().map(|m| m.size),
+            size,
             time,
             target,
             contents: Vec::new(),
-        };
-
-        while self.stack.len() > entry.depth {
-            self.stack.pop();
-        }
-
-        if let Some(&parent_idx) = self.stack.last() {
-            self.entries[parent_idx].contents.push(json_entry);
-        } else {
-            self.entries.push(json_entry);
-            if entry.entry_type.is_directory() {
-                self.stack.push(self.entries.len() - 1);
-            }
         }
     }
 }
@@ -101,24 +83,26 @@ impl Renderer for JsonRenderer {
     fn render<W: Write>(
         &mut self,
         result: &BuildResult,
-        _ctx: &RenderContext,
+        ctx: &RenderContext,
         writer: &mut W,
         stats: &mut TreeStats,
     ) -> Result<(), TreeError> {
-        self.entries.clear();
-        self.stack.clear();
+        let config = ctx.config;
 
-        // Root entry
-        self.accumulate_entry(&result.root);
+        // Count stats for root
         if result.root.entry_type.is_directory() {
             stats.directories += 1;
         } else {
             stats.files += 1;
         }
 
-        // Child entries
+        // Stack-based tree building from flat entries.
+        // Stack represents the current path from root down.
+        // stack[0] = root (depth 0), stack[1] = child at depth 1, etc.
+        let mut stack: Vec<JsonEntry> = vec![Self::make_json_entry(&result.root, config)];
+
         for entry in &result.entries {
-            self.accumulate_entry(entry);
+            // Count stats
             if entry.entry_type.is_directory() {
                 stats.directories += 1;
             } else {
@@ -127,14 +111,43 @@ impl Renderer for JsonRenderer {
             if entry.entry_type.is_symlink() {
                 stats.symlinks += 1;
             }
+
+            // Pop stack until we're at the parent's level.
+            // entry.depth tells us how deep this entry is.
+            // We want stack to contain exactly `entry.depth` items (the ancestors).
+            while stack.len() > entry.depth {
+                let child = stack.pop().unwrap();
+                stack.last_mut().unwrap().contents.push(child);
+            }
+
+            stack.push(Self::make_json_entry(entry, config));
         }
 
-        // Serialize and write
-        let output = self.entries.clone();
-        let json =
-            serde_json::to_string_pretty(&output).map_err(|e| TreeError::Generic(e.to_string()))?;
+        // Unwind remaining stack into root
+        while stack.len() > 1 {
+            let child = stack.pop().unwrap();
+            stack.last_mut().unwrap().contents.push(child);
+        }
 
-        writeln!(writer, "{}", json)?;
+        let root = stack.pop().unwrap();
+
+        // Build output array
+        let root_value =
+            serde_json::to_value(&root).map_err(|e| TreeError::Generic(e.to_string()))?;
+        let mut output = vec![root_value];
+
+        // Add report entry unless --noreport
+        if !config.no_report {
+            output.push(serde_json::json!({
+                "type": "report",
+                "directories": stats.directories.saturating_sub(1),
+                "files": stats.files
+            }));
+        }
+
+        let json_str =
+            serde_json::to_string_pretty(&output).map_err(|e| TreeError::Generic(e.to_string()))?;
+        writeln!(writer, "{}", json_str)?;
 
         Ok(())
     }
