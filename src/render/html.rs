@@ -9,6 +9,7 @@ use crate::error::TreeError;
 use crate::i18n::{self, format_report, get_message, MessageKey};
 
 use super::context::RenderContext;
+use super::helpers;
 use super::traits::Renderer;
 
 pub struct HtmlRenderer {
@@ -44,13 +45,6 @@ impl HtmlRenderer {
         }
     }
 
-    fn escape_html(s: &str) -> String {
-        s.replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;")
-            .replace('"', "&quot;")
-    }
-
     fn write_header<W: Write>(&self, writer: &mut W) -> Result<(), TreeError> {
         if let Some(ref intro) = self.intro {
             writer.write_all(intro.as_bytes())?;
@@ -64,7 +58,7 @@ impl HtmlRenderer {
         writeln!(
             writer,
             "  <title>{}</title>",
-            Self::escape_html(&self.title)
+            helpers::escape_html(&self.title)
         )?;
         writeln!(writer, "  <style>")?;
         writeln!(
@@ -81,7 +75,7 @@ impl HtmlRenderer {
         writeln!(writer, "  </style>")?;
         writeln!(writer, "</head>")?;
         writeln!(writer, "<body>")?;
-        writeln!(writer, "<h1>{}</h1>", Self::escape_html(&self.title))?;
+        writeln!(writer, "<h1>{}</h1>", helpers::escape_html(&self.title))?;
 
         Ok(())
     }
@@ -104,7 +98,7 @@ impl HtmlRenderer {
             }
         }
 
-        let name = Self::escape_html(entry.name_str());
+        let name = helpers::escape_html(entry.name_str());
         let class = if entry.entry_type.is_directory() {
             "directory"
         } else if entry.entry_type.is_symlink() {
@@ -124,7 +118,7 @@ impl HtmlRenderer {
             writeln!(
                 writer,
                 "<a href=\"{}\" class=\"{}\">{}</a><br>",
-                Self::escape_html(&href),
+                helpers::escape_html(&href),
                 class,
                 name
             )?;
@@ -177,23 +171,12 @@ impl Renderer for HtmlRenderer {
 
         // Root entry
         self.write_entry(writer, &result.root)?;
-        if result.root.entry_type.is_directory() {
-            stats.directories += 1;
-        } else {
-            stats.files += 1;
-        }
+        helpers::count_stats(&result.root, stats);
 
         // Child entries
         for entry in &result.entries {
             self.write_entry(writer, entry)?;
-            if entry.entry_type.is_directory() {
-                stats.directories += 1;
-            } else {
-                stats.files += 1;
-            }
-            if entry.entry_type.is_symlink() {
-                stats.symlinks += 1;
-            }
+            helpers::count_stats(entry, stats);
         }
 
         self.write_footer(writer, stats, config)?;

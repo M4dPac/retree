@@ -7,6 +7,7 @@ use crate::core::BuildResult;
 use crate::error::TreeError;
 
 use super::context::RenderContext;
+use super::helpers;
 use super::traits::Renderer;
 
 pub struct XmlRenderer {
@@ -20,19 +21,77 @@ impl XmlRenderer {
         }
     }
 
-    fn escape_xml(s: &str) -> String {
-        s.replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;")
-            .replace('"', "&quot;")
-            .replace('\'', "&apos;")
-    }
-
     fn indent(depth: usize) -> String {
         "  ".repeat(depth)
     }
 
-    fn write_entry<W: Write>(&mut self, writer: &mut W, entry: &Entry) -> Result<(), TreeError> {
+    /// Write common metadata attributes based on config flags
+    fn write_meta_attrs<W: Write>(
+        writer: &mut W,
+        entry: &Entry,
+        config: &Config,
+    ) -> Result<(), TreeError> {
+        if let Some(ref meta) = entry.metadata {
+            // Size: -s or -h flag
+            if config.show_size {
+                if config.human_readable {
+                    write!(
+                        writer,
+                        " size=\"{}\"",
+                        helpers::format_human_size(meta.size, config.si_units)
+                    )?;
+                } else {
+                    write!(writer, " size=\"{}\"", meta.size)?;
+                }
+            }
+
+            // Date: -D flag
+            if config.show_date {
+                if let Some(modified) = meta.modified {
+                    use chrono::{DateTime, Utc};
+                    let dt: DateTime<Utc> = modified.into();
+                    write!(writer, " time=\"{}\"", dt.format(&config.time_fmt))?;
+                }
+            }
+
+            // Permissions: -p flag
+            if config.show_permissions {
+                write!(writer, " mode=\"{:o}\"", meta.mode.unwrap_or(0))?;
+            }
+
+            // Owner: -u flag
+            if config.show_owner {
+                if let Some(ref owner) = meta.owner {
+                    write!(writer, " user=\"{}\"", helpers::escape_xml(owner))?;
+                }
+            }
+
+            // Group: -g flag
+            if config.show_group {
+                if let Some(ref group) = meta.group {
+                    write!(writer, " group=\"{}\"", helpers::escape_xml(group))?;
+                }
+            }
+
+            // Inode: --inodes flag (u64, show if non-zero)
+            if config.show_inodes && meta.inode != 0 {
+                write!(writer, " inode=\"{}\"", meta.inode)?;
+            }
+
+            // Device: --device flag (u32, show if non-zero)
+            if config.show_device && meta.device != 0 {
+                write!(writer, " dev=\"{}\"", meta.device)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn write_entry<W: Write>(
+        &mut self,
+        writer: &mut W,
+        entry: &Entry,
+        config: &Config,
+    ) -> Result<(), TreeError> {
         // Close previous elements if we're going back up
         while let Some(&prev_depth) = self.depth_stack.last() {
             if prev_depth >= entry.depth {
@@ -44,58 +103,46 @@ impl XmlRenderer {
         }
 
         let indent = Self::indent(entry.depth + 1);
-        let name = Self::escape_xml(entry.name_str());
+        let name = helpers::escape_xml(entry.name_str());
 
         match &entry.entry_type {
             EntryType::Directory => {
                 write!(writer, "{}<directory name=\"{}\"", indent, name)?;
-
-                if let Some(ref meta) = entry.metadata {
-                    if let Some(modified) = meta.modified {
-                        use chrono::{DateTime, Utc};
-                        let dt: DateTime<Utc> = modified.into();
-                        write!(writer, " time=\"{}\"", dt.format("%Y-%m-%dT%H:%M:%S"))?;
-                    }
-                }
-
+                Self::write_meta_attrs(writer, entry, config)?;
                 writeln!(writer, ">")?;
                 self.depth_stack.push(entry.depth);
             }
             EntryType::File | EntryType::HardLink { .. } => {
                 write!(writer, "{}<file name=\"{}\"", indent, name)?;
-
-                if let Some(ref meta) = entry.metadata {
-                    write!(writer, " size=\"{}\"", meta.size)?;
-
-                    if let Some(modified) = meta.modified {
-                        use chrono::{DateTime, Utc};
-                        let dt: DateTime<Utc> = modified.into();
-                        write!(writer, " time=\"{}\"", dt.format("%Y-%m-%dT%H:%M:%S"))?;
-                    }
-                }
-
-                writeln!(writer, "/>")?;
+                Self::write_meta_attrs(writer, entry, config)?;
+                writeln!(writer, "></file>")?;
             }
             EntryType::Symlink { target, .. } => {
-                writeln!(
+                write!(
                     writer,
-                    "{}<link name=\"{}\" target=\"{}\"/>",
+                    "{}<link name=\"{}\" target=\"{}\"",
                     indent,
                     name,
-                    Self::escape_xml(&target.display().to_string())
+                    helpers::escape_xml(&target.display().to_string())
                 )?;
+                Self::write_meta_attrs(writer, entry, config)?;
+                writeln!(writer, "/>")?;
             }
             EntryType::Junction { target } => {
-                writeln!(
+                write!(
                     writer,
-                    "{}<junction name=\"{}\" target=\"{}\"/>",
+                    "{}<junction name=\"{}\" target=\"{}\"",
                     indent,
                     name,
-                    Self::escape_xml(&target.display().to_string())
+                    helpers::escape_xml(&target.display().to_string())
                 )?;
+                Self::write_meta_attrs(writer, entry, config)?;
+                writeln!(writer, "/>")?;
             }
             _ => {
-                writeln!(writer, "{}<file name=\"{}\"/>", indent, name)?;
+                write!(writer, "{}<file name=\"{}\"", indent, name)?;
+                Self::write_meta_attrs(writer, entry, config)?;
+                writeln!(writer, "/>")?;
             }
         }
 
@@ -119,24 +166,13 @@ impl Renderer for XmlRenderer {
         self.depth_stack.clear();
 
         // Root entry
-        self.write_entry(writer, &result.root)?;
-        if result.root.entry_type.is_directory() {
-            stats.directories += 1;
-        } else {
-            stats.files += 1;
-        }
+        self.write_entry(writer, &result.root, config)?;
+        helpers::count_stats(&result.root, stats);
 
         // Child entries
         for entry in &result.entries {
-            self.write_entry(writer, entry)?;
-            if entry.entry_type.is_directory() {
-                stats.directories += 1;
-            } else {
-                stats.files += 1;
-            }
-            if entry.entry_type.is_symlink() {
-                stats.symlinks += 1;
-            }
+            self.write_entry(writer, entry, config)?;
+            helpers::count_stats(entry, stats);
         }
 
         // Close remaining open elements
@@ -160,3 +196,4 @@ impl Renderer for XmlRenderer {
         Ok(())
     }
 }
+
