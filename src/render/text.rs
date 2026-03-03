@@ -178,7 +178,7 @@ impl TextRenderer {
 
             if config.show_inodes {
                 use std::fmt::Write;
-                let _ = write!(info, "[{:>10x}]  ", meta.inode);
+                let _ = write!(info, "[{:>10}]  ", meta.inode);
             }
 
             if config.show_device {
