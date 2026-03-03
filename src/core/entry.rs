@@ -242,5 +242,9 @@ fn gather_metadata(
     // Get Posix mode (Unix only)
     meta.mode = crate::platform::get_file_mode(path);
 
+    // Get owner/group
+    meta.owner = crate::platform::get_file_owner(path);
+    meta.group = crate::platform::get_file_group(path);
+
     Ok(meta)
 }

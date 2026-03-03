@@ -128,6 +128,32 @@ pub fn to_long_path(path: &Path, use_long_paths: bool) -> PathBuf {
     }
 }
 
+/// Get file owner (Unix: UID as string, Windows: None)
+pub fn get_file_owner(path: &Path) -> Option<String> {
+    #[cfg(windows)]
+    {
+        let _ = path;
+        None
+    }
+    #[cfg(not(windows))]
+    {
+        unix::get_file_owner(path)
+    }
+}
+
+/// Get file group (Unix: GID as string, Windows: None)
+pub fn get_file_group(path: &Path) -> Option<String> {
+    #[cfg(windows)]
+    {
+        let _ = path;
+        None
+    }
+    #[cfg(not(windows))]
+    {
+        unix::get_file_group(path)
+    }
+}
+
 // ═══════════════════════════════════════
 // Locale
 // ═══════════════════════════════════════
