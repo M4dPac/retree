@@ -195,6 +195,7 @@ fn run_rtree(dir: &Path, extra_args: &[&str]) -> String {
 
 /// Normalize output for comparison:
 /// - replace non-breaking spaces (U+00A0) with regular spaces
+///   (GNU tree uses NBSP in tree-drawing, rtree uses regular spaces)
 /// - trim trailing whitespace on each line
 /// - remove trailing empty lines
 fn normalize(s: &str) -> String {
