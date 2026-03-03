@@ -353,16 +353,16 @@ fn test_max_depth_two() {
     let dir = tempdir().unwrap();
     let p = dir.path();
 
-    fs::create_dir_all(p.join("a/b/c")).unwrap();
+    fs::create_dir_all(p.join("level1/level2/level3")).unwrap();
 
     rtree()
         .args(["-L", "2"])
         .arg(p)
         .assert()
         .success()
-        .stdout(predicate::str::contains("a"))
-        .stdout(predicate::str::contains("b"))
-        .stdout(predicate::str::contains("c").not());
+        .stdout(predicate::str::contains("level1"))
+        .stdout(predicate::str::contains("level2"))
+        .stdout(predicate::str::contains("level3").not());
 }
 
 // ============================================================================
