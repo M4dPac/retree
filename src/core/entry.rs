@@ -183,7 +183,18 @@ fn determine_entry_type(
     if file_type.is_symlink() {
         match std::fs::read_link(path) {
             Ok(target) => {
-                let broken = !target.exists() && !path.join(&target).exists();
+                // Check if symlink target is valid.
+                // For relative targets, resolve against the symlink's parent directory,
+                // not the symlink itself.
+                let broken = if target.is_absolute() {
+                    !target.exists()
+                } else {
+                    // parent of symlink + relative target
+                    match path.parent() {
+                        Some(parent) => !parent.join(&target).exists(),
+                        None => !target.exists(),
+                    }
+                };
                 Ok(EntryType::Symlink { target, broken })
             }
             Err(e) => Err(TreeError::SymlinkError(path.to_path_buf(), e)),
