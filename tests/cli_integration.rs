@@ -546,17 +546,17 @@ fn test_prune_hides_empty_dirs() {
     let dir = tempdir().unwrap();
     let p = dir.path();
 
-    fs::create_dir(p.join("empty_dir")).unwrap();
-    fs::create_dir(p.join("nonempty_dir")).unwrap();
-    fs::write(p.join("nonempty_dir/file.txt"), "").unwrap();
+    fs::create_dir(p.join("hollow")).unwrap();
+    fs::create_dir(p.join("filled")).unwrap();
+    fs::write(p.join("filled/file.txt"), "").unwrap();
 
     rtree()
         .arg("--prune")
         .arg(p)
         .assert()
         .success()
-        .stdout(predicate::str::contains("empty_dir").not())
-        .stdout(predicate::str::contains("nonempty_dir"))
+        .stdout(predicate::str::contains("hollow").not())
+        .stdout(predicate::str::contains("filled"))
         .stdout(predicate::str::contains("file.txt"));
 }
 
