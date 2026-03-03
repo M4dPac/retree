@@ -1,4 +1,4 @@
-///  — базовая работа, -a, -d, -l, -f, -x, -L, --filelimit, --noreport
+/// базовая работа, -a, -d, -l, -f, -x, -L, --filelimit, --noreport
 mod common;
 use common::{rtree, CLEAN};
 
