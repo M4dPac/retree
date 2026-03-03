@@ -77,6 +77,7 @@ pub struct Config {
     // Output
     pub output_format: OutputFormat,
     pub output_file: Option<PathBuf>,
+    pub json_pretty: bool,
     pub html_base: Option<String>,
     pub html_title: Option<String>,
     pub html_intro: Option<PathBuf>,
