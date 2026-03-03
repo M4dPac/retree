@@ -184,6 +184,11 @@ fn build_node_sequential(
         }
     }
 
+    // prune: skip empty directories (exept root at depth 0)
+    if config.prune && children.is_empty() && depth > 0 {
+        return None;
+    }
+
     Some(Node { entry, children })
 }
 
@@ -323,6 +328,11 @@ fn build_node_parallel_inner(
             }
         })
         .collect();
+
+    // prune: skip empty directories (exept root at depth 0)
+    if config.prune && children.is_empty() && depth > 0 {
+        return None;
+    }
 
     Some(Node { entry, children })
 }
