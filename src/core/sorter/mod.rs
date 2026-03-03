@@ -24,6 +24,44 @@ impl Default for SortConfig {
     }
 }
 
+/// Locale-aware comparison matching GNU tree's `strcoll()` behavior.
+///
+/// Under en_US.UTF-8, `strcoll()` uses multi-level comparison:
+/// 1. Primary: only alphanumeric characters, case-insensitive
+/// 2. Secondary: full string, case-insensitive
+/// 3. Tertiary: full string, case-sensitive (deterministic tie-break)
+///
+/// This explains why tree sorts "file10.txt" before "file1.txt":
+/// stripping punctuation gives "file10txt" vs "file1txt",
+/// and '0' < 't'.
+fn name_cmp_locale(a: &std::ffi::OsStr, b: &std::ffi::OsStr) -> std::cmp::Ordering {
+    let a_str = a.to_string_lossy();
+    let b_str = b.to_string_lossy();
+
+    // Level 1: compare only alphanumeric chars, case-insensitive
+    let a_alnum: String = a_str
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect();
+    let b_alnum: String = b_str
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect();
+
+    a_alnum
+        .cmp(&b_alnum)
+        // Level 2: case-insensitive with punctuation
+        .then_with(|| {
+            let a_lower = a_str.to_lowercase();
+            let b_lower = b_str.to_lowercase();
+            a_lower.cmp(&b_lower)
+        })
+        // Level 3: case-sensitive tie-break
+        .then_with(|| a_str.cmp(&b_str))
+}
+
 pub fn sort_entries(entries: &mut [DirEntry], config: &SortConfig) {
     // Skip sorting if:
     // 1. SortType::None (unsorted)
@@ -32,8 +70,6 @@ pub fn sort_entries(entries: &mut [DirEntry], config: &SortConfig) {
         return;
     }
 
-    // Use sort_unstable_by for better performance
-    // (avoids maintaining stable order, which is faster)
     entries.sort_unstable_by(|a, b| {
         // Handle dirs_first / files_first
         if config.dirs_first || config.files_first {
@@ -53,7 +89,7 @@ pub fn sort_entries(entries: &mut [DirEntry], config: &SortConfig) {
             SortType::Name => {
                 let a_name = a.file_name();
                 let b_name = b.file_name();
-                a_name.cmp(&b_name)
+                name_cmp_locale(&a_name, &b_name)
             }
             SortType::Version => {
                 let a_name = a.file_name().to_string_lossy().to_string();
