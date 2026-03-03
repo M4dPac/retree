@@ -116,6 +116,16 @@ fn build_node_sequential(
     let mut dir_entries: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
     sort_entries(&mut dir_entries, &config.sort_config);
 
+    // filelimit: skip directories with too many entries
+    if let Some(limit) = config.file_limit {
+        if dir_entries.len() > limit {
+            return Some(Node {
+                entry,
+                children: Vec::new(),
+            });
+        }
+    }
+
     let filter = config.filter.clone();
 
     let mut children = Vec::new();
@@ -244,6 +254,16 @@ fn build_node_parallel_inner(
 
     let mut dir_entries: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
     sort_entries(&mut dir_entries, &config.sort_config);
+
+    // filelimit: skip directories with too many entries
+    if let Some(limit) = config.file_limit {
+        if dir_entries.len() > limit {
+            return Some(Node {
+                entry,
+                children: Vec::new(),
+            });
+        }
+    }
 
     let filter = config.filter.clone();
 
