@@ -149,8 +149,12 @@ fn build_node_sequential(
             }
         }
 
-        if config.dirs_only && !is_dir {
-            continue;
+        // dirs_only: include directories and symlinks to directories
+        if config.dirs_only {
+            let is_symlink_to_dir = file_type.is_symlink() && dir_entry.path().is_dir();
+            if !is_dir && !is_symlink_to_dir {
+                continue;
+            }
         }
 
         if !filter.matches(dir_entry.file_name().to_str().unwrap_or(""), is_dir) {
@@ -295,8 +299,12 @@ fn build_node_parallel_inner(
                 }
             }
 
-            if config.dirs_only && !is_dir {
-                return None;
+            // dirs_only: include directories and symlinks to directories
+            if config.dirs_only {
+                let is_symlink_to_dir = file_type.is_symlink() && dir_entry.path().is_dir();
+                if !is_dir && !is_symlink_to_dir {
+                    return None;
+                }
             }
 
             if !filter.matches(dir_entry.file_name().to_str().unwrap_or(""), is_dir) {
