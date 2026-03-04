@@ -16,6 +16,7 @@ pub struct Entry {
     pub depth: usize,
     pub is_last: bool,
     pub ancestors_last: Vec<bool>,
+    pub filelimit_exceeded: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -136,6 +137,7 @@ impl Entry {
             depth,
             is_last,
             ancestors_last,
+            filelimit_exceeded: None,
         })
     }
 
@@ -165,6 +167,7 @@ impl Entry {
             depth,
             is_last,
             ancestors_last,
+            filelimit_exceeded: None,
         })
     }
 

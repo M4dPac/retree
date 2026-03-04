@@ -250,7 +250,7 @@ fn get_message_en(key: MessageKey) -> &'static str {
 
         // Misc
         MessageKey::BrokenLink => "broken",
-        MessageKey::ExceedsFileLimit => "{} entries exceeds filelimit",
+        MessageKey::ExceedsFileLimit => "{} entries exceeds filelimit, not opening dir",
         MessageKey::HtmlTitle => "Directory Tree",
         MessageKey::XmlEncoding => "UTF-8",
 
@@ -380,7 +380,7 @@ fn get_message_ru(key: MessageKey) -> &'static str {
 
         // Misc
         MessageKey::BrokenLink => "битая ссылка",
-        MessageKey::ExceedsFileLimit => "{} элементов превышает лимит",
+        MessageKey::ExceedsFileLimit => "{} элементов превышает лимит, каталог не раскрыт",
         MessageKey::HtmlTitle => "Дерево каталогов",
         MessageKey::XmlEncoding => "UTF-8",
 
