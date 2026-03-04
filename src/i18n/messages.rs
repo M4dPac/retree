@@ -114,6 +114,7 @@ pub enum MessageKey {
 
     // Misc
     BrokenLink,
+    RecursiveLink,
     ExceedsFileLimit,
     HtmlTitle,
     XmlEncoding,
@@ -250,6 +251,7 @@ fn get_message_en(key: MessageKey) -> &'static str {
 
         // Misc
         MessageKey::BrokenLink => "broken",
+        MessageKey::RecursiveLink => "recursive, not followed",
         MessageKey::ExceedsFileLimit => "{} entries exceeds filelimit, not opening dir",
         MessageKey::HtmlTitle => "Directory Tree",
         MessageKey::XmlEncoding => "UTF-8",
@@ -380,6 +382,7 @@ fn get_message_ru(key: MessageKey) -> &'static str {
 
         // Misc
         MessageKey::BrokenLink => "битая ссылка",
+        MessageKey::RecursiveLink => "рекурсивная, не раскрыта",
         MessageKey::ExceedsFileLimit => "{} элементов превышает лимит, каталог не раскрыт",
         MessageKey::HtmlTitle => "Дерево каталогов",
         MessageKey::XmlEncoding => "UTF-8",
