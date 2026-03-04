@@ -104,13 +104,14 @@ pub fn sort_entries(entries: &mut [DirEntry], config: &SortConfig) {
             SortType::Mtime => {
                 let a_time = a.metadata().ok().and_then(|m| m.modified().ok());
                 let b_time = b.metadata().ok().and_then(|m| m.modified().ok());
-                b_time.cmp(&a_time)
+                a_time.cmp(&b_time)
             }
             SortType::Ctime => {
                 let a_time = a.metadata().ok().and_then(|m| m.created().ok());
                 let b_time = b.metadata().ok().and_then(|m| m.created().ok());
-                b_time.cmp(&a_time)
+                a_time.cmp(&b_time)
             }
+
             SortType::None => std::cmp::Ordering::Equal,
         };
 
