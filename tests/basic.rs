@@ -40,6 +40,7 @@ fn test_nonexistent_path() {
 fn test_help_flag() {
     rtree()
         .arg("--help")
+        .args(CLEAN)
         .assert()
         .success()
         .stdout(predicate::str::contains("Usage:"))
