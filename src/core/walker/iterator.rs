@@ -110,7 +110,9 @@ impl TreeIterator {
 
         if self.config.dirs_only {
             if let Ok(ft) = entry.file_type() {
-                if !ft.is_dir() && !ft.is_symlink() {
+                // Include directories and symlinks pointing to directories
+                let is_dir_like = ft.is_dir() || (ft.is_symlink() && entry.path().is_dir());
+                if !is_dir_like {
                     return false;
                 }
             }
