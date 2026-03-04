@@ -44,20 +44,20 @@ fn test_time_sort_order() {
     let p = dir.path();
 
     fs::write(p.join("old.txt"), "old").unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(50));
+    std::thread::sleep(std::time::Duration::from_millis(1100));
     fs::write(p.join("new.txt"), "new").unwrap();
 
     let output = rtree().args(["-t"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
-    let pos_new = stdout.find("new.txt").expect("new.txt not found");
     let pos_old = stdout.find("old.txt").expect("old.txt not found");
+    let pos_new = stdout.find("new.txt").expect("new.txt not found");
 
     assert!(
-        pos_new < pos_old,
-        "With -t, newest file should appear first. new={}, old={}",
-        pos_new,
-        pos_old
+        pos_new > pos_old,
+        "With -t, oldest file should appear first. old={}, new={}",
+        pos_old,
+        pos_new
     );
 }
 

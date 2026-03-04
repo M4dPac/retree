@@ -1057,9 +1057,9 @@ fn compat_time_sort() {
 
     // Create files with different modification times
     fs::write(root.join("old.txt"), "old").unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(100));
+    std::thread::sleep(std::time::Duration::from_millis(1100));
     fs::write(root.join("mid.txt"), "mid").unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(100));
+    std::thread::sleep(std::time::Duration::from_millis(1100));
     fs::write(root.join("new.txt"), "new").unwrap();
 
     compare(&root, &["-t", "--noreport"], "-t --noreport (time sort)");
@@ -1073,9 +1073,9 @@ fn compat_time_sort_reverse() {
     fs::create_dir(&root).unwrap();
 
     fs::write(root.join("old.txt"), "old").unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(100));
+    std::thread::sleep(std::time::Duration::from_millis(1100));
     fs::write(root.join("mid.txt"), "mid").unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(100));
+    std::thread::sleep(std::time::Duration::from_millis(1100));
     fs::write(root.join("new.txt"), "new").unwrap();
 
     compare(
