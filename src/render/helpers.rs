@@ -83,8 +83,8 @@ pub fn entry_type_str(entry_type: &EntryType) -> &'static str {
     match entry_type {
         EntryType::File => "file",
         EntryType::Directory => "directory",
-        EntryType::Symlink { .. } => "symlink",
-        EntryType::Junction { .. } => "junction",
+        EntryType::Symlink { .. } => "link",
+        EntryType::Junction { .. } => "link",
         EntryType::HardLink { .. } => "file",
         EntryType::Ads { .. } => "stream",
         EntryType::Other => "other",
