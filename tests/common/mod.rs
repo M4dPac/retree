@@ -6,6 +6,7 @@ pub fn rtree() -> Command {
 }
 
 /// Standard flags to get clean, predictable text output
+#[allow(dead_code)]
 pub const CLEAN: &[&str] = &["-n", "--no-icons", "--noreport", "--lang", "en"];
 
 /// Extract file/dir names from text output (skip root line, strip tree chars)
