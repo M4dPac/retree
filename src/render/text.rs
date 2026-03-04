@@ -112,8 +112,7 @@ impl TextRenderer {
         if config.classify {
             match &entry.entry_type {
                 EntryType::Directory => name.push('/'),
-                EntryType::Symlink { .. } => name.push('@'),
-                EntryType::Junction { .. } => name.push('@'),
+                EntryType::Symlink { .. } | EntryType::Junction { .. } => {}
                 EntryType::File => {
                     if is_executable(&entry.path) {
                         name.push('*');
@@ -331,4 +330,3 @@ fn is_executable(path: &std::path::Path) -> bool {
         false
     }
 }
-
