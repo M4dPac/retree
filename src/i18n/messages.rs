@@ -67,6 +67,12 @@ pub enum MessageKey {
     ArgPermissions,
     ArgLongPaths,
     ArgLang,
+    ArgVersion,
+    ArgHelp,
+    ArgJsonPretty,
+    ArgParallel,
+    ArgThreads,
+    ArgQueueCap,
 
     // Sort types
     SortName,
@@ -129,6 +135,19 @@ pub enum MessageKey {
 
     // Report
     ReportFormat,
+
+    // Section headings
+    HeadingOptions,
+    HeadingListingOptions,
+    HeadingFiltering,
+    HeadingSorting,
+    HeadingDisplay,
+    HeadingFileInformation,
+    HeadingExport,
+    HeadingPerformance,
+    HeadingIcons,
+    HeadingWindows,
+    HeadingLocalization,
 }
 
 pub fn get_message(lang: Language, key: MessageKey) -> &'static str {
@@ -204,6 +223,14 @@ fn get_message_en(key: MessageKey) -> &'static str {
         MessageKey::ArgPermissions => "Permission format (posix/windows)",
         MessageKey::ArgLongPaths => "Force long path prefix (\\\\?\\)",
         MessageKey::ArgLang => "Interface language (en/ru)",
+        MessageKey::ArgVersion => "Print version",
+        MessageKey::ArgHelp => "Print help information",
+        MessageKey::ArgJsonPretty => "Pretty-print JSON output (fully formatted)",
+        MessageKey::ArgParallel => {
+            "Enable parallel directory traversal (faster for large directories)"
+        }
+        MessageKey::ArgThreads => "Number of worker threads for parallel mode (default: CPU cores)",
+        MessageKey::ArgQueueCap => "Internal queue capacity per thread for parallel mode",
 
         // Sort types
         MessageKey::SortName => "name",
@@ -266,6 +293,19 @@ fn get_message_en(key: MessageKey) -> &'static str {
 
         // Report
         MessageKey::ReportFormat => "{} {}, {} {}",
+
+        // Section headings
+        MessageKey::HeadingOptions => "Options",
+        MessageKey::HeadingListingOptions => "Listing Options",
+        MessageKey::HeadingFiltering => "Filtering",
+        MessageKey::HeadingSorting => "Sorting",
+        MessageKey::HeadingDisplay => "Display",
+        MessageKey::HeadingFileInformation => "File Information",
+        MessageKey::HeadingExport => "Export",
+        MessageKey::HeadingPerformance => "Performance",
+        MessageKey::HeadingIcons => "Icons",
+        MessageKey::HeadingWindows => "Windows",
+        MessageKey::HeadingLocalization => "Localization",
     }
 }
 
@@ -335,6 +375,12 @@ fn get_message_ru(key: MessageKey) -> &'static str {
         MessageKey::ArgPermissions => "Формат прав доступа (posix/windows)",
         MessageKey::ArgLongPaths => "Принудительно использовать префикс \\\\?\\",
         MessageKey::ArgLang => "Язык интерфейса (en/ru)",
+        MessageKey::ArgVersion => "Показать версию",
+        MessageKey::ArgHelp => "Показать справку",
+        MessageKey::ArgJsonPretty => "Форматированный JSON-вывод",
+        MessageKey::ArgParallel => "Параллельный обход каталогов (быстрее для больших деревьев)",
+        MessageKey::ArgThreads => "Количество рабочих потоков (по умолчанию: число ядер ЦП)",
+        MessageKey::ArgQueueCap => "Ёмкость очереди на поток в параллельном режиме",
 
         // Sort types
         MessageKey::SortName => "имя",
@@ -397,6 +443,19 @@ fn get_message_ru(key: MessageKey) -> &'static str {
 
         // Report
         MessageKey::ReportFormat => "{} {}, {} {}",
+
+        // Section headings
+        MessageKey::HeadingOptions => "Параметры",
+        MessageKey::HeadingListingOptions => "Параметры отображения",
+        MessageKey::HeadingFiltering => "Фильтрация",
+        MessageKey::HeadingSorting => "Сортировка",
+        MessageKey::HeadingDisplay => "Вывод",
+        MessageKey::HeadingFileInformation => "Информация о файлах",
+        MessageKey::HeadingExport => "Экспорт",
+        MessageKey::HeadingPerformance => "Производительность",
+        MessageKey::HeadingIcons => "Иконки",
+        MessageKey::HeadingWindows => "Windows",
+        MessageKey::HeadingLocalization => "Локализация",
     }
 }
 
