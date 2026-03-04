@@ -10,16 +10,31 @@ use crate::core::walker::TreeStats;
 /// Increments directories/files/symlinks counters as appropriate.
 /// Used by all renderers during tree traversal.
 pub fn count_stats(entry: &Entry, stats: &mut TreeStats) {
-    if entry.entry_type.is_directory() {
-        stats.directories += 1;
-    } else {
-        stats.files += 1;
-    }
-    if entry.entry_type.is_symlink() {
-        stats.symlinks += 1;
+    match &entry.entry_type {
+        EntryType::Directory => {
+            stats.directories += 1;
+        }
+        EntryType::Symlink { target, broken } => {
+            stats.symlinks += 1;
+            // GNU tree counts symlinks to directories as directories
+            if !broken
+                && entry
+                    .path
+                    .parent()
+                    .map(|p| p.join(target))
+                    .map(|resolved| resolved.is_dir())
+                    .unwrap_or(false)
+            {
+                stats.directories += 1;
+            } else {
+                stats.files += 1;
+            }
+        }
+        _ => {
+            stats.files += 1;
+        }
     }
 }
-
 /// Format size in human-readable form.
 ///
 /// Uses IEC units (KiB, MiB, ...) by default,
