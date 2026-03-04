@@ -162,6 +162,34 @@ fn run_tree(dir: &Path, extra_args: &[&str]) -> String {
     String::from_utf8(out.stdout).expect("tree output not UTF-8")
 }
 
+/// Run system `tree` command, allowing non-zero exit codes.
+///
+/// Some tree flags (like --filelimit) return exit code 2 when directories
+/// are skipped, which is not an error condition for our comparison.
+fn run_tree_lenient(dir: &Path, extra_args: &[&str]) -> String {
+    let name = dir.file_name().unwrap();
+    let parent = dir.parent().unwrap();
+
+    let out = Command::new("tree")
+        .current_dir(parent)
+        .arg(name)
+        .arg("-n")
+        .args(extra_args)
+        .env("LC_ALL", "en_US.UTF-8")
+        .output()
+        .expect("failed to execute tree");
+
+    if !out.status.success() && out.status.code() != Some(2) {
+        panic!(
+            "tree failed (status {:?}):\nstderr: {}",
+            out.status,
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    String::from_utf8(out.stdout).expect("tree output not UTF-8")
+}
+
 /// Run rtree binary.
 ///
 /// Always adds `--no-icons --lang en -n` for consistent comparison with tree.
@@ -584,13 +612,30 @@ fn compat_prune_with_pattern() {
 #[test]
 fn compat_filelimit() {
     require_tree!();
-    let tmp = make_test_dir();
-    let dir = tmp.path().join("testroot");
-    compare(
-        &dir,
-        &["--filelimit", "3", "--noreport"],
-        "--filelimit 3 --noreport",
-    );
+    // Create a custom structure for filelimit test:
+    // root/           (2 entries — will open)
+    // ├── small/      (2 entries — will open)
+    // │   ├── a.txt
+    // │   └── b.txt
+    // └── large/      (5 entries — exceeds filelimit 4, won't open)
+    //     ├── f1..f5.txt
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("filelimit_test");
+    fs::create_dir(&root).unwrap();
+
+    fs::create_dir(root.join("small")).unwrap();
+    fs::write(root.join("small/a.txt"), "a").unwrap();
+    fs::write(root.join("small/b.txt"), "b").unwrap();
+
+    fs::create_dir(root.join("large")).unwrap();
+    for i in 1..=5 {
+        fs::write(root.join(format!("large/f{}.txt", i)), "").unwrap();
+    }
+
+    let args = &["--filelimit", "4", "--noreport"];
+    let t = run_tree_lenient(&root, args);
+    let r = run_rtree(&root, args);
+    assert_match(&t, &r, "--filelimit 4 --noreport");
 }
 
 // ============================================================================
