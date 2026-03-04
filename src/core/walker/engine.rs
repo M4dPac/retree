@@ -78,7 +78,7 @@ fn build_node_sequential(
     config: &Config,
     errors: &mut Vec<TreeError>,
 ) -> Option<Node> {
-    let entry = match TreeEntry::from_path(
+    let mut entry = match TreeEntry::from_path(
         path,
         depth,
         false,
@@ -119,6 +119,7 @@ fn build_node_sequential(
     // filelimit: skip directories with too many entries
     if let Some(limit) = config.file_limit {
         if dir_entries.len() > limit {
+            entry.filelimit_exceeded = Some(dir_entries.len());
             return Some(Node {
                 entry,
                 children: Vec::new(),
@@ -222,7 +223,7 @@ fn build_node_parallel_inner(
     config: &Config,
     errors: &Mutex<Vec<TreeError>>,
 ) -> Option<Node> {
-    let entry = match TreeEntry::from_path(
+    let mut entry = match TreeEntry::from_path(
         path,
         depth,
         false,
@@ -267,6 +268,7 @@ fn build_node_parallel_inner(
     // filelimit: skip directories with too many entries
     if let Some(limit) = config.file_limit {
         if dir_entries.len() > limit {
+            entry.filelimit_exceeded = Some(dir_entries.len());
             return Some(Node {
                 entry,
                 children: Vec::new(),
