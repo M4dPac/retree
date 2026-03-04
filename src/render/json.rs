@@ -195,11 +195,20 @@ impl Renderer for JsonRenderer {
         let mut output = vec![root_value];
 
         if !config.no_report {
-            output.push(serde_json::json!({
-                "type": "report",
-                "directories": stats.directories.saturating_sub(1),
-                "files": stats.files
-            }));
+            // GNU tree omits "files" key when dirs_only mode
+            let report = if config.dirs_only {
+                serde_json::json!({
+                    "type": "report",
+                    "directories": stats.directories.saturating_sub(1)
+                })
+            } else {
+                serde_json::json!({
+                    "type": "report",
+                    "directories": stats.directories.saturating_sub(1),
+                    "files": stats.files
+                })
+            };
+            output.push(report);
         }
 
         let json_str = if config.json_pretty {
@@ -213,4 +222,3 @@ impl Renderer for JsonRenderer {
         Ok(())
     }
 }
-
