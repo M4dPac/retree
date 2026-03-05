@@ -203,15 +203,19 @@ impl TextRenderer {
 
             if config.show_owner {
                 if let Some(ref owner) = meta.owner {
-                    info.push_str(owner);
-                    info.push_str("  ");
+                    // GNU tree format: [username] with 8-char width padding
+                    info.push('[');
+                    info.push_str(&format!("{:<8}", owner));
+                    info.push_str("]  ");
                 }
             }
 
             if config.show_group {
                 if let Some(ref group) = meta.group {
-                    info.push_str(group);
-                    info.push_str("  ");
+                    // GNU tree format: [groupname] with 8-char width padding
+                    info.push('[');
+                    info.push_str(&format!("{:<8}", group));
+                    info.push_str("]  ");
                 }
             }
         }

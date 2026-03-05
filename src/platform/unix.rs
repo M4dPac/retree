@@ -31,14 +31,26 @@ pub fn get_file_mode(path: &Path) -> Option<u32> {
     Some(metadata.mode())
 }
 
-/// Get file owner UID as string
+/// Get file owner name (or UID if name lookup fails)
 pub fn get_file_owner(path: &Path) -> Option<String> {
     let metadata = std::fs::symlink_metadata(path).ok()?;
-    Some(metadata.uid().to_string())
+    let uid = metadata.uid();
+    
+    // Try to get username, fall back to UID
+    match users::get_user_by_uid(uid) {
+        Some(user) => Some(user.name().to_string_lossy().into_owned()),
+        None => Some(uid.to_string()),
+    }
 }
 
-/// Get file group GID as string
+/// Get file group name (or GID if name lookup fails)
 pub fn get_file_group(path: &Path) -> Option<String> {
     let metadata = std::fs::symlink_metadata(path).ok()?;
-    Some(metadata.gid().to_string())
+    let gid = metadata.gid();
+    
+    // Try to get group name, fall back to GID
+    match users::get_group_by_gid(gid) {
+        Some(group) => Some(group.name().to_string_lossy().into_owned()),
+        None => Some(gid.to_string()),
+    }
 }
