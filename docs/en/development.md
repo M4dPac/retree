@@ -1,8 +1,8 @@
-# 👨‍💻 Разработка
+# 👨‍💻 Development
 
 ---
 
-## Сборка
+## Build
 
 ```bash
 cargo build --release
@@ -10,55 +10,55 @@ cargo build --release
 
 ---
 
-## Тесты
+## Tests
 
 ```bash
-# Все тесты
+# Run all tests
 cargo test
 
-# С выводом в консоль
+# With console output
 cargo test -- --nocapture
 
-# Конкретный тест
+# Specific test
 cargo test test_name
 ```
 
 ---
 
-## Форматирование и линтинг
+## Formatting and linting
 
 ```bash
-# Форматирование кода
+# Format code
 cargo fmt
 
-# Линтер
+# Linter
 cargo clippy
 ```
 
 ---
 
-## Бенчмарки
+## Benchmarks
 
-rtree использует [Criterion.rs](https://github.com/bheisler/criterion.rs) для воспроизводимых и статистически корректных бенчмарков.
+rtree uses [Criterion.rs](https://github.com/bheisler/criterion.rs) for reproducible, statistically sound benchmarks.
 
 ```bash
-# Запуск всех бенчмарков
+# Run all benchmarks
 cargo bench
 
-# Сохранение baseline
+# Save a baseline
 cargo bench -- --save-baseline main
 
-# Сравнение с baseline
+# Compare against baseline
 cargo bench -- --baseline main
 ```
 
-> ⚠️ Бенчмарки запускаются в `release`-режиме и могут занять значительное время (особенно `xlarge_1m`).
+> ⚠️ Benchmarks run in `release` mode and may take a long time (especially `xlarge_1m`).
 
-HTML-отчёты генерируются автоматически в `target/criterion/report/index.html`.
+HTML reports are generated automatically at `target/criterion/report/index.html`.
 
 ---
 
-## Структура проекта
+## Project structure
 
 ```
 .
@@ -67,7 +67,7 @@ HTML-отчёты генерируются автоматически в `target
 ├── Cargo.lock
 ├── Cargo.toml
 ├── docs
-│   ├── en/                   # Документация на английском
+│   ├── en/                   # English documentation
 │   ├── cli-reference.md
 │   ├── colors.md
 │   ├── configuration.md
