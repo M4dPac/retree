@@ -17,6 +17,7 @@ pub struct Entry {
     pub is_last: bool,
     pub ancestors_last: Vec<bool>,
     pub filelimit_exceeded: Option<usize>,
+    pub recursive_link: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -138,6 +139,7 @@ impl Entry {
             is_last,
             ancestors_last,
             filelimit_exceeded: None,
+            recursive_link: false,
         })
     }
 
@@ -168,6 +170,7 @@ impl Entry {
             is_last,
             ancestors_last,
             filelimit_exceeded: None,
+            recursive_link: false,
         })
     }
 
