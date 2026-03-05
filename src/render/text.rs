@@ -133,7 +133,10 @@ impl TextRenderer {
                     name.push(']');
                 }
                 if entry.recursive_link {
-                    name.push_str("  [recursive, not followed]");
+                    let recursive_msg = get_message(i18n::current(), MessageKey::RecursiveLink);
+                    name.push_str("  [");
+                    name.push_str(recursive_msg);
+                    name.push(']');
                 }
             }
             EntryType::Junction { target } => {
