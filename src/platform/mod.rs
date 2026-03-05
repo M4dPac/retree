@@ -33,7 +33,7 @@ pub fn enable_ansi() {
 pub fn is_tty() -> bool {
     #[cfg(windows)]
     {
-        return windows::console::is_tty();
+        windows::console::is_tty()
     }
     #[cfg(not(windows))]
     {
@@ -49,7 +49,7 @@ pub fn is_tty() -> bool {
 pub fn get_junction_target(path: &Path) -> Option<PathBuf> {
     #[cfg(windows)]
     {
-        return windows::reparse::get_junction_target(path);
+        windows::reparse::get_junction_target(path)
     }
     #[cfg(not(windows))]
     {
@@ -62,13 +62,13 @@ pub fn get_junction_target(path: &Path) -> Option<PathBuf> {
 pub fn get_file_id(path: &Path) -> Option<FileIdInfo> {
     #[cfg(windows)]
     {
-        return windows::attributes::get_file_id(path)
+        windows::attributes::get_file_id(path)
             .ok()
             .map(|info| FileIdInfo {
                 file_id: info.file_id,
                 volume_serial: info.volume_serial,
                 number_of_links: info.number_of_links,
-            });
+            })
     }
     #[cfg(not(windows))]
     {
@@ -80,7 +80,7 @@ pub fn get_file_id(path: &Path) -> Option<FileIdInfo> {
 pub fn get_file_attributes_raw(path: &Path) -> Option<u32> {
     #[cfg(windows)]
     {
-        return windows::attributes::get_file_attributes(path).ok();
+        windows::attributes::get_file_attributes(path).ok()
     }
     #[cfg(not(windows))]
     {
@@ -119,7 +119,7 @@ pub fn to_long_path(path: &Path, use_long_paths: bool) -> PathBuf {
                 return PathBuf::from(long_path);
             }
         }
-        return path.to_path_buf();
+        path.to_path_buf()
     }
     #[cfg(not(windows))]
     {
@@ -163,7 +163,7 @@ pub fn get_file_group(path: &Path) -> Option<String> {
 pub fn detect_system_language_id() -> Option<u16> {
     #[cfg(windows)]
     {
-        return Some(windows::locale::get_user_language_id());
+        Some(windows::locale::get_user_language_id())
     }
     #[cfg(not(windows))]
     {
