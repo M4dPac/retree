@@ -357,9 +357,6 @@ fn test_permissions_shows_perm_string() {
 // -u, --uid  (print file owner)
 // ============================================================================
 
-// TODO: Remove #[cfg(unix)] after implementing get_file_owner() for Windows
-// via GetSecurityInfo + LookupAccountSidW (see src/platform/windows/permissions.rs)
-#[cfg(unix)]
 #[test]
 fn test_uid_shows_owner() {
     let dir = tempdir().unwrap();
@@ -386,9 +383,6 @@ fn test_uid_shows_owner() {
 // -g, --gid  (print file group)
 // ============================================================================
 
-// TODO: Remove #[cfg(unix)] after implementing get_file_group() for Windows
-// via GetSecurityInfo + LookupAccountSidW (see src/platform/windows/permissions.rs)
-#[cfg(unix)]
 #[test]
 fn test_gid_shows_group() {
     let dir = tempdir().unwrap();

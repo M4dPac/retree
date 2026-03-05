@@ -132,8 +132,7 @@ pub fn to_long_path(path: &Path, use_long_paths: bool) -> PathBuf {
 pub fn get_file_owner(path: &Path) -> Option<String> {
     #[cfg(windows)]
     {
-        let _ = path;
-        None
+        windows::permissions::get_file_owner(path)
     }
     #[cfg(not(windows))]
     {
@@ -145,8 +144,7 @@ pub fn get_file_owner(path: &Path) -> Option<String> {
 pub fn get_file_group(path: &Path) -> Option<String> {
     #[cfg(windows)]
     {
-        let _ = path;
-        None
+        windows::permissions::get_file_group(path)
     }
     #[cfg(not(windows))]
     {
