@@ -74,7 +74,10 @@ fn test_exclude_multiple_patterns() {
 // ============================================================================
 
 #[test]
-fn test_matchdirs_filters_directories() {
+fn test_matchdirs_shows_all_children_of_matched_dir() {
+    // GNU tree behavior: -P with --matchdirs shows all directories,
+    // but if a directory matches the pattern, ALL its children are shown
+    // (bypassing the -P filter for files inside).
     let dir = tempdir().unwrap();
     let p = dir.path();
 
@@ -88,10 +91,35 @@ fn test_matchdirs_filters_directories() {
         .arg(p)
         .assert()
         .success()
+        // Both directories are shown (dirs are never filtered by -P)
         .stdout(predicate::str::contains("include_me"))
-        .stdout(predicate::str::contains("exclude_me").not());
+        .stdout(predicate::str::contains("exclude_me"))
+        // file.txt inside include_me is shown (parent matched, bypass -P)
+        .stdout(predicate::str::contains("file.txt"));
 }
 
+#[test]
+fn test_matchdirs_prune_removes_unmatched_empty_dirs() {
+    // GNU tree behavior: --matchdirs + --prune removes directories
+    // that don't match -P and have no matching children.
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::create_dir(p.join("include_me")).unwrap();
+    fs::create_dir(p.join("exclude_me")).unwrap();
+    fs::write(p.join("include_me/file.txt"), "").unwrap();
+    fs::write(p.join("exclude_me/file.txt"), "").unwrap();
+
+    rtree()
+        .args(["-P", "include_*", "--matchdirs", "--prune"])
+        .arg(p)
+        .assert()
+        .success()
+        // include_me matches pattern, protected from prune
+        .stdout(predicate::str::contains("include_me"))
+        // exclude_me has no matching children → pruned
+        .stdout(predicate::str::contains("exclude_me").not());
+}
 // ============================================================================
 // --ignore-case  (case insensitive pattern matching)
 // ============================================================================
