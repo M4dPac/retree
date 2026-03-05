@@ -49,9 +49,9 @@ impl OrderedEngine {
             visited.insert(canon);
         }
         let root_node = if self.parallel {
-            build_node_parallel(root.as_ref(), 0, config, &mut errors, visited)
+            build_node_parallel(root.as_ref(), 0, config, &mut errors, visited, false)
         } else {
-            build_node_sequential(root.as_ref(), 0, config, &mut errors, &mut visited)
+            build_node_sequential(root.as_ref(), 0, config, &mut errors, &mut visited, false)
         };
 
         let root_node = match root_node {
@@ -83,6 +83,7 @@ fn build_node_sequential(
     config: &Config,
     errors: &mut Vec<TreeError>,
     visited: &mut HashSet<PathBuf>,
+    parent_matched: bool,
 ) -> Option<Node> {
     let mut entry = match TreeEntry::from_path(
         path,
@@ -179,7 +180,14 @@ fn build_node_sequential(
             continue;
         }
 
-        if !filter.matches(dir_entry.file_name().to_str().unwrap_or(""), is_dir) {
+        let name_str = dir_entry.file_name();
+        let name = name_str.to_str().unwrap_or("");
+        // -I always excludes matching entries
+        if filter.excluded(name) {
+            continue;
+        }
+        // Files: -P (include) applies, unless parent dir matched with --matchdirs
+        if !is_dir && !parent_matched && !filter.matches(name, false) {
             continue;
         }
 
@@ -211,9 +219,15 @@ fn build_node_sequential(
                     }
                 }
             }
-            if let Some(child) =
-                build_node_sequential(&dir_entry.path(), depth + 1, config, errors, visited)
-            {
+            let child_parent_matched = parent_matched || filter.dir_matches_include(name);
+            if let Some(child) = build_node_sequential(
+                &dir_entry.path(),
+                depth + 1,
+                config,
+                errors,
+                visited,
+                child_parent_matched,
+            ) {
                 children.push(child);
             }
         } else {
@@ -238,9 +252,13 @@ fn build_node_sequential(
         }
     }
 
-    // prune: skip empty directories (exept root at depth 0)
+    // prune: skip empty directories (except root at depth 0)
+    // With --matchdirs, directories matching -P pattern are protected from pruning
     if config.prune && children.is_empty() && depth > 0 {
-        return None;
+        let dir_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if !config.filter.dir_matches_include(dir_name) {
+            return None;
+        }
     }
 
     Some(Node { entry, children })
@@ -260,10 +278,18 @@ fn build_node_parallel(
     config: &Config,
     errors: &mut Vec<TreeError>,
     visited: HashSet<PathBuf>,
+    parent_matched: bool,
 ) -> Option<Node> {
     let errors_mutex = Mutex::new(Vec::new());
     let visited_mutex = Mutex::new(visited);
-    let result = build_node_parallel_inner(path, depth, config, &errors_mutex, &visited_mutex);
+    let result = build_node_parallel_inner(
+        path,
+        depth,
+        config,
+        &errors_mutex,
+        &visited_mutex,
+        parent_matched,
+    );
     errors.extend(errors_mutex.into_inner().unwrap_or_default());
     result
 }
@@ -274,6 +300,7 @@ fn build_node_parallel_inner(
     config: &Config,
     errors: &Mutex<Vec<TreeError>>,
     visited: &Mutex<HashSet<PathBuf>>,
+    parent_matched: bool,
 ) -> Option<Node> {
     let mut entry = match TreeEntry::from_path(
         path,
@@ -378,7 +405,14 @@ fn build_node_parallel_inner(
                 return None;
             }
 
-            if !filter.matches(dir_entry.file_name().to_str().unwrap_or(""), is_dir) {
+            let name_str = dir_entry.file_name();
+            let name = name_str.to_str().unwrap_or("");
+            // -I always excludes matching entries
+            if filter.excluded(name) {
+                return None;
+            }
+            // Files: -P (include) applies, unless parent dir matched with --matchdirs
+            if !is_dir && !parent_matched && !filter.matches(name, false) {
                 return None;
             }
 
@@ -414,7 +448,15 @@ fn build_node_parallel_inner(
                         }
                     }
                 }
-                build_node_parallel_inner(&dir_entry.path(), depth + 1, config, errors, visited)
+                let child_parent_matched = parent_matched || filter.dir_matches_include(name);
+                build_node_parallel_inner(
+                    &dir_entry.path(),
+                    depth + 1,
+                    config,
+                    errors,
+                    visited,
+                    child_parent_matched,
+                )
             } else {
                 match TreeEntry::from_dir_entry(
                     dir_entry,
@@ -439,9 +481,13 @@ fn build_node_parallel_inner(
         })
         .collect();
 
-    // prune: skip empty directories (exept root at depth 0)
+    // prune: skip empty directories (except root at depth 0)
+    // With --matchdirs, directories matching -P pattern are protected from pruning
     if config.prune && children.is_empty() && depth > 0 {
-        return None;
+        let dir_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if !config.filter.dir_matches_include(dir_name) {
+            return None;
+        }
     }
 
     Some(Node { entry, children })

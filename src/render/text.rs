@@ -147,7 +147,6 @@ impl TextRenderer {
         }
 
         // filelimit annotation (GNU tree compatible)
-        // filelimit annotation (GNU tree compatible)
         if let Some(count) = entry.filelimit_exceeded {
             let msg = get_message(i18n::current(), MessageKey::ExceedsFileLimit);
             let formatted = msg.replace("{}", &count.to_string());

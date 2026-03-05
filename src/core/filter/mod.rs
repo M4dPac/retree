@@ -47,16 +47,41 @@ impl Filter {
             }
         }
 
-        // For directories, only apply include pattern if match_dirs is true
-        if is_dir && !self.match_dirs {
+        // Directories are never filtered by -P (always shown and traversed)
+        if is_dir {
             return true;
         }
 
-        // Apply include pattern
+        // Apply include pattern to files
         if let Some(ref pattern) = self.include {
             return pattern.matches(name);
         }
 
         true
+    }
+
+    /// Check if an entry is excluded by -I patterns.
+    /// Always applies to both files and directories (GNU tree behavior).
+    /// Unlike -P, -I does not require --matchdirs to affect directories.
+    pub fn excluded(&self, name: &str) -> bool {
+        for pattern in &self.exclude {
+            if pattern.matches(name) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Check if directory name matches the -P include pattern.
+    /// Used with --matchdirs: if a directory matches, all its descendants bypass -P filter.
+    /// Also protects the directory from --prune.
+    pub fn dir_matches_include(&self, name: &str) -> bool {
+        if !self.match_dirs {
+            return false;
+        }
+        if let Some(ref pattern) = self.include {
+            return pattern.matches(name);
+        }
+        false
     }
 }
