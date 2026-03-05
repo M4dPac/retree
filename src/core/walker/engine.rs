@@ -158,6 +158,11 @@ fn build_node_sequential(
             }
         }
 
+        // prune: symlinks to directories are "empty" when not followed — skip them
+        if config.prune && file_type.is_symlink() && dir_entry.path().is_dir() {
+            continue;
+        }
+
         if !filter.matches(dir_entry.file_name().to_str().unwrap_or(""), is_dir) {
             continue;
         }
@@ -307,6 +312,11 @@ fn build_node_parallel_inner(
                 if !is_dir && !is_symlink_to_dir {
                     return None;
                 }
+            }
+
+            // prune: symlinks to directories are "empty" when not followed — skip them
+            if config.prune && file_type.is_symlink() && dir_entry.path().is_dir() {
+                return None;
             }
 
             if !filter.matches(dir_entry.file_name().to_str().unwrap_or(""), is_dir) {
