@@ -35,7 +35,7 @@ pub fn get_file_mode(path: &Path) -> Option<u32> {
 pub fn get_file_owner(path: &Path) -> Option<String> {
     let metadata = std::fs::symlink_metadata(path).ok()?;
     let uid = metadata.uid();
-    
+
     // Try to get username, fall back to UID
     match users::get_user_by_uid(uid) {
         Some(user) => Some(user.name().to_string_lossy().into_owned()),
@@ -47,7 +47,7 @@ pub fn get_file_owner(path: &Path) -> Option<String> {
 pub fn get_file_group(path: &Path) -> Option<String> {
     let metadata = std::fs::symlink_metadata(path).ok()?;
     let gid = metadata.gid();
-    
+
     // Try to get group name, fall back to GID
     match users::get_group_by_gid(gid) {
         Some(group) => Some(group.name().to_string_lossy().into_owned()),

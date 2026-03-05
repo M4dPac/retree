@@ -289,4 +289,3 @@ pub fn build_localized_command(lang: Language) -> clap::Command {
 fn msg(lang: Language, key: MessageKey) -> String {
     get_message(lang, key).to_string()
 }
-
