@@ -132,6 +132,9 @@ impl TextRenderer {
                     name.push_str(broken_msg);
                     name.push(']');
                 }
+                if entry.recursive_link {
+                    name.push_str("  [recursive, not followed]");
+                }
             }
             EntryType::Junction { target } => {
                 name.push_str(" => ");

@@ -1,8 +1,9 @@
 //! Unified tree engine (sequential + parallel)
 //! Deterministic structure, no duplicates, identical output in both modes.
 
+use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use rayon::prelude::*;
 
@@ -43,10 +44,14 @@ impl OrderedEngine {
     pub fn traverse<P: AsRef<Path>>(&self, root: P, config: &Config) -> TraversalResult {
         let mut errors = Vec::new();
 
+        let mut visited = HashSet::new();
+        if let Ok(canon) = root.as_ref().canonicalize() {
+            visited.insert(canon);
+        }
         let root_node = if self.parallel {
-            build_node_parallel(root.as_ref(), 0, config, &mut errors)
+            build_node_parallel(root.as_ref(), 0, config, &mut errors, visited)
         } else {
-            build_node_sequential(root.as_ref(), 0, config, &mut errors)
+            build_node_sequential(root.as_ref(), 0, config, &mut errors, &mut visited)
         };
 
         let root_node = match root_node {
@@ -77,6 +82,7 @@ fn build_node_sequential(
     depth: usize,
     config: &Config,
     errors: &mut Vec<TreeError>,
+    visited: &mut HashSet<PathBuf>,
 ) -> Option<Node> {
     let mut entry = match TreeEntry::from_path(
         path,
@@ -92,6 +98,11 @@ fn build_node_sequential(
             return None;
         }
     };
+
+    // Track visited directories for recursive symlink detection
+    if let Ok(canon) = path.canonicalize() {
+        visited.insert(canon);
+    }
 
     if let Some(max) = config.max_depth {
         if depth >= max {
@@ -140,7 +151,8 @@ fn build_node_sequential(
             }
         };
 
-        let is_dir = file_type.is_dir();
+        let is_dir = file_type.is_dir()
+            || (config.follow_symlinks && file_type.is_symlink() && dir_entry.path().is_dir());
 
         if !config.show_all {
             if let Some(name) = dir_entry.file_name().to_str() {
@@ -159,7 +171,11 @@ fn build_node_sequential(
         }
 
         // prune: symlinks to directories are "empty" when not followed — skip them
-        if config.prune && file_type.is_symlink() && dir_entry.path().is_dir() {
+        if config.prune
+            && !config.follow_symlinks
+            && file_type.is_symlink()
+            && dir_entry.path().is_dir()
+        {
             continue;
         }
 
@@ -168,7 +184,35 @@ fn build_node_sequential(
         }
 
         if is_dir {
-            if let Some(child) = build_node_sequential(&dir_entry.path(), depth + 1, config, errors)
+            // Check for recursive symlink when following
+            if config.follow_symlinks && file_type.is_symlink() {
+                if let Ok(canon) = dir_entry.path().canonicalize() {
+                    if visited.contains(&canon) {
+                        match TreeEntry::from_dir_entry(
+                            &dir_entry,
+                            depth + 1,
+                            false,
+                            vec![],
+                            config.show_inodes,
+                            config.show_permissions,
+                        ) {
+                            Ok(mut entry) => {
+                                entry.recursive_link = true;
+                                children.push(Node {
+                                    entry,
+                                    children: Vec::new(),
+                                });
+                            }
+                            Err(e) => {
+                                errors.push(e);
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
+            if let Some(child) =
+                build_node_sequential(&dir_entry.path(), depth + 1, config, errors, visited)
             {
                 children.push(child);
             }
@@ -215,9 +259,11 @@ fn build_node_parallel(
     depth: usize,
     config: &Config,
     errors: &mut Vec<TreeError>,
+    visited: HashSet<PathBuf>,
 ) -> Option<Node> {
     let errors_mutex = Mutex::new(Vec::new());
-    let result = build_node_parallel_inner(path, depth, config, &errors_mutex);
+    let visited_mutex = Mutex::new(visited);
+    let result = build_node_parallel_inner(path, depth, config, &errors_mutex, &visited_mutex);
     errors.extend(errors_mutex.into_inner().unwrap_or_default());
     result
 }
@@ -227,6 +273,7 @@ fn build_node_parallel_inner(
     depth: usize,
     config: &Config,
     errors: &Mutex<Vec<TreeError>>,
+    visited: &Mutex<HashSet<PathBuf>>,
 ) -> Option<Node> {
     let mut entry = match TreeEntry::from_path(
         path,
@@ -244,6 +291,13 @@ fn build_node_parallel_inner(
             return None;
         }
     };
+
+    // Track visited directories for recursive symlink detection
+    if let Ok(canon) = path.canonicalize() {
+        if let Ok(mut v) = visited.lock() {
+            v.insert(canon);
+        }
+    }
 
     if let Some(max) = config.max_depth {
         if depth >= max {
@@ -296,7 +350,8 @@ fn build_node_parallel_inner(
                 }
             };
 
-            let is_dir = file_type.is_dir();
+            let is_dir = file_type.is_dir()
+                || (config.follow_symlinks && file_type.is_symlink() && dir_entry.path().is_dir());
 
             if !config.show_all {
                 if let Some(name) = dir_entry.file_name().to_str() {
@@ -315,7 +370,11 @@ fn build_node_parallel_inner(
             }
 
             // prune: symlinks to directories are "empty" when not followed — skip them
-            if config.prune && file_type.is_symlink() && dir_entry.path().is_dir() {
+            if config.prune
+                && !config.follow_symlinks
+                && file_type.is_symlink()
+                && dir_entry.path().is_dir()
+            {
                 return None;
             }
 
@@ -324,7 +383,38 @@ fn build_node_parallel_inner(
             }
 
             if is_dir {
-                build_node_parallel_inner(&dir_entry.path(), depth + 1, config, errors)
+                // Check for recursive symlink when following
+                if config.follow_symlinks && file_type.is_symlink() {
+                    if let Ok(canon) = dir_entry.path().canonicalize() {
+                        let is_recursive =
+                            visited.lock().map(|v| v.contains(&canon)).unwrap_or(false);
+                        if is_recursive {
+                            return match TreeEntry::from_dir_entry(
+                                dir_entry,
+                                depth + 1,
+                                false,
+                                vec![],
+                                config.show_inodes,
+                                config.show_permissions,
+                            ) {
+                                Ok(mut entry) => {
+                                    entry.recursive_link = true;
+                                    Some(Node {
+                                        entry,
+                                        children: Vec::new(),
+                                    })
+                                }
+                                Err(e) => {
+                                    if let Ok(mut errs) = errors.lock() {
+                                        errs.push(e);
+                                    }
+                                    None
+                                }
+                            };
+                        }
+                    }
+                }
+                build_node_parallel_inner(&dir_entry.path(), depth + 1, config, errors, visited)
             } else {
                 match TreeEntry::from_dir_entry(
                     dir_entry,
