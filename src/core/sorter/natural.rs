@@ -52,7 +52,7 @@ fn parse_number(chars: &mut std::iter::Peekable<std::str::Chars>) -> u64 {
         if c.is_ascii_digit() {
             num = num
                 .saturating_mul(10)
-                .saturating_add(c.to_digit(10).unwrap() as u64);
+                .saturating_add(c.to_digit(10).unwrap_or(0) as u64);
             chars.next();
         } else {
             break;
