@@ -54,14 +54,30 @@ impl GlobPattern {
     }
 }
 
+/// Maximum number of matching steps to prevent ReDoS
+/// with pathological patterns like `*a*a*a*a*b`.
+const MAX_GLOB_STEPS: usize = 10_000;
+
 fn glob_match(pattern: &str, text: &str) -> bool {
     let pattern: Vec<char> = pattern.chars().collect();
     let text: Vec<char> = text.chars().collect();
+    let mut steps = 0;
 
-    glob_match_recursive(&pattern, &text, 0, 0)
+    glob_match_recursive(&pattern, &text, 0, 0, &mut steps)
 }
 
-fn glob_match_recursive(pattern: &[char], text: &[char], pi: usize, ti: usize) -> bool {
+fn glob_match_recursive(
+    pattern: &[char],
+    text: &[char],
+    pi: usize,
+    ti: usize,
+    steps: &mut usize,
+) -> bool {
+    *steps += 1;
+    if *steps > MAX_GLOB_STEPS {
+        return false;
+    }
+
     if pi >= pattern.len() {
         return ti >= text.len();
     }
@@ -70,7 +86,7 @@ fn glob_match_recursive(pattern: &[char], text: &[char], pi: usize, ti: usize) -
         '*' => {
             // Match zero or more characters
             for i in ti..=text.len() {
-                if glob_match_recursive(pattern, text, pi + 1, i) {
+                if glob_match_recursive(pattern, text, pi + 1, i, steps) {
                     return true;
                 }
             }
@@ -79,7 +95,7 @@ fn glob_match_recursive(pattern: &[char], text: &[char], pi: usize, ti: usize) -
         '?' => {
             // Match exactly one character
             if ti < text.len() {
-                glob_match_recursive(pattern, text, pi + 1, ti + 1)
+                glob_match_recursive(pattern, text, pi + 1, ti + 1, steps)
             } else {
                 false
             }
@@ -107,7 +123,7 @@ fn glob_match_recursive(pattern: &[char], text: &[char], pi: usize, ti: usize) -
             let matches = if negated { !matches } else { matches };
 
             if matches {
-                glob_match_recursive(pattern, text, end + 1, ti + 1)
+                glob_match_recursive(pattern, text, end + 1, ti + 1, steps)
             } else {
                 false
             }
@@ -115,7 +131,7 @@ fn glob_match_recursive(pattern: &[char], text: &[char], pi: usize, ti: usize) -
         '\\' if pi + 1 < pattern.len() => {
             // Escaped character
             if ti < text.len() && text[ti] == pattern[pi + 1] {
-                glob_match_recursive(pattern, text, pi + 2, ti + 1)
+                glob_match_recursive(pattern, text, pi + 2, ti + 1, steps)
             } else {
                 false
             }
@@ -123,7 +139,7 @@ fn glob_match_recursive(pattern: &[char], text: &[char], pi: usize, ti: usize) -
         c => {
             // Literal character
             if ti < text.len() && text[ti] == c {
-                glob_match_recursive(pattern, text, pi + 1, ti + 1)
+                glob_match_recursive(pattern, text, pi + 1, ti + 1, steps)
             } else {
                 false
             }
