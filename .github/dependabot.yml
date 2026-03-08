@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Обновление GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(ci)"
+
+  # Обновление Cargo зависимостей
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(build)"
+    # Игнорировать major-версии — требуют ручной проверки
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
