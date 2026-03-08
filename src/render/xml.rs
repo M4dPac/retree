@@ -52,7 +52,11 @@ impl XmlRenderer {
                 if let Some(modified) = meta.modified {
                     use chrono::{DateTime, Utc};
                     let dt: DateTime<Utc> = modified.into();
-                    write!(writer, " time=\"{}\"", dt.format(&config.time_fmt))?;
+                    write!(
+                        writer,
+                        " time=\"{}\"",
+                        helpers::escape_xml(&dt.format(&config.time_fmt).to_string())
+                    )?;
                 }
             }
 
@@ -145,7 +149,7 @@ impl XmlRenderer {
                 // We need to write meta attrs into the tag string
                 let mut meta_buf: Vec<u8> = Vec::new();
                 Self::write_meta_attrs(&mut meta_buf, entry, config)?;
-                tag.push_str(&String::from_utf8(meta_buf).unwrap());
+                tag.push_str(&String::from_utf8(meta_buf).unwrap_or_default());
                 self.pending_dir = Some((entry.depth, tag));
             }
             EntryType::File | EntryType::HardLink { .. } => {
