@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## 0.1.2
+## [0.1.2] - 2026-03-08
 
 ### Fixed
 
@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - escape HTML and XML output to prevent injection issues
 - harden JSON renderer against stack underflow panics
 
-## 0.1.1 - 2026-03-05
+## [0.1.1] - 2026-03-05
 
 ### Added
 
