@@ -174,9 +174,12 @@ impl Renderer for JsonRenderer {
         for entry in &result.entries {
             helpers::count_stats(entry, stats);
 
-            while stack.len() > entry.depth {
-                let child = stack.pop().unwrap();
-                stack.last_mut().unwrap().contents.push(child);
+            while stack.len() > entry.depth && stack.len() > 1 {
+                if let Some(child) = stack.pop() {
+                    if let Some(parent) = stack.last_mut() {
+                        parent.contents.push(child);
+                    }
+                }
             }
 
             stack.push(Self::make_json_entry(entry, config));
@@ -184,12 +187,16 @@ impl Renderer for JsonRenderer {
 
         // Unwind remaining stack into root
         while stack.len() > 1 {
-            let child = stack.pop().unwrap();
-            stack.last_mut().unwrap().contents.push(child);
+            if let Some(child) = stack.pop() {
+                if let Some(parent) = stack.last_mut() {
+                    parent.contents.push(child);
+                }
+            }
         }
 
-        let root = stack.pop().unwrap();
-
+        let root = stack
+            .pop()
+            .unwrap_or_else(|| Self::make_json_entry(&result.root, config));
         let root_value =
             serde_json::to_value(&root).map_err(|e| TreeError::Generic(e.to_string()))?;
         let mut output = vec![root_value];

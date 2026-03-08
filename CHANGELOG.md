@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 0.1.2
+
+### Fixed
+
+- prevent exponential backtracking in glob pattern matcher
+- avoid potential infinite recursion when symlink tracking lock fails
+- fix panic in natural sort number parsing
+- escape HTML and XML output to prevent injection issues
+- harden JSON renderer against stack underflow panics
+
 ## 0.1.1 - 2026-03-05
 
 ### Added

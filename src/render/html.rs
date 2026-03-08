@@ -147,7 +147,7 @@ impl HtmlRenderer {
                 stats.directories.saturating_sub(1),
                 stats.files,
             );
-            writeln!(writer, "<p>{}</p>", report)?;
+            writeln!(writer, "<p>{}</p>", helpers::escape_html(&report))?;
         }
 
         writeln!(writer, "</body>")?;
