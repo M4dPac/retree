@@ -1,13 +1,14 @@
 //! Unix/POSIX platform implementations.
 
 use std::fs::Metadata;
+use std::io::IsTerminal;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
 use crate::platform::FileIdInfo;
 
 pub fn is_tty() -> bool {
-    atty::is(atty::Stream::Stdout)
+    std::io::stdout().is_terminal()
 }
 
 /// Get file ID info (inode, device, link count) on Unix
@@ -37,7 +38,7 @@ pub fn get_file_owner(path: &Path) -> Option<String> {
     let uid = metadata.uid();
 
     // Try to get username, fall back to UID
-    match users::get_user_by_uid(uid) {
+    match uzers::get_user_by_uid(uid) {
         Some(user) => Some(user.name().to_string_lossy().into_owned()),
         None => Some(uid.to_string()),
     }
@@ -49,7 +50,7 @@ pub fn get_file_group(path: &Path) -> Option<String> {
     let gid = metadata.gid();
 
     // Try to get group name, fall back to GID
-    match users::get_group_by_gid(gid) {
+    match uzers::get_group_by_gid(gid) {
         Some(group) => Some(group.name().to_string_lossy().into_owned()),
         None => Some(gid.to_string()),
     }
