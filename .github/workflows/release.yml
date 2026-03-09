@@ -54,7 +54,7 @@ jobs:
           cd target/${{ matrix.target }}/release
           tar czf ../../../rtree-${{ matrix.target }}.tar.gz rtree
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rtree-${{ matrix.target }}
           path: |
