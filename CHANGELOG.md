@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-03-09
+
+### Fixed
+
+- detect directory cycles (junctions, symlinks, mount points) and mark entries as recursive instead of descending infinitely
+- ensure directory cycle detection works even when canonicalize fails by falling back to original path
+- ensure file ID is collected when using `--one-fs` or `--show-device`
+- correctly enforce `--one-fs` by skipping directories on different volumes
+- use long path prefix for directory traversal when `--long-paths` is enabled
+- make Windows long path conversion UTF-16 safe
+- correctly handle UNC and device paths when using `--long-paths`
+
 ## [0.1.2] - 2026-03-08
 
 ### Fixed
