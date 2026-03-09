@@ -82,12 +82,13 @@ fn build_node_sequential(
     visited: &mut HashSet<PathBuf>,
     parent_matched: bool,
 ) -> Option<Node> {
+    let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
     let mut entry = match TreeEntry::from_path(
         path,
         depth,
         false,
         vec![],
-        config.show_inodes,
+        needs_file_id,
         config.show_permissions,
     ) {
         Ok(e) => e,
@@ -203,7 +204,7 @@ fn build_node_sequential(
                             depth + 1,
                             false,
                             vec![],
-                            config.show_inodes,
+                            needs_file_id,
                             config.show_permissions,
                         ) {
                             Ok(mut entry) => {
@@ -238,7 +239,7 @@ fn build_node_sequential(
                 depth + 1,
                 false,
                 vec![],
-                config.show_inodes,
+                needs_file_id,
                 config.show_permissions,
             ) {
                 Ok(entry) => {
@@ -304,12 +305,13 @@ fn build_node_parallel_inner(
     visited: &Mutex<HashSet<PathBuf>>,
     parent_matched: bool,
 ) -> Option<Node> {
+    let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
     let mut entry = match TreeEntry::from_path(
         path,
         depth,
         false,
         vec![],
-        config.show_inodes,
+        needs_file_id,
         config.show_permissions,
     ) {
         Ok(e) => e,
@@ -437,7 +439,7 @@ fn build_node_parallel_inner(
                                 depth + 1,
                                 false,
                                 vec![],
-                                config.show_inodes,
+                                needs_file_id,
                                 config.show_permissions,
                             ) {
                                 Ok(mut entry) => {
@@ -472,7 +474,7 @@ fn build_node_parallel_inner(
                     depth + 1,
                     false,
                     vec![],
-                    config.show_inodes,
+                    needs_file_id,
                     config.show_permissions,
                 ) {
                     Ok(entry) => Some(Node {
