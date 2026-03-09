@@ -28,9 +28,18 @@ impl ColorScheme {
         scheme
     }
 
+    /// Validate ANSI color code: only digits and semicolons allowed
+    fn is_valid_ansi_code(code: &str) -> bool {
+        !code.is_empty() && code.len() <= 20 && code.chars().all(|c| c.is_ascii_digit() || c == ';')
+    }
+
     fn parse_ls_colors(&mut self, spec: &str) {
         for entry in spec.split(':') {
             if let Some((key, value)) = entry.split_once('=') {
+                // Skip invalid ANSI codes
+                if !Self::is_valid_ansi_code(value) {
+                    continue;
+                }
                 if key.starts_with('*') {
                     // Extension: *.rs=0;33
                     let ext = key.trim_start_matches("*.");
