@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-03-09
+
+### Added
+
+- sanitize control characters in text output when `--safe-print` is enabled
+
+### Fixed
+
+- make symlink recursion check atomic in parallel walker to prevent race conditions
+- preserve correct Windows error when GetFileInformationByHandle fails
+- validate Windows reparse point buffer length to prevent out-of-bounds reads
+- avoid unnecessary DeviceIoControl calls when detecting junctions on Windows
+- prevent descending into junctions unless `--show-junctions` is enabled
+- escape single quotes in HTML output to prevent attribute injection
+- validate ANSI color codes in LS_COLORS to prevent escape injection
+- correctly handle non-UTF-8 file names in filtering and prune logic
+- apply `--safe-print` sanitization to the entire formatted name
+- prevent metadata loss in XML output when non-UTF-8 bytes are present
+- flush output before exit to prevent data loss when writing to files
+
 ## [0.1.3] - 2026-03-09
 
 ### Fixed
