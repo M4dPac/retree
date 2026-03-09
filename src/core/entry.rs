@@ -207,8 +207,14 @@ fn determine_entry_type(
         }
     } else if file_type.is_dir() {
         // Check for junction point (Windows-only, returns None on other platforms)
-        if let Some(target) = crate::platform::get_junction_target(path) {
-            return Ok(EntryType::Junction { target });
+        // First check reparse attribute to avoid expensive DeviceIoControl call
+        if let Some(attrs) = crate::platform::get_file_attributes_raw(path) {
+            if attrs & 0x400 != 0 {
+                // FILE_ATTRIBUTE_REPARSE_POINT
+                if let Some(target) = crate::platform::get_junction_target(path) {
+                    return Ok(EntryType::Junction { target });
+                }
+            }
         }
         Ok(EntryType::Directory)
     } else if file_type.is_file() {
