@@ -121,9 +121,6 @@ impl TextRenderer {
             name.push_str(&entry.path.display().to_string());
         } else {
             name.push_str(entry.name_str());
-            if config.safe_print {
-                name = Self::sanitize_for_terminal(&name);
-            }
         }
 
         if config.classify {
@@ -170,6 +167,11 @@ impl TextRenderer {
             name.push_str("  [");
             name.push_str(&formatted);
             name.push(']');
+        }
+
+        // Apply safe_print sanitization to entire formatted name
+        if config.safe_print {
+            name = Self::sanitize_for_terminal(&name);
         }
 
         name
