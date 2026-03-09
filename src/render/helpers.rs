@@ -76,6 +76,7 @@ pub fn escape_html(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }
 
 /// Get entry type as a static string (for JSON/XML output).
