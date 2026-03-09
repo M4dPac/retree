@@ -45,9 +45,6 @@ impl OrderedEngine {
         let mut errors = Vec::new();
 
         let mut visited = HashSet::new();
-        if let Ok(canon) = root.as_ref().canonicalize() {
-            visited.insert(canon);
-        }
         let root_node = if self.parallel {
             build_node_parallel(root.as_ref(), 0, config, &mut errors, visited, false)
         } else {
@@ -100,9 +97,16 @@ fn build_node_sequential(
         }
     };
 
-    // Track visited directories for recursive symlink detection
+    // Track visited directories for cycle detection (junctions, symlinks, mount points)
     if let Ok(canon) = path.canonicalize() {
-        visited.insert(canon);
+        if !visited.insert(canon) {
+            // Already visited — this is a cycle
+            entry.recursive_link = true;
+            return Some(Node {
+                entry,
+                children: Vec::new(),
+            });
+        }
     }
 
     if let Some(max) = config.max_depth {
@@ -319,10 +323,18 @@ fn build_node_parallel_inner(
         }
     };
 
-    // Track visited directories for recursive symlink detection
+    // Track visited directories for cycle detection (junctions, symlinks, mount points)
     if let Ok(canon) = path.canonicalize() {
-        if let Ok(mut v) = visited.lock() {
-            v.insert(canon);
+        let already_visited = visited
+            .lock()
+            .map(|mut v| !v.insert(canon))
+            .unwrap_or(false);
+        if already_visited {
+            entry.recursive_link = true;
+            return Some(Node {
+                entry,
+                children: Vec::new(),
+            });
         }
     }
 
