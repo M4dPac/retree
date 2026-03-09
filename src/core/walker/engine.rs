@@ -142,6 +142,18 @@ fn build_node_sequential(
         }
     }
 
+    // Junctions: show in listing but don't descend unless --show-junctions
+    if matches!(
+        entry.entry_type,
+        crate::core::entry::EntryType::Junction { .. }
+    ) && !config.show_junctions
+    {
+        return Some(Node {
+            entry,
+            children: Vec::new(),
+        });
+    }
+
     if let Some(max) = config.max_depth {
         if depth >= max {
             return Some(Node {
@@ -386,6 +398,18 @@ fn build_node_parallel_inner(
                 });
             }
         }
+    }
+
+    // Junctions: show in listing but don't descend unless --show-junctions
+    if matches!(
+        entry.entry_type,
+        crate::core::entry::EntryType::Junction { .. }
+    ) && !config.show_junctions
+    {
+        return Some(Node {
+            entry,
+            children: Vec::new(),
+        });
     }
 
     if let Some(max) = config.max_depth {
