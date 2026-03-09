@@ -102,22 +102,47 @@ pub fn get_file_mode(path: &Path) -> Option<u32> {
     }
 }
 
-/// Convert path to long path format (\\?\) on Windows, identity on other platforms
+/// Convert path to long path format (\\?\) on Windows, identity on other platforms.
+///
+/// Handles three cases:
+/// - `\\?\...` or `\\.\...` — already extended or device path, returned as-is
+/// - `\\server\share\...` — UNC path, converted to `\\?\UNC\server\share\...`
+/// - `C:\...` — regular absolute, converted to `\\?\C:\...`
+///
+/// Uses OsString operations to preserve non-UTF-8 (WTF-16) path components.
 pub fn to_long_path(path: &Path, use_long_paths: bool) -> PathBuf {
     #[cfg(windows)]
     {
-        if use_long_paths {
-            let path_str = path.to_string_lossy();
-            if !path_str.starts_with("\\\\?\\") && path.is_absolute() {
-                if let Some(stripped) = path_str.strip_prefix("\\\\") {
-                    let mut long_path = String::from("\\\\?\\UNC\\");
-                    long_path.push_str(stripped);
-                    return PathBuf::from(long_path);
-                }
-                let mut long_path = String::from("\\\\?\\");
-                long_path.push_str(&path_str);
-                return PathBuf::from(long_path);
+        use std::ffi::OsString;
+        use std::os::windows::ffi::{OsStrExt, OsStringExt};
+
+        if use_long_paths && path.is_absolute() {
+            let wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+
+            // Already extended-length or device path — return as-is
+            // \\?\ = [5C 5C 3F 5C], \\.\ = [5C 5C 2E 5C]
+            if wide.len() >= 4
+                && wide[0] == b'\\' as u16
+                && wide[1] == b'\\' as u16
+                && (wide[2] == b'?' as u16 || wide[2] == b'.' as u16)
+                && wide[3] == b'\\' as u16
+            {
+                return path.to_path_buf();
             }
+
+            // UNC path: \\server\share → \\?\UNC\server\share
+            if wide.len() >= 2 && wide[0] == b'\\' as u16 && wide[1] == b'\\' as u16 {
+                let prefix: Vec<u16> = "\\\\?\\UNC\\".encode_utf16().collect();
+                let mut result = prefix;
+                result.extend_from_slice(&wide[2..]); // skip leading \\
+                return PathBuf::from(OsString::from_wide(&result));
+            }
+
+            // Regular absolute path: C:\... → \\?\C:\...
+            let prefix: Vec<u16> = "\\\\?\\".encode_utf16().collect();
+            let mut result = prefix;
+            result.extend_from_slice(&wide);
+            return PathBuf::from(OsString::from_wide(&result));
         }
         path.to_path_buf()
     }
