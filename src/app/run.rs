@@ -50,7 +50,7 @@ fn execute(config: Config) -> u8 {
     };
 
     // Determine output: file or stdout
-    let output: Box<dyn Write> = if let Some(ref output_path) = config.output_file {
+    let mut output: Box<dyn Write> = if let Some(ref output_path) = config.output_file {
         match std::fs::File::create(output_path) {
             Ok(file) => Box::new(file),
             Err(e) => {
@@ -66,7 +66,13 @@ fn execute(config: Config) -> u8 {
         Box::new(io::stdout().lock())
     };
 
-    let result = process_paths(&config, paths, output, &mut total_stats);
+    let result = process_paths(&config, paths, &mut output, &mut total_stats);
+
+    // Ensure output is flushed before exit
+    if let Err(e) = output.flush() {
+        eprintln!("rtree: error writing output: {}", e);
+        return 1;
+    }
 
     match result {
         Err(TreeError::NotFound(_)) => 3,
@@ -86,7 +92,7 @@ fn execute(config: Config) -> u8 {
 fn process_paths<W: Write>(
     config: &Config,
     paths: Vec<PathBuf>,
-    mut output: W,
+    output: &mut W,
     total_stats: &mut TreeStats,
 ) -> Result<(), TreeError> {
     for (idx, path) in paths.iter().enumerate() {
@@ -108,7 +114,7 @@ fn process_paths<W: Write>(
 
         let mut stats = TreeStats::default();
 
-        let result = render_tree(config, path, &mut output, &mut stats);
+        let result = render_tree(config, path, output, &mut stats);
 
         if let Err(ref e) = result {
             eprintln!("rtree: {}", e);
