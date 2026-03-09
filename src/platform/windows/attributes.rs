@@ -37,10 +37,15 @@ pub fn get_file_id(path: &Path) -> Result<FileIdInfo, std::io::Error> {
 
         let mut info: BY_HANDLE_FILE_INFORMATION = std::mem::zeroed();
         let result = GetFileInformationByHandle(handle, &mut info);
+        let err = if result == 0 {
+            Some(std::io::Error::last_os_error())
+        } else {
+            None
+        };
         CloseHandle(handle);
 
-        if result == 0 {
-            return Err(std::io::Error::last_os_error());
+        if let Some(e) = err {
+            return Err(e);
         }
 
         let file_id = ((info.nFileIndexHigh as u64) << 32) | (info.nFileIndexLow as u64);
