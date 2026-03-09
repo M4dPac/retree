@@ -67,6 +67,20 @@ impl TextRenderer {
         }
     }
 
+    /// Sanitize string for safe terminal output.
+    /// Replaces control characters (except common whitespace) with '?'.
+    fn sanitize_for_terminal(s: &str) -> String {
+        s.chars()
+            .map(|c| {
+                if c.is_control() && c != '\t' && c != '\n' {
+                    '?'
+                } else {
+                    c
+                }
+            })
+            .collect()
+    }
+
     fn format_prefix(&self, entry: &Entry, config: &Config) -> String {
         if config.no_indent {
             return String::new();
@@ -107,6 +121,9 @@ impl TextRenderer {
             name.push_str(&entry.path.display().to_string());
         } else {
             name.push_str(entry.name_str());
+            if config.safe_print {
+                name = Self::sanitize_for_terminal(&name);
+            }
         }
 
         if config.classify {
