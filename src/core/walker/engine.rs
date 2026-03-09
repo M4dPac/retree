@@ -45,10 +45,31 @@ impl OrderedEngine {
         let mut errors = Vec::new();
 
         let mut visited = HashSet::new();
-        let root_node = if self.parallel {
-            build_node_parallel(root.as_ref(), 0, config, &mut errors, visited, false)
+        let root_device = if config.one_fs {
+            crate::platform::get_file_id(root.as_ref()).map(|info| info.volume_serial)
         } else {
-            build_node_sequential(root.as_ref(), 0, config, &mut errors, &mut visited, false)
+            None
+        };
+        let root_node = if self.parallel {
+            build_node_parallel(
+                root.as_ref(),
+                0,
+                config,
+                &mut errors,
+                visited,
+                false,
+                root_device,
+            )
+        } else {
+            build_node_sequential(
+                root.as_ref(),
+                0,
+                config,
+                &mut errors,
+                &mut visited,
+                false,
+                root_device,
+            )
         };
 
         let root_node = match root_node {
@@ -81,6 +102,7 @@ fn build_node_sequential(
     errors: &mut Vec<TreeError>,
     visited: &mut HashSet<PathBuf>,
     parent_matched: bool,
+    root_device: Option<u32>,
 ) -> Option<Node> {
     let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
     let mut entry = match TreeEntry::from_path(
@@ -106,6 +128,18 @@ fn build_node_sequential(
             entry,
             children: Vec::new(),
         });
+    }
+
+    // --one-fs: skip directories on different volumes
+    if let Some(root_dev) = root_device {
+        if let Some(info) = crate::platform::get_file_id(path) {
+            if info.volume_serial != root_dev {
+                return Some(Node {
+                    entry,
+                    children: Vec::new(),
+                });
+            }
+        }
     }
 
     if let Some(max) = config.max_depth {
@@ -230,6 +264,7 @@ fn build_node_sequential(
                 errors,
                 visited,
                 child_parent_matched,
+                root_device,
             ) {
                 children.push(child);
             }
@@ -282,6 +317,7 @@ fn build_node_parallel(
     errors: &mut Vec<TreeError>,
     visited: HashSet<PathBuf>,
     parent_matched: bool,
+    root_device: Option<u32>,
 ) -> Option<Node> {
     let errors_mutex = Mutex::new(Vec::new());
     let visited_mutex = Mutex::new(visited);
@@ -292,6 +328,7 @@ fn build_node_parallel(
         &errors_mutex,
         &visited_mutex,
         parent_matched,
+        root_device,
     );
     errors.extend(errors_mutex.into_inner().unwrap_or_default());
     result
@@ -304,6 +341,7 @@ fn build_node_parallel_inner(
     errors: &Mutex<Vec<TreeError>>,
     visited: &Mutex<HashSet<PathBuf>>,
     parent_matched: bool,
+    root_device: Option<u32>,
 ) -> Option<Node> {
     let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
     let mut entry = match TreeEntry::from_path(
@@ -335,6 +373,18 @@ fn build_node_parallel_inner(
             entry,
             children: Vec::new(),
         });
+    }
+
+    // --one-fs: skip directories on different volumes
+    if let Some(root_dev) = root_device {
+        if let Some(info) = crate::platform::get_file_id(path) {
+            if info.volume_serial != root_dev {
+                return Some(Node {
+                    entry,
+                    children: Vec::new(),
+                });
+            }
+        }
     }
 
     if let Some(max) = config.max_depth {
@@ -467,6 +517,7 @@ fn build_node_parallel_inner(
                     errors,
                     visited,
                     child_parent_matched,
+                    root_device,
                 )
             } else {
                 match TreeEntry::from_dir_entry(
