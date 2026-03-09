@@ -67,19 +67,26 @@ pub fn get_junction_target(path: &Path) -> Option<PathBuf> {
             return None;
         }
 
-        // Parse the mount point data
-        // The structure is complex; this is a simplified version
+        // Validate that we received enough data to parse the mount point header.
+        // bytes_returned includes ReparseTag(4) + ReparseDataLength(2) + Reserved(2) = 8 bytes
+        // plus the mount point header: SubstituteNameOffset(2) + SubstituteNameLength(2)
+        //                            + PrintNameOffset(2) + PrintNameLength(2) = 8 bytes
+        let header_overhead = 8u32; // reparse header before data[]
+        let mount_header = 8u32; // 4 x u16 fields in data[]
+        if bytes_returned < header_overhead + mount_header {
+            return None;
+        }
+        let valid_data_len = (bytes_returned - header_overhead) as usize;
+
         let data = &buffer.data;
 
-        // Skip the substitute name offset (2 bytes) and length (2 bytes)
-        // Skip the print name offset (2 bytes) and length (2 bytes)
         let substitute_name_offset = u16::from_le_bytes([data[0], data[1]]) as usize;
         let substitute_name_length = u16::from_le_bytes([data[2], data[3]]) as usize;
 
         let start = 8 + substitute_name_offset;
         let end = start + substitute_name_length;
 
-        if end > data.len() {
+        if end > valid_data_len || end > data.len() {
             return None;
         }
 
