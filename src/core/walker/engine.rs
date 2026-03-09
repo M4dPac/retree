@@ -231,7 +231,8 @@ fn build_node_sequential(
         }
 
         let name_str = dir_entry.file_name();
-        let name = name_str.to_str().unwrap_or("");
+        let name_lossy = name_str.to_string_lossy();
+        let name = name_lossy.as_ref();
         // -I always excludes matching entries
         if filter.excluded(name) {
             continue;
@@ -306,7 +307,11 @@ fn build_node_sequential(
     // prune: skip empty directories (except root at depth 0)
     // With --matchdirs, directories matching -P pattern are protected from pruning
     if config.prune && children.is_empty() && depth > 0 {
-        let dir_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let dir_name = path
+            .file_name()
+            .map(|n| n.to_string_lossy())
+            .unwrap_or_default();
+        let dir_name = dir_name.as_ref();
         if !config.filter.dir_matches_include(dir_name) {
             return None;
         }
@@ -493,7 +498,8 @@ fn build_node_parallel_inner(
             }
 
             let name_str = dir_entry.file_name();
-            let name = name_str.to_str().unwrap_or("");
+            let name_lossy = name_str.to_string_lossy();
+            let name = name_lossy.as_ref();
             // -I always excludes matching entries
             if filter.excluded(name) {
                 return None;
@@ -572,7 +578,11 @@ fn build_node_parallel_inner(
     // prune: skip empty directories (except root at depth 0)
     // With --matchdirs, directories matching -P pattern are protected from pruning
     if config.prune && children.is_empty() && depth > 0 {
-        let dir_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let dir_name = path
+            .file_name()
+            .map(|n| n.to_string_lossy())
+            .unwrap_or_default();
+        let dir_name = dir_name.as_ref();
         if !config.filter.dir_matches_include(dir_name) {
             return None;
         }
