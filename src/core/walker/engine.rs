@@ -98,15 +98,13 @@ fn build_node_sequential(
     };
 
     // Track visited directories for cycle detection (junctions, symlinks, mount points)
-    if let Ok(canon) = path.canonicalize() {
-        if !visited.insert(canon) {
-            // Already visited — this is a cycle
-            entry.recursive_link = true;
-            return Some(Node {
-                entry,
-                children: Vec::new(),
-            });
-        }
+    let canon_key = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    if !visited.insert(canon_key) {
+        entry.recursive_link = true;
+        return Some(Node {
+            entry,
+            children: Vec::new(),
+        });
     }
 
     if let Some(max) = config.max_depth {
@@ -324,18 +322,17 @@ fn build_node_parallel_inner(
     };
 
     // Track visited directories for cycle detection (junctions, symlinks, mount points)
-    if let Ok(canon) = path.canonicalize() {
-        let already_visited = visited
-            .lock()
-            .map(|mut v| !v.insert(canon))
-            .unwrap_or(false);
-        if already_visited {
-            entry.recursive_link = true;
-            return Some(Node {
-                entry,
-                children: Vec::new(),
-            });
-        }
+    let canon_key = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let already_visited = visited
+        .lock()
+        .map(|mut v| !v.insert(canon_key))
+        .unwrap_or(false);
+    if already_visited {
+        entry.recursive_link = true;
+        return Some(Node {
+            entry,
+            children: Vec::new(),
+        });
     }
 
     if let Some(max) = config.max_depth {
