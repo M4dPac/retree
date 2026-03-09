@@ -151,7 +151,8 @@ fn build_node_sequential(
         }
     }
 
-    let read_dir = match fs::read_dir(path) {
+    let long_path = crate::platform::to_long_path(path, config.long_paths);
+    let read_dir = match fs::read_dir(&long_path) {
         Ok(rd) => rd,
         Err(e) => {
             errors.push(TreeError::Io(path.to_path_buf(), e));
@@ -396,7 +397,8 @@ fn build_node_parallel_inner(
         }
     }
 
-    let read_dir = match fs::read_dir(path) {
+    let long_path = crate::platform::to_long_path(path, config.long_paths);
+    let read_dir = match fs::read_dir(&long_path) {
         Ok(rd) => rd,
         Err(e) => {
             if let Ok(mut errs) = errors.lock() {
