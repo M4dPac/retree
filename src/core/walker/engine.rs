@@ -484,7 +484,7 @@ fn build_node_parallel_inner(
                 if config.follow_symlinks && file_type.is_symlink() {
                     if let Ok(canon) = dir_entry.path().canonicalize() {
                         let is_recursive =
-                            visited.lock().map(|v| v.contains(&canon)).unwrap_or(true);
+                            visited.lock().map(|mut v| !v.insert(canon)).unwrap_or(true);
                         if is_recursive {
                             return match TreeEntry::from_dir_entry(
                                 dir_entry,
