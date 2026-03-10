@@ -83,6 +83,27 @@ pub fn escape_html(s: &str) -> String {
         .replace('\'', "&#39;")
 }
 
+/// Percent-encode a path for use in URL href attributes.
+/// Encodes characters unsafe in URLs while preserving `/`.
+/// Follows RFC 3986: only unreserved characters and `/` pass through.
+pub fn encode_uri_path(s: &str) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut out = String::with_capacity(s.len());
+    for &byte in s.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
+                out.push(byte as char)
+            }
+            _ => {
+                out.push('%');
+                out.push(HEX[(byte >> 4) as usize] as char);
+                out.push(HEX[(byte & 0xf) as usize] as char);
+            }
+        }
+    }
+    out
+}
+
 /// Get entry type as a static string (for JSON/XML output).
 pub fn entry_type_str(entry_type: &EntryType) -> &'static str {
     match entry_type {
