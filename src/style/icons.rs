@@ -1,5 +1,5 @@
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 use crate::cli::IconStyle;
 use crate::core::walker::{EntryType, TreeEntry};
@@ -13,7 +13,7 @@ pub struct IconSet {
 }
 
 // Nerd Font icons
-static NERD_EXT_ICONS: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
+static NERD_EXT_ICONS: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     let mut m = HashMap::new();
 
     // Programming languages
@@ -141,7 +141,7 @@ static NERD_EXT_ICONS: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| 
     m
 });
 
-static NERD_NAME_ICONS: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
+static NERD_NAME_ICONS: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     let mut m = HashMap::new();
 
     m.insert("Cargo.toml", "\u{e7a8}");
@@ -168,7 +168,7 @@ static NERD_NAME_ICONS: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(||
     m
 });
 
-static NERD_DIR_ICONS: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
+static NERD_DIR_ICONS: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     let mut m = HashMap::new();
 
     m.insert(".git", "\u{e5fb}");
