@@ -124,10 +124,12 @@ impl HtmlRenderer {
         write!(writer, "{}", prefix)?;
 
         if !self.no_links {
+            let path_for_url = entry.path.display().to_string().replace('\\', "/");
+            let encoded_path = helpers::encode_uri_path(&path_for_url);
             let href = if let Some(ref base) = self.base_url {
-                format!("{}/{}", base, entry.path.display())
+                format!("{}/{}", base, encoded_path)
             } else {
-                entry.path.display().to_string()
+                encoded_path
             };
             writeln!(
                 writer,
