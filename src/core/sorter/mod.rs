@@ -73,8 +73,17 @@ pub fn sort_entries(entries: &mut [DirEntry], config: &SortConfig) {
     entries.sort_unstable_by(|a, b| {
         // Handle dirs_first / files_first
         if config.dirs_first || config.files_first {
-            let a_is_dir = a.path().is_dir();
-            let b_is_dir = b.path().is_dir();
+            // Use cached file_type() to avoid stat() on every comparison.
+            // For symlinks, fall back to path().is_dir() to follow the link
+            // (matches GNU tree behavior: symlinks to dirs count as dirs).
+            let a_is_dir = a
+                .file_type()
+                .map(|ft| ft.is_dir() || (ft.is_symlink() && a.path().is_dir()))
+                .unwrap_or(false);
+            let b_is_dir = b
+                .file_type()
+                .map(|ft| ft.is_dir() || (ft.is_symlink() && b.path().is_dir()))
+                .unwrap_or(false);
 
             if a_is_dir != b_is_dir {
                 return if config.dirs_first {
