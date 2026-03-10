@@ -62,12 +62,16 @@ pub fn format_human_size(size: u64, si: bool) -> String {
 }
 
 /// Escape special characters for XML output.
+/// Also strips control characters that are illegal in XML 1.0 (§2.2).
 pub fn escape_xml(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
+        .chars()
+        .filter(|&c| matches!(c, '\u{9}' | '\u{A}' | '\u{D}' | '\u{20}'..))
+        .collect()
 }
 
 /// Escape special characters for HTML output.
