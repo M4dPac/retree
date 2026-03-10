@@ -1,3 +1,5 @@
+#![allow(unsafe_code)]
+
 use windows_sys::Win32::System::Console::*;
 
 pub fn enable_ansi() {

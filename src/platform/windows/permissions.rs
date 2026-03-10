@@ -5,6 +5,8 @@
 //! - GetSecurityDescriptorOwner/Group → extract SID
 //! - LookupAccountSidW        → SID → account name
 
+#![allow(unsafe_code)]
+
 use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 

@@ -3,6 +3,8 @@
 //! This crate provides both a library API and CLI for displaying
 //! directory structures in a tree-like format.
 
+#![deny(unsafe_code)]
+
 pub mod app;
 pub mod cli;
 pub mod config;

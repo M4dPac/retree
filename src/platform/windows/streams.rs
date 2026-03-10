@@ -1,3 +1,5 @@
+#![allow(unsafe_code)]
+
 use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 
