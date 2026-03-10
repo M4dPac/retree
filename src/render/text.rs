@@ -281,6 +281,11 @@ impl TextRenderer {
     ) -> Result<(), TreeError> {
         let prefix = self.format_prefix(entry, config);
         let info = self.format_info(entry, config);
+        let info = if config.safe_print {
+            Self::sanitize_for_terminal(&info)
+        } else {
+            info
+        };
         let name = self.format_name(entry, config);
         let colored_name = self.apply_color(entry, &name, config);
 
