@@ -11,7 +11,7 @@
 //!   cargo test --test tree_compat                    # run all compat tests
 //!   cargo test --test tree_compat -- --nocapture     # show output on failure
 //!   cargo test --test tree_compat -- compat_json     # run specific test
-#![cfg(unix)]
+#![cfg(all(unix, feature = "tree_compat"))]
 
 use std::fs;
 use std::os::unix::fs as unix_fs;
