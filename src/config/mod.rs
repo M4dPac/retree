@@ -146,8 +146,8 @@ impl Config {
             icon_set,
 
             parallel: args.parallel,
-            threads: args.threads,
-            queue_cap: args.queue_cap,
+            threads: args.threads.map(|n| n as usize),
+            queue_cap: args.queue_cap.map(|n| n as usize),
         })
     }
 

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - add RFC 3986 compliant URI encoder for safe HTML href generation
 - enable `--safe-print` automatically when output is a TTY (unless `--literal` is used)
+- validate `--threads` and `--queue-cap` ranges and set safer default queue-cap (64)
 
 ### Fixed
 

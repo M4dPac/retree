@@ -230,7 +230,7 @@ fn get_message_en(key: MessageKey) -> &'static str {
             "Enable parallel directory traversal (faster for large directories)"
         }
         MessageKey::ArgThreads => "Number of worker threads for parallel mode (default: CPU cores)",
-        MessageKey::ArgQueueCap => "Internal queue capacity per thread for parallel mode",
+        MessageKey::ArgQueueCap => "Maximum concurrent directory reads in parallel mode",
 
         // Sort types
         MessageKey::SortName => "name",
@@ -380,7 +380,9 @@ fn get_message_ru(key: MessageKey) -> &'static str {
         MessageKey::ArgJsonPretty => "Форматированный JSON-вывод",
         MessageKey::ArgParallel => "Параллельный обход каталогов (быстрее для больших деревьев)",
         MessageKey::ArgThreads => "Количество рабочих потоков (по умолчанию: число ядер ЦП)",
-        MessageKey::ArgQueueCap => "Ёмкость очереди на поток в параллельном режиме",
+        MessageKey::ArgQueueCap => {
+            "Максимальное число одновременных чтений директорий в параллельном режиме"
+        }
 
         // Sort types
         MessageKey::SortName => "имя",
