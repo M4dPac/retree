@@ -25,10 +25,12 @@ echo -e "${BOLD}Running checks...${NC}"
 echo ""
 
 run "audit" cargo audit
+run "deny" cargo deny check
 run "check" cargo check
 run "fmt" cargo fmt --all -- --check
-run "clippy" cargo clippy --all-targets --all-features -- -D warnings
-run "tests" cargo test
+run "clippy" cargo clippy --locked --all-targets --all-features -- -D warnings
+run "tests" cargo test --locked
+run "tests tree_compat" cargo test --locked --features tree_compat
 
 echo ""
 echo -e "  ${BOLD}All checks passed${NC}"

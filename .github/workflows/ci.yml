@@ -19,20 +19,20 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
         with:
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@ad397744b0d591a723ab90405b7247fac0e6b8db
 
       - name: Check formatting
         if: matrix.os == 'ubuntu-latest'
         run: cargo fmt --check
 
       - name: Clippy
-        run: cargo clippy -- -D warnings -W clippy::unwrap_used
+        run: cargo clippy --locked -- -D warnings -W clippy::unwrap_used
 
       - name: Tests
-        run: cargo test -- --skip compat_
+        run: cargo test --locked
