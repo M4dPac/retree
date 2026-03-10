@@ -1,3 +1,5 @@
+#![allow(unsafe_code)]
+
 use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
