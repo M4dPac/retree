@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - strip illegal control characters from XML output to ensure valid XML 1.0
 - reject unsafe URL schemes (`javascript:`, `data:`, `vbscript:`) in `-H` HTML base option
+- percent-encode file paths in HTML links to prevent URL injection
 
 ## [0.1.4] - 2026-03-09
 
