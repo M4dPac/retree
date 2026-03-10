@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add RFC 3986 compliant URI encoder for safe HTML href generation
 - enable `--safe-print` automatically when output is a TTY (unless `--literal` is used)
 - validate `--threads` and `--queue-cap` ranges and set safer default queue-cap (64)
+- add optional `tree_compat` feature to enable GNU tree compatibility tests
+
+### Performance
+
+- reduce filesystem stat calls in dirs-first sorting
+- add backpressure to parallel traversal to limit concurrent directory reads
+- use custom rayon thread pool respecting `--threads`
 
 ### Fixed
 
@@ -20,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - percent-encode file paths in HTML links to prevent URL injection
 - sanitize Unicode bidi overrides and zero-width characters in `--safe-print` mode
 - apply `--safe-print` sanitization to metadata fields in text output
+- prevent stack overflow via internal depth limit in traversal
+- recover from poisoned mutexes in parallel mode
 
 ## [0.1.4] - 2026-03-09
 
