@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - add RFC 3986 compliant URI encoder for safe HTML href generation
+- enable `--safe-print` automatically when output is a TTY (unless `--literal` is used)
 
 ### Fixed
 
