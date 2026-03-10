@@ -33,8 +33,22 @@ impl HtmlRenderer {
             .as_ref()
             .and_then(|path| fs::read_to_string(path).ok());
 
+        // Reject dangerous URL schemes in base URL
+        let base_url = config.html_base.as_ref().map(|url| {
+            let lower = url.trim().to_lowercase();
+            if lower.starts_with("javascript:")
+                || lower.starts_with("data:")
+                || lower.starts_with("vbscript:")
+            {
+                eprintln!("rtree: warning: unsafe URL scheme in -H ignored, using '.'");
+                ".".to_string()
+            } else {
+                url.clone()
+            }
+        });
+
         HtmlRenderer {
-            base_url: config.html_base.clone(),
+            base_url,
             title: config
                 .html_title
                 .clone()
