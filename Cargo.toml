@@ -49,6 +49,9 @@ tempfile = "3"
 criterion = "0.8"
 serde_json = "1"
 
+[features]
+tree_compat = []
+
 [profile.release]
 lto = true
 codegen-units = 1
