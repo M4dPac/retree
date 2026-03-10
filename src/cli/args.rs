@@ -331,17 +331,23 @@ pub struct Args {
     pub parallel: bool,
 
     /// Number of worker threads for parallel mode (default: CPU cores)
-    #[arg(long = "threads", value_name = "N", help_heading = "Performance")]
-    pub threads: Option<usize>,
+    #[arg(
+        long = "threads",
+        value_name = "N",
+        value_parser = clap::value_parser!(u64).range(1..=4096),
+        help_heading = "Performance"
+    )]
+    pub threads: Option<u64>,
 
-    /// Internal queue capacity per thread for parallel mode
+    /// Maximum concurrent directory reads in parallel mode
     #[arg(
         long = "queue-cap",
         value_name = "N",
-        default_value = "4096",
+        default_value = "64",
+        value_parser = clap::value_parser!(u64).range(1..=65536),
         help_heading = "Performance"
     )]
-    pub queue_cap: Option<usize>,
+    pub queue_cap: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
