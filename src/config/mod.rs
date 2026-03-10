@@ -118,7 +118,13 @@ impl Config {
             show_inodes: args.inodes,
             show_device: args.device,
             classify: args.classify,
-            safe_print: args.safe_print,
+            safe_print: if args.literal {
+                false
+            } else if args.safe_print {
+                true
+            } else {
+                env::is_tty()
+            },
             literal: args.literal,
             perm_mode: args.perm_mode,
 
