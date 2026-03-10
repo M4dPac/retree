@@ -4,6 +4,8 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 
 use rayon::prelude::*;
 
@@ -13,6 +15,112 @@ use crate::core::sorter::sort_entries;
 use crate::error::TreeError;
 
 pub use crate::core::tree::Tree as Node;
+
+/// Maximum internal recursion depth to prevent stack overflow.
+/// Protects both sequential (8 MB stack ≈ ~7 000 frames) and
+/// parallel (rayon 2 MB stack ≈ ~1 700 frames) modes.
+const MAX_INTERNAL_DEPTH: usize = 4096;
+
+//
+// ==============================
+// Backpressure: DirReadLimiter
+// ==============================
+//
+
+/// Limits the number of concurrent `read_dir` + collect operations
+/// in parallel mode.  Provides backpressure to prevent excessive
+/// file-descriptor usage and memory spikes on wide trees.
+struct DirReadLimiter {
+    active: AtomicUsize,
+    max: usize,
+}
+
+/// RAII guard — releases one permit on drop.
+struct DirReadGuard<'a>(&'a DirReadLimiter);
+
+impl DirReadLimiter {
+    fn new(max: usize) -> Self {
+        Self {
+            active: AtomicUsize::new(0),
+            max: max.max(1), // at least 1 to prevent deadlock
+        }
+    }
+
+    fn acquire(&self) -> DirReadGuard<'_> {
+        loop {
+            let current = self.active.load(Ordering::Acquire);
+            if current < self.max {
+                if self
+                    .active
+                    .compare_exchange_weak(
+                        current,
+                        current + 1,
+                        Ordering::AcqRel,
+                        Ordering::Relaxed,
+                    )
+                    .is_ok()
+                {
+                    return DirReadGuard(self);
+                }
+            } else {
+                std::thread::yield_now();
+            }
+        }
+    }
+}
+
+impl Drop for DirReadGuard<'_> {
+    fn drop(&mut self) {
+        self.0.active.fetch_sub(1, Ordering::Release);
+    }
+}
+
+//
+// ==============================
+// Mutex-poison-safe helpers
+// ==============================
+//
+
+/// Push an error into a poisonable Mutex<Vec<TreeError>>,
+/// recovering from poison instead of losing the error.
+fn push_error(errors: &Mutex<Vec<TreeError>>, error: TreeError) {
+    match errors.lock() {
+        Ok(mut errs) => errs.push(error),
+        Err(poisoned) => poisoned.into_inner().push(error),
+    }
+}
+
+/// Atomically check-and-insert into the visited set.
+/// Returns `true` if the path was **already** present (= cycle).
+/// On poison: recovers and still inserts.
+fn check_visited(visited: &Mutex<HashSet<PathBuf>>, key: PathBuf) -> bool {
+    match visited.lock() {
+        Ok(mut v) => !v.insert(key),
+        Err(poisoned) => !poisoned.into_inner().insert(key),
+    }
+}
+
+//
+// ==============================
+// Parallel traversal context
+// ==============================
+//
+
+/// Shared state for parallel directory traversal.
+/// Bundles references that would otherwise require 8+ function arguments.
+struct ParallelCtx<'a> {
+    config: &'a Config,
+    errors: &'a Mutex<Vec<TreeError>>,
+    visited: &'a Mutex<HashSet<PathBuf>>,
+    dir_limiter: &'a DirReadLimiter,
+    root_device: Option<u32>,
+}
+
+//
+// ==============================
+// Result
+// ==============================
+//
 
 /// Result of tree traversal: entries + any errors encountered
 #[derive(Default)]
@@ -28,41 +136,84 @@ pub struct TraversalResult {
 //
 
 pub struct OrderedEngine {
-    #[allow(dead_code)]
-    threads: usize,
     parallel: bool,
+    pool: Option<rayon::ThreadPool>,
 }
 
 impl OrderedEngine {
     pub fn new(config: &Config) -> Self {
+        let pool = if config.parallel {
+            let mut builder = rayon::ThreadPoolBuilder::new();
+            if let Some(n) = config.threads {
+                builder = builder.num_threads(n);
+            }
+            builder.build().ok()
+        } else {
+            None
+        };
+
         Self {
-            threads: config.threads.unwrap_or_else(num_cpus::get),
             parallel: config.parallel,
+            pool,
         }
     }
 
     pub fn traverse<P: AsRef<Path>>(&self, root: P, config: &Config) -> TraversalResult {
         let mut errors = Vec::new();
+        let visited = HashSet::new();
 
-        let mut visited = HashSet::new();
         let root_device = if config.one_fs {
             crate::platform::get_file_id(root.as_ref()).map(|info| info.volume_serial)
         } else {
             None
         };
+
+        let dir_limiter = DirReadLimiter::new(config.queue_cap.unwrap_or(64));
+        let root_path = root.as_ref();
+
         let root_node = if self.parallel {
-            build_node_parallel(
-                root.as_ref(),
-                0,
-                config,
-                &mut errors,
-                visited,
-                false,
-                root_device,
-            )
+            match &self.pool {
+                Some(pool) => {
+                    // Create mutex-wrapped shared state for parallel workers
+                    let errors_mutex = Mutex::new(Vec::new());
+                    let visited_mutex = Mutex::new(visited);
+
+                    let result = {
+                        let ctx = ParallelCtx {
+                            config,
+                            errors: &errors_mutex,
+                            visited: &visited_mutex,
+                            dir_limiter: &dir_limiter,
+                            root_device,
+                        };
+                        pool.install(|| build_node_parallel_inner(root_path, 0, &ctx, false))
+                    };
+
+                    // Recover errors from mutex (handles poison)
+                    match errors_mutex.into_inner() {
+                        Ok(errs) => errors.extend(errs),
+                        Err(poisoned) => errors.extend(poisoned.into_inner()),
+                    }
+                    result
+                }
+                // Pool creation failed — fall back to sequential
+                None => {
+                    let mut visited = visited;
+                    build_node_sequential(
+                        root_path,
+                        0,
+                        config,
+                        &mut errors,
+                        &mut visited,
+                        false,
+                        root_device,
+                    )
+                }
+            }
         } else {
+            let mut visited = visited;
             build_node_sequential(
-                root.as_ref(),
+                root_path,
                 0,
                 config,
                 &mut errors,
@@ -104,6 +255,12 @@ fn build_node_sequential(
     parent_matched: bool,
     root_device: Option<u32>,
 ) -> Option<Node> {
+    // Internal depth limit to prevent stack overflow
+    if depth >= MAX_INTERNAL_DEPTH {
+        errors.push(TreeError::MaxDepthExceeded(path.to_path_buf()));
+        return None;
+    }
+
     let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
     let mut entry = match TreeEntry::from_path(
         path,
@@ -326,66 +483,37 @@ fn build_node_sequential(
 // ==============================
 //
 
-use std::sync::Mutex;
-
-fn build_node_parallel(
-    path: &Path,
-    depth: usize,
-    config: &Config,
-    errors: &mut Vec<TreeError>,
-    visited: HashSet<PathBuf>,
-    parent_matched: bool,
-    root_device: Option<u32>,
-) -> Option<Node> {
-    let errors_mutex = Mutex::new(Vec::new());
-    let visited_mutex = Mutex::new(visited);
-    let result = build_node_parallel_inner(
-        path,
-        depth,
-        config,
-        &errors_mutex,
-        &visited_mutex,
-        parent_matched,
-        root_device,
-    );
-    errors.extend(errors_mutex.into_inner().unwrap_or_default());
-    result
-}
-
 fn build_node_parallel_inner(
     path: &Path,
     depth: usize,
-    config: &Config,
-    errors: &Mutex<Vec<TreeError>>,
-    visited: &Mutex<HashSet<PathBuf>>,
+    ctx: &ParallelCtx<'_>,
     parent_matched: bool,
-    root_device: Option<u32>,
 ) -> Option<Node> {
-    let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
+    // Internal depth limit to prevent stack overflow
+    if depth >= MAX_INTERNAL_DEPTH {
+        push_error(ctx.errors, TreeError::MaxDepthExceeded(path.to_path_buf()));
+        return None;
+    }
+
+    let needs_file_id = ctx.config.one_fs || ctx.config.show_inodes || ctx.config.show_device;
     let mut entry = match TreeEntry::from_path(
         path,
         depth,
         false,
         vec![],
         needs_file_id,
-        config.show_permissions,
+        ctx.config.show_permissions,
     ) {
         Ok(e) => e,
         Err(e) => {
-            if let Ok(mut errs) = errors.lock() {
-                errs.push(e);
-            }
+            push_error(ctx.errors, e);
             return None;
         }
     };
 
     // Track visited directories for cycle detection (junctions, symlinks, mount points)
     let canon_key = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    let already_visited = visited
-        .lock()
-        .map(|mut v| !v.insert(canon_key))
-        .unwrap_or(false);
-    if already_visited {
+    if check_visited(ctx.visited, canon_key) {
         entry.recursive_link = true;
         return Some(Node {
             entry,
@@ -394,7 +522,7 @@ fn build_node_parallel_inner(
     }
 
     // --one-fs: skip directories on different volumes
-    if let Some(root_dev) = root_device {
+    if let Some(root_dev) = ctx.root_device {
         if let Some(info) = crate::platform::get_file_id(path) {
             if info.volume_serial != root_dev {
                 return Some(Node {
@@ -409,7 +537,7 @@ fn build_node_parallel_inner(
     if matches!(
         entry.entry_type,
         crate::core::entry::EntryType::Junction { .. }
-    ) && !config.show_junctions
+    ) && !ctx.config.show_junctions
     {
         return Some(Node {
             entry,
@@ -417,7 +545,7 @@ fn build_node_parallel_inner(
         });
     }
 
-    if let Some(max) = config.max_depth {
+    if let Some(max) = ctx.config.max_depth {
         if depth >= max {
             return Some(Node {
                 entry,
@@ -426,13 +554,13 @@ fn build_node_parallel_inner(
         }
     }
 
-    let long_path = crate::platform::to_long_path(path, config.long_paths);
+    // Acquire backpressure permit — limits concurrent read_dir operations.
+    let dir_guard = ctx.dir_limiter.acquire();
+    let long_path = crate::platform::to_long_path(path, ctx.config.long_paths);
     let read_dir = match fs::read_dir(&long_path) {
         Ok(rd) => rd,
         Err(e) => {
-            if let Ok(mut errs) = errors.lock() {
-                errs.push(TreeError::Io(path.to_path_buf(), e));
-            }
+            push_error(ctx.errors, TreeError::Io(path.to_path_buf(), e));
             return Some(Node {
                 entry,
                 children: Vec::new(),
@@ -441,10 +569,13 @@ fn build_node_parallel_inner(
     };
 
     let mut dir_entries: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
-    sort_entries(&mut dir_entries, &config.sort_config);
+    // Release the permit: directory handle consumed, entries in memory
+    drop(dir_guard);
+
+    sort_entries(&mut dir_entries, &ctx.config.sort_config);
 
     // filelimit: skip directories with too many entries
-    if let Some(limit) = config.file_limit {
+    if let Some(limit) = ctx.config.file_limit {
         if dir_entries.len() > limit {
             entry.filelimit_exceeded = Some(dir_entries.len());
             return Some(Node {
@@ -454,7 +585,7 @@ fn build_node_parallel_inner(
         }
     }
 
-    let filter = config.filter.clone();
+    let filter = ctx.config.filter.clone();
 
     let children: Vec<Node> = dir_entries
         .par_iter()
@@ -462,17 +593,17 @@ fn build_node_parallel_inner(
             let file_type = match dir_entry.file_type() {
                 Ok(ft) => ft,
                 Err(e) => {
-                    if let Ok(mut errs) = errors.lock() {
-                        errs.push(TreeError::Io(dir_entry.path(), e));
-                    }
+                    push_error(ctx.errors, TreeError::Io(dir_entry.path(), e));
                     return None;
                 }
             };
 
             let is_dir = file_type.is_dir()
-                || (config.follow_symlinks && file_type.is_symlink() && dir_entry.path().is_dir());
+                || (ctx.config.follow_symlinks
+                    && file_type.is_symlink()
+                    && dir_entry.path().is_dir());
 
-            if !config.show_all {
+            if !ctx.config.show_all {
                 if let Some(name) = dir_entry.file_name().to_str() {
                     if name.starts_with('.') {
                         return None;
@@ -481,7 +612,7 @@ fn build_node_parallel_inner(
             }
 
             // dirs_only: include directories and symlinks to directories
-            if config.dirs_only {
+            if ctx.config.dirs_only {
                 let is_symlink_to_dir = file_type.is_symlink() && dir_entry.path().is_dir();
                 if !is_dir && !is_symlink_to_dir {
                     return None;
@@ -489,8 +620,8 @@ fn build_node_parallel_inner(
             }
 
             // prune: symlinks to directories are "empty" when not followed — skip them
-            if config.prune
-                && !config.follow_symlinks
+            if ctx.config.prune
+                && !ctx.config.follow_symlinks
                 && file_type.is_symlink()
                 && dir_entry.path().is_dir()
             {
@@ -510,19 +641,17 @@ fn build_node_parallel_inner(
             }
 
             if is_dir {
-                // Check for recursive symlink when following
-                if config.follow_symlinks && file_type.is_symlink() {
+                // Check for recursive symlink when following — atomic check-and-insert
+                if ctx.config.follow_symlinks && file_type.is_symlink() {
                     if let Ok(canon) = dir_entry.path().canonicalize() {
-                        let is_recursive =
-                            visited.lock().map(|mut v| !v.insert(canon)).unwrap_or(true);
-                        if is_recursive {
+                        if check_visited(ctx.visited, canon) {
                             return match TreeEntry::from_dir_entry(
                                 dir_entry,
                                 depth + 1,
                                 false,
                                 vec![],
                                 needs_file_id,
-                                config.show_permissions,
+                                ctx.config.show_permissions,
                             ) {
                                 Ok(mut entry) => {
                                     entry.recursive_link = true;
@@ -532,9 +661,7 @@ fn build_node_parallel_inner(
                                     })
                                 }
                                 Err(e) => {
-                                    if let Ok(mut errs) = errors.lock() {
-                                        errs.push(e);
-                                    }
+                                    push_error(ctx.errors, e);
                                     None
                                 }
                             };
@@ -542,15 +669,7 @@ fn build_node_parallel_inner(
                     }
                 }
                 let child_parent_matched = parent_matched || filter.dir_matches_include(name);
-                build_node_parallel_inner(
-                    &dir_entry.path(),
-                    depth + 1,
-                    config,
-                    errors,
-                    visited,
-                    child_parent_matched,
-                    root_device,
-                )
+                build_node_parallel_inner(&dir_entry.path(), depth + 1, ctx, child_parent_matched)
             } else {
                 match TreeEntry::from_dir_entry(
                     dir_entry,
@@ -558,16 +677,14 @@ fn build_node_parallel_inner(
                     false,
                     vec![],
                     needs_file_id,
-                    config.show_permissions,
+                    ctx.config.show_permissions,
                 ) {
                     Ok(entry) => Some(Node {
                         entry,
                         children: Vec::new(),
                     }),
                     Err(e) => {
-                        if let Ok(mut errs) = errors.lock() {
-                            errs.push(e);
-                        }
+                        push_error(ctx.errors, e);
                         None
                     }
                 }
@@ -577,13 +694,13 @@ fn build_node_parallel_inner(
 
     // prune: skip empty directories (except root at depth 0)
     // With --matchdirs, directories matching -P pattern are protected from pruning
-    if config.prune && children.is_empty() && depth > 0 {
+    if ctx.config.prune && children.is_empty() && depth > 0 {
         let dir_name = path
             .file_name()
             .map(|n| n.to_string_lossy())
             .unwrap_or_default();
         let dir_name = dir_name.as_ref();
-        if !config.filter.dir_matches_include(dir_name) {
+        if !ctx.config.filter.dir_matches_include(dir_name) {
             return None;
         }
     }

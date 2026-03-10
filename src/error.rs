@@ -9,6 +9,9 @@ pub enum TreeError {
     #[error("{}", format_access_denied(.0))]
     AccessDenied(PathBuf),
 
+    #[error("Maximum internal depth exceeded at: {}", .0.display())]
+    MaxDepthExceeded(PathBuf),
+
     #[error("{}", format_not_found(.0))]
     NotFound(PathBuf),
 
