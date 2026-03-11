@@ -113,7 +113,7 @@ struct ParallelCtx<'a> {
     errors: &'a Mutex<Vec<TreeError>>,
     visited: &'a Mutex<HashSet<PathBuf>>,
     dir_limiter: &'a DirReadLimiter,
-    root_device: Option<u32>,
+    root_device: Option<u64>,
 }
 
 //
@@ -253,7 +253,7 @@ fn build_node_sequential(
     errors: &mut Vec<TreeError>,
     visited: &mut HashSet<PathBuf>,
     parent_matched: bool,
-    root_device: Option<u32>,
+    root_device: Option<u64>,
 ) -> Option<Node> {
     // Internal depth limit to prevent stack overflow
     if depth >= MAX_INTERNAL_DEPTH {

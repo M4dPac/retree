@@ -59,7 +59,7 @@ pub struct EntryMetadata {
     pub owner: Option<String>,
     pub group: Option<String>,
     pub inode: u64,
-    pub device: u32,
+    pub device: u64,
     pub nlinks: u32,
     pub mode: Option<u32>,
 }

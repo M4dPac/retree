@@ -12,7 +12,7 @@ pub struct TreeIterator {
     stack: Vec<WalkState>,
     config: Config,
     visited: FxHashSet<u64>,
-    root_device: Option<u32>,
+    root_device: Option<u64>,
 }
 
 struct WalkState {

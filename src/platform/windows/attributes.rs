@@ -11,7 +11,7 @@ use windows_sys::Win32::Storage::FileSystem::{
 
 pub struct FileIdInfo {
     pub file_id: u64,
-    pub volume_serial: u32,
+    pub volume_serial: u64,
     pub number_of_links: u32,
 }
 
