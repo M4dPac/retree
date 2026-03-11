@@ -143,7 +143,7 @@ pub struct OrderedEngine {
 impl OrderedEngine {
     pub fn new(config: &Config) -> Self {
         let pool = if config.parallel {
-            let mut builder = rayon::ThreadPoolBuilder::new();
+            let mut builder = rayon::ThreadPoolBuilder::new().stack_size(8 * 1024 * 1024); // Match main thread stck (8 MiB)
             if let Some(n) = config.threads {
                 builder = builder.num_threads(n);
             }

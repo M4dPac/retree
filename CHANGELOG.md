@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - apply `--safe-print` sanitization to metadata fields in text output
 - prevent stack overflow via internal depth limit in traversal
 - recover from poisoned mutexes in parallel mode
+- increase parallel worker stack size to match main thread and avoid premature stack overflow
 
 ## [0.1.4] - 2026-03-09
 
