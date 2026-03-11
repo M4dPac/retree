@@ -9,10 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Performance
+
+### Fixed
+
+## [0.2.0] - 2026-03-11
+
+### Added
+
 - add RFC 3986 compliant URI encoder for safe HTML href generation
 - enable `--safe-print` automatically when output is a TTY (unless `--literal` is used)
 - validate `--threads` and `--queue-cap` ranges and set safer default queue-cap (64)
 - add optional `tree_compat` feature to enable GNU tree compatibility tests
+- Centralized executable detection logic in platform module
 
 ### Performance
 
@@ -31,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - recover from poisoned mutexes in parallel mode
 - increase parallel worker stack size to match main thread and avoid premature stack overflow
 - fix parallel symlink traversal where premature visited insert prevented descent
+- Correct executable detection on Unix: now based on permission bits instead of file extension
 
 ## [0.1.4] - 2026-03-09
 
