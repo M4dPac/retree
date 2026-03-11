@@ -2,16 +2,20 @@
 //!
 //! Covers: terminal injection, cycle detection, deep trees,
 //! URL encoding, ANSI validation, control char filtering.
+//!
+//! Platform gates:
+//! - Symlink tests: `#[cfg(unix)]` — Windows requires elevated privileges
+//! - Non-UTF-8 filenames: `#[cfg(target_os = "linux")]` — macOS enforces UTF-8
+//! - Permission bits: `#[cfg(unix)]` — `set_mode` unavailable on Windows
+//! - Windows-specific: `#[cfg(windows)]` — junctions, long paths, ADS
 
 mod common;
 
 use common::{run_rtree, run_rtree_args_full, run_rtree_command, run_rtree_full};
-use std::os::unix::fs as unix_fs;
-use std::os::unix::fs::PermissionsExt;
 use tempfile::TempDir;
 
 // ============================================================================
-// Terminal injection
+// Terminal injection (cross-platform)
 // ============================================================================
 
 #[test]
@@ -47,11 +51,14 @@ fn literal_mode_passes_ansi() {
 }
 
 // ============================================================================
-// Symlink cycle detection
+// Symlink cycle detection (Unix only — Windows symlinks require elevation)
 // ============================================================================
 
+#[cfg(unix)]
 #[test]
 fn sequential_symlink_cycle_shows_files() {
+    use std::os::unix::fs as unix_fs;
+
     let dir = TempDir::new().unwrap();
     let shared = dir.path().join("shared");
     std::fs::create_dir(&shared).unwrap();
@@ -71,8 +78,11 @@ fn sequential_symlink_cycle_shows_files() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn parallel_symlink_cycle_shows_files() {
+    use std::os::unix::fs as unix_fs;
+
     let dir = TempDir::new().unwrap();
     let shared = dir.path().join("shared");
     std::fs::create_dir(&shared).unwrap();
@@ -95,8 +105,11 @@ fn parallel_symlink_cycle_shows_files() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn direct_loop_no_hang() {
+    use std::os::unix::fs as unix_fs;
+
     let dir = TempDir::new().unwrap();
     unix_fs::symlink(dir.path(), dir.path().join("self_loop")).unwrap();
 
@@ -108,7 +121,7 @@ fn direct_loop_no_hang() {
 }
 
 // ============================================================================
-// Deep tree
+// Deep tree (cross-platform)
 // ============================================================================
 
 #[test]
@@ -147,15 +160,16 @@ fn deep_tree_200_parallel_no_crash() {
 }
 
 // ============================================================================
-// Non-UTF-8 filter bypass
+// Non-UTF-8 filter bypass (Linux only — macOS enforces UTF-8 in filenames)
 // ============================================================================
 
+#[cfg(target_os = "linux")]
 #[test]
 fn non_utf8_excluded_by_wildcard() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("normal.txt"), b"").unwrap();
-    // Create non-UTF8 filename
-    #[cfg(unix)]
+
+    // Create non-UTF8 filename (only possible on Linux, not macOS)
     {
         use std::os::unix::ffi::OsStrExt;
         let bad_name = std::ffi::OsStr::from_bytes(b"\xff\xfebad");
@@ -175,7 +189,7 @@ fn non_utf8_excluded_by_wildcard() {
 }
 
 // ============================================================================
-// HTML URL encoding
+// HTML URL encoding (cross-platform)
 // ============================================================================
 
 #[test]
@@ -199,7 +213,7 @@ fn html_href_url_encoded() {
 }
 
 // ============================================================================
-// javascript: URL rejection
+// javascript: URL rejection (cross-platform)
 // ============================================================================
 
 #[test]
@@ -220,7 +234,7 @@ fn javascript_url_rejected() {
 }
 
 // ============================================================================
-// Bidi / ZWJ sanitization
+// Bidi / ZWJ sanitization (cross-platform — Unicode filenames work everywhere)
 // ============================================================================
 
 #[test]
@@ -244,7 +258,7 @@ fn bidi_chars_sanitized_with_safe_print() {
 }
 
 // ============================================================================
-// CLI validation
+// CLI validation (cross-platform)
 // ============================================================================
 
 #[test]
@@ -278,11 +292,14 @@ fn queue_cap_zero_rejected() {
 }
 
 // ============================================================================
-// Access denied
+// Access denied (Unix only — requires chmod)
 // ============================================================================
 
+#[cfg(unix)]
 #[test]
 fn access_denied_continues_tree() {
+    use std::os::unix::fs::PermissionsExt;
+
     let dir = TempDir::new().unwrap();
     let sub = dir.path().join("denied");
     std::fs::create_dir(&sub).unwrap();
@@ -311,7 +328,7 @@ fn access_denied_continues_tree() {
 }
 
 // ============================================================================
-// Sequential vs parallel consistency
+// Sequential vs parallel consistency (cross-platform)
 // ============================================================================
 
 #[test]
@@ -329,7 +346,6 @@ fn parallel_and_sequential_same_file_count() {
     let seq = run_rtree(dir.path(), &[]);
     let par = run_rtree(dir.path(), &["--parallel"]);
 
-    // Extract last line (report)
     let seq_last = common::last_nonempty_line(&seq);
     let par_last = common::last_nonempty_line(&par);
 
@@ -340,11 +356,14 @@ fn parallel_and_sequential_same_file_count() {
 }
 
 // ============================================================================
-// Executable detection (Unix)
+// Executable detection (Unix — permission bits)
 // ============================================================================
 
+#[cfg(unix)]
 #[test]
 fn executable_bit_detected_on_unix() {
+    use std::os::unix::fs::PermissionsExt;
+
     let dir = TempDir::new().unwrap();
 
     // File with +x (should get * with -F)
@@ -370,7 +389,6 @@ fn executable_bit_detected_on_unix() {
         !stdout.contains("readme.txt*"),
         "non-executable file must not get * marker"
     );
-    // On Unix, .exe without execute permission should NOT get *
     assert!(
         !stdout.contains("program.exe*"),
         ".exe without +x should not get * marker on Unix"
