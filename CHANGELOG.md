@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Prevent device identifier truncation by using 64-bit device and volume IDs (improves correctness of --one-fs handling)
+
 ## [0.2.0] - 2026-03-11
 
 ### Added

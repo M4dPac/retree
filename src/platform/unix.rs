@@ -21,7 +21,7 @@ pub fn get_file_id(path: &Path) -> Option<FileIdInfo> {
 pub fn get_file_id_from_metadata(metadata: &Metadata) -> FileIdInfo {
     FileIdInfo {
         file_id: metadata.ino(),
-        volume_serial: metadata.dev() as u32,
+        volume_serial: metadata.dev(),
         number_of_links: metadata.nlink() as u32,
     }
 }
