@@ -54,7 +54,7 @@ pub fn get_file_id(path: &Path) -> Result<FileIdInfo, std::io::Error> {
 
         Ok(FileIdInfo {
             file_id,
-            volume_serial: info.dwVolumeSerialNumber,
+            volume_serial: info.dwVolumeSerialNumber as u64,
             number_of_links: info.nNumberOfLinks,
         })
     }
