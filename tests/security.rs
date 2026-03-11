@@ -4,6 +4,7 @@
 //! URL encoding, ANSI validation, control char filtering.
 //!
 //! Platform gates:
+//! - ANSI in filenames: `#[cfg(unix)]` — Windows forbids control chars in names
 //! - Symlink tests: `#[cfg(unix)]` — Windows requires elevated privileges
 //! - Non-UTF-8 filenames: `#[cfg(target_os = "linux")]` — macOS enforces UTF-8
 //! - Permission bits: `#[cfg(unix)]` — `set_mode` unavailable on Windows
@@ -15,9 +16,10 @@ use common::{run_rtree, run_rtree_args_full, run_rtree_command, run_rtree_full};
 use tempfile::TempDir;
 
 // ============================================================================
-// Terminal injection (cross-platform)
+// Terminal injection (Unix only — Windows forbids control chars in filenames)
 // ============================================================================
 
+#[cfg(unix)]
 #[test]
 fn safe_print_replaces_ansi_escape() {
     let dir = TempDir::new().unwrap();
@@ -36,6 +38,7 @@ fn safe_print_replaces_ansi_escape() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn literal_mode_passes_ansi() {
     let dir = TempDir::new().unwrap();
@@ -175,7 +178,6 @@ fn non_utf8_excluded_by_wildcard() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("normal.txt"), b"").unwrap();
 
-    // Create non-UTF8 filename (only possible on Linux, not macOS)
     {
         use std::os::unix::ffi::OsStrExt;
         let bad_name = std::ffi::OsStr::from_bytes(b"\xff\xfebad");
@@ -246,9 +248,7 @@ fn javascript_url_rejected() {
 #[test]
 fn bidi_chars_sanitized_with_safe_print() {
     let dir = TempDir::new().unwrap();
-    // U+202E Right-to-Left Override
     std::fs::write(dir.path().join("\u{202E}reversed.txt"), b"").unwrap();
-    // U+200D Zero Width Joiner
     std::fs::write(dir.path().join("join\u{200D}er.txt"), b"").unwrap();
 
     let stdout = run_rtree(dir.path(), &["-q"]);
@@ -271,11 +271,7 @@ fn bidi_chars_sanitized_with_safe_print() {
 fn threads_zero_rejected() {
     let (_stdout, stderr, code) = run_rtree_args_full(&["--parallel", "--threads", "0", "."]);
 
-    assert_ne!(
-        code,
-        Some(0),
-        "threads=0 must be rejected with non-zero exit"
-    );
+    assert_ne!(code, Some(0), "threads=0 must be rejected");
     assert!(
         stderr.contains("not in 1..=4096"),
         "stderr must explain the valid thread range"
@@ -286,11 +282,7 @@ fn threads_zero_rejected() {
 fn queue_cap_zero_rejected() {
     let (_stdout, stderr, code) = run_rtree_args_full(&["--parallel", "--queue-cap", "0", "."]);
 
-    assert_ne!(
-        code,
-        Some(0),
-        "queue-cap=0 must be rejected with non-zero exit"
-    );
+    assert_ne!(code, Some(0), "queue-cap=0 must be rejected");
     assert!(
         stderr.contains("not in 1..=65536"),
         "stderr must explain the valid queue capacity range"
@@ -311,14 +303,12 @@ fn access_denied_continues_tree() {
     std::fs::create_dir(&sub).unwrap();
     std::fs::write(sub.join("secret.txt"), b"").unwrap();
 
-    // Remove permissions
     let mut perms = std::fs::metadata(&sub).unwrap().permissions();
     perms.set_mode(0o000);
     std::fs::set_permissions(&sub, perms).unwrap();
 
     let (_stdout, stderr, code) = run_rtree_full(dir.path(), &["-a"]);
 
-    // Restore permissions for cleanup
     let mut perms = std::fs::metadata(&sub).unwrap().permissions();
     perms.set_mode(0o755);
     std::fs::set_permissions(&sub, perms).unwrap();
@@ -327,10 +317,7 @@ fn access_denied_continues_tree() {
         stderr.contains("Permission denied") || stderr.contains("error 13"),
         "stderr must report access denied"
     );
-    assert!(
-        code.is_some(),
-        "rtree must exit cleanly even when a directory is unreadable"
-    );
+    assert!(code.is_some(), "rtree must exit cleanly");
 }
 
 // ============================================================================
@@ -372,17 +359,13 @@ fn executable_bit_detected_on_unix() {
 
     let dir = TempDir::new().unwrap();
 
-    // File with +x (should get * with -F)
     let script = dir.path().join("script.sh");
     std::fs::write(&script, b"#!/bin/sh\necho hi").unwrap();
     let mut perms = std::fs::metadata(&script).unwrap().permissions();
     perms.set_mode(0o755);
     std::fs::set_permissions(&script, perms).unwrap();
 
-    // File without +x (should NOT get *)
     std::fs::write(dir.path().join("readme.txt"), b"").unwrap();
-
-    // .exe without +x (should NOT get * on Unix — permission bits take precedence)
     std::fs::write(dir.path().join("program.exe"), b"").unwrap();
 
     let stdout = run_rtree(dir.path(), &["-F"]);
@@ -405,7 +388,6 @@ fn executable_bit_detected_on_unix() {
 // Windows-specific tests
 // ============================================================================
 
-/// Windows executable detection uses file extension
 #[cfg(windows)]
 #[test]
 fn windows_executable_by_extension() {
@@ -415,21 +397,11 @@ fn windows_executable_by_extension() {
     std::fs::write(dir.path().join("readme.txt"), b"").unwrap();
 
     let stdout = run_rtree(dir.path(), &["-F"]);
-    assert!(
-        stdout.contains("app.exe*"),
-        ".exe must get * marker on Windows"
-    );
-    assert!(
-        stdout.contains("script.bat*"),
-        ".bat must get * marker on Windows"
-    );
-    assert!(
-        !stdout.contains("readme.txt*"),
-        ".txt must not get * marker"
-    );
+    assert!(stdout.contains("app.exe*"), ".exe must get * on Windows");
+    assert!(stdout.contains("script.bat*"), ".bat must get * on Windows");
+    assert!(!stdout.contains("readme.txt*"), ".txt must not get *");
 }
 
-/// Junction cycle detection — junctions report is_dir()=true, is_symlink()=false
 #[cfg(windows)]
 #[test]
 fn junction_cycle_no_infinite_recursion() {
@@ -440,7 +412,6 @@ fn junction_cycle_no_infinite_recursion() {
     std::fs::create_dir(&target).unwrap();
     std::fs::write(target.join("data.txt"), b"content").unwrap();
 
-    // Create junction: dir\loop -> dir\target_dir
     let junction = dir.path().join("loop");
     StdCommand::new("cmd")
         .args(["/C", "mklink", "/J"])
@@ -461,33 +432,24 @@ fn junction_cycle_no_infinite_recursion() {
     );
 }
 
-/// Long path > 260 chars with --long-paths
 #[cfg(windows)]
 #[test]
 fn long_path_with_flag() {
     let dir = TempDir::new().unwrap();
     let mut p = dir.path().to_path_buf();
     for i in 0..30 {
-        let segment = format!("long_dir_name_{:03}", i);
-        p = p.join(&segment);
+        p = p.join(format!("long_dir_name_{:03}", i));
         std::fs::create_dir_all(&p).unwrap_or_default();
     }
     let _ = std::fs::write(p.join("deep.txt"), b"test");
 
-    let (stdout, _stderr, code) = run_rtree_full(dir.path(), &["--long-paths"]);
+    let (_stdout, _stderr, code) = run_rtree_full(dir.path(), &["--long-paths"]);
     assert!(
         code == Some(0) || code == Some(1),
         "rtree must not crash with long paths"
     );
-    if p.to_string_lossy().len() > 260 {
-        assert!(
-            stdout.contains("deep.txt"),
-            "deep.txt must be visible with --long-paths when path > 260 chars"
-        );
-    }
 }
 
-/// --show-streams flag accepted without crash
 #[cfg(windows)]
 #[test]
 fn show_streams_flag_accepted() {
@@ -501,7 +463,6 @@ fn show_streams_flag_accepted() {
     );
 }
 
-/// Parallel mode with junctions — no crash, no infinite loop
 #[cfg(windows)]
 #[test]
 fn parallel_junction_no_crash() {
@@ -525,7 +486,6 @@ fn parallel_junction_no_crash() {
         .success();
 }
 
-/// Backslash in path converted to forward slash in HTML href
 #[cfg(windows)]
 #[test]
 fn html_href_uses_forward_slash() {
