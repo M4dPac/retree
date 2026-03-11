@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - increase parallel worker stack size to match main thread and avoid premature stack overflow
 - fix parallel symlink traversal where premature visited insert prevented descent
 - Correct executable detection on Unix: now based on permission bits instead of file extension
+- Prevent stack overflow on deep directory trees by running main logic on an 8MB stack (notably fixes Windows 1MB default stack limit)
 
 ## [0.1.4] - 2026-03-09
 
