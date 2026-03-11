@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - prevent stack overflow via internal depth limit in traversal
 - recover from poisoned mutexes in parallel mode
 - increase parallel worker stack size to match main thread and avoid premature stack overflow
+- fix parallel symlink traversal where premature visited insert prevented descent
 
 ## [0.1.4] - 2026-03-09
 

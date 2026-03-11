@@ -644,7 +644,16 @@ fn build_node_parallel_inner(
                 // Check for recursive symlink when following — atomic check-and-insert
                 if ctx.config.follow_symlinks && file_type.is_symlink() {
                     if let Ok(canon) = dir_entry.path().canonicalize() {
-                        if check_visited(ctx.visited, canon) {
+                        // Read-only check: is this symlink target already visited?
+                        // Don't insert here — the actual insert happens in
+                        // build_node_parallel_inner when the target directory is entered.
+                        // This avoids a bug where the pre-check insert prevents the
+                        // builder from descending into the target.
+                        let is_visited = match ctx.visited.lock() {
+                            Ok(v) => v.contains(&canon),
+                            Err(poisoned) => poisoned.into_inner().contains(&canon),
+                        };
+                        if is_visited {
                             return match TreeEntry::from_dir_entry(
                                 dir_entry,
                                 depth + 1,
