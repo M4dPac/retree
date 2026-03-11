@@ -394,3 +394,143 @@ fn executable_bit_detected_on_unix() {
         ".exe without +x should not get * marker on Unix"
     );
 }
+
+// ============================================================================
+// Windows-specific tests
+// ============================================================================
+
+/// Windows executable detection uses file extension
+#[cfg(windows)]
+#[test]
+fn windows_executable_by_extension() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("app.exe"), b"").unwrap();
+    std::fs::write(dir.path().join("script.bat"), b"").unwrap();
+    std::fs::write(dir.path().join("readme.txt"), b"").unwrap();
+
+    let stdout = run_rtree(dir.path(), &["-F"]);
+    assert!(
+        stdout.contains("app.exe*"),
+        ".exe must get * marker on Windows"
+    );
+    assert!(
+        stdout.contains("script.bat*"),
+        ".bat must get * marker on Windows"
+    );
+    assert!(
+        !stdout.contains("readme.txt*"),
+        ".txt must not get * marker"
+    );
+}
+
+/// Junction cycle detection — junctions report is_dir()=true, is_symlink()=false
+#[cfg(windows)]
+#[test]
+fn junction_cycle_no_infinite_recursion() {
+    use std::process::Command as StdCommand;
+
+    let dir = TempDir::new().unwrap();
+    let target = dir.path().join("target_dir");
+    std::fs::create_dir(&target).unwrap();
+    std::fs::write(target.join("data.txt"), b"content").unwrap();
+
+    // Create junction: dir\loop -> dir\target_dir
+    let junction = dir.path().join("loop");
+    StdCommand::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(&junction)
+        .arg(&target)
+        .output()
+        .expect("mklink /J failed");
+
+    let mut cmd = run_rtree_command(dir.path(), &["-a"]);
+    cmd.timeout(std::time::Duration::from_secs(5))
+        .assert()
+        .success();
+
+    let stdout = run_rtree(dir.path(), &["-a"]);
+    assert!(
+        stdout.contains("data.txt"),
+        "junction target contents must be visible"
+    );
+}
+
+/// Long path > 260 chars with --long-paths
+#[cfg(windows)]
+#[test]
+fn long_path_with_flag() {
+    let dir = TempDir::new().unwrap();
+    let mut p = dir.path().to_path_buf();
+    for i in 0..30 {
+        let segment = format!("long_dir_name_{:03}", i);
+        p = p.join(&segment);
+        std::fs::create_dir_all(&p).unwrap_or_default();
+    }
+    let _ = std::fs::write(p.join("deep.txt"), b"test");
+
+    let (stdout, _stderr, code) = run_rtree_full(dir.path(), &["--long-paths"]);
+    assert!(
+        code == Some(0) || code == Some(1),
+        "rtree must not crash with long paths"
+    );
+    if p.to_string_lossy().len() > 260 {
+        assert!(
+            stdout.contains("deep.txt"),
+            "deep.txt must be visible with --long-paths when path > 260 chars"
+        );
+    }
+}
+
+/// --show-streams flag accepted without crash
+#[cfg(windows)]
+#[test]
+fn show_streams_flag_accepted() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("test.txt"), b"data").unwrap();
+
+    let (_stdout, _stderr, code) = run_rtree_full(dir.path(), &["--show-streams"]);
+    assert!(
+        code == Some(0) || code == Some(1),
+        "--show-streams must not crash"
+    );
+}
+
+/// Parallel mode with junctions — no crash, no infinite loop
+#[cfg(windows)]
+#[test]
+fn parallel_junction_no_crash() {
+    use std::process::Command as StdCommand;
+
+    let dir = TempDir::new().unwrap();
+    let sub = dir.path().join("sub");
+    std::fs::create_dir(&sub).unwrap();
+    std::fs::write(sub.join("file.txt"), b"").unwrap();
+
+    let junction = dir.path().join("loop");
+    let _ = StdCommand::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(&junction)
+        .arg(dir.path())
+        .output();
+
+    let mut cmd = run_rtree_command(dir.path(), &["--parallel", "-a"]);
+    cmd.timeout(std::time::Duration::from_secs(10))
+        .assert()
+        .success();
+}
+
+/// Backslash in path converted to forward slash in HTML href
+#[cfg(windows)]
+#[test]
+fn html_href_uses_forward_slash() {
+    let dir = TempDir::new().unwrap();
+    let sub = dir.path().join("subdir");
+    std::fs::create_dir(&sub).unwrap();
+    std::fs::write(sub.join("file.txt"), b"").unwrap();
+
+    let stdout = run_rtree(dir.path(), &["-H", "."]);
+    assert!(
+        !stdout.contains("href=\".\\"),
+        "href must not contain backslash on Windows"
+    );
+}
