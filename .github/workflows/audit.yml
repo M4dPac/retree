@@ -1,11 +1,6 @@
 name: Security Audit
 
 on:
-  push:
-    paths:
-      - "**/Cargo.toml"
-      - "**/Cargo.lock"
-      - "deny.toml"
   pull_request:
     paths:
       - "**/Cargo.toml"
@@ -24,6 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+
+      - uses: Swatinem/rust-cache@ad397744b0d591a723ab90405b7247fac0e6b8db
+        with:
+          key: audit-ubuntu
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked

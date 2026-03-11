@@ -13,19 +13,62 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  verify:
+    name: Verify on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@ad397744b0d591a723ab90405b7247fac0e6b8db
+        with:
+          key: verify-${{ matrix.os }}
+
+      - name: Install cargo-audit
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo install cargo-audit --locked
+
+      - name: Audit
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo audit
+
+      - name: Clippy
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo clippy --locked -- -D warnings -W clippy::unwrap_used
+
+      - name: Tests
+        run: cargo test --locked
+
   build:
+    name: Build ${{ matrix.target }}
+    needs: verify
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: x86_64-pc-windows-msvc
             os: windows-latest
+            bin: rtree.exe
+            archive: zip
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            bin: rtree
+            archive: tar.gz
           - target: x86_64-apple-darwin
             os: macos-15-intel
+            bin: rtree
+            archive: tar.gz
           - target: aarch64-apple-darwin
             os: macos-latest
+            bin: rtree
+            archive: tar.gz
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -33,40 +76,27 @@ jobs:
       - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
         with:
           targets: ${{ matrix.target }}
-          components: clippy
 
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5
         with:
-          key: ${{ matrix.target }}
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
-
-      - name: Audit
-        run: cargo audit
-
-      - name: Clippy
-        run: cargo clippy --locked --target ${{ matrix.target }} -- -D warnings
-
-      - name: Test
-        run: cargo test --locked --target ${{ matrix.target }}
+          key: build-${{ matrix.target }}
 
       - name: Build
         run: cargo build --release --locked --target ${{ matrix.target }}
 
       - name: Package (Windows)
-        if: runner.os == 'Windows'
+        if: matrix.archive == 'zip'
         shell: pwsh
         run: |
           Compress-Archive `
-            -Path "target/${{ matrix.target }}/release/rtree.exe" `
+            -Path "target/${{ matrix.target }}/release/${{ matrix.bin }}" `
             -DestinationPath "rtree-${{ matrix.target }}.zip"
 
       - name: Package (Unix)
-        if: runner.os != 'Windows'
+        if: matrix.archive == 'tar.gz'
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ../../../rtree-${{ matrix.target }}.tar.gz rtree
+          tar czf ../../../rtree-${{ matrix.target }}.tar.gz "${{ matrix.bin }}"
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
@@ -76,6 +106,7 @@ jobs:
             rtree-*.tar.gz
 
   release:
+    name: Publish Release
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -97,7 +128,6 @@ jobs:
         run: cosign sign-blob --yes SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle
 
       - name: Extract changelog
-        id: changelog
         run: |
           VERSION=${GITHUB_REF_NAME#v}
           ESCAPED=$(echo "$VERSION" | sed 's/\./\\./g')

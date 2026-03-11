@@ -26,12 +26,15 @@ jobs:
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@ad397744b0d591a723ab90405b7247fac0e6b8db
+        with:
+          key: ci-${{ matrix.os }}
 
       - name: Check formatting
         if: matrix.os == 'ubuntu-latest'
         run: cargo fmt --check
 
       - name: Clippy
+        if: matrix.os == 'ubuntu-latest'
         run: cargo clippy --locked -- -D warnings -W clippy::unwrap_used
 
       - name: Tests
