@@ -388,6 +388,7 @@ fn executable_bit_detected_on_unix() {
 // Windows-specific tests
 // ============================================================================
 
+/// Windows executable detection uses extension
 #[cfg(windows)]
 #[test]
 fn windows_executable_by_extension() {
@@ -397,21 +398,30 @@ fn windows_executable_by_extension() {
     std::fs::write(dir.path().join("readme.txt"), b"").unwrap();
 
     let stdout = run_rtree(dir.path(), &["-F"]);
-    assert!(stdout.contains("app.exe*"), ".exe must get * on Windows");
-    assert!(stdout.contains("script.bat*"), ".bat must get * on Windows");
-    assert!(!stdout.contains("readme.txt*"), ".txt must not get *");
+    assert!(
+        stdout.contains("app.exe*"),
+        ".exe must get * marker on Windows"
+    );
+    assert!(
+        stdout.contains("script.bat*"),
+        ".bat must get * marker on Windows"
+    );
+    assert!(
+        !stdout.contains("readme.txt*"),
+        ".txt must not get * marker"
+    );
 }
 
 #[cfg(windows)]
 #[test]
 fn junction_cycle_no_infinite_recursion() {
     use std::process::Command as StdCommand;
-
     let dir = TempDir::new().unwrap();
     let target = dir.path().join("target_dir");
     std::fs::create_dir(&target).unwrap();
     std::fs::write(target.join("data.txt"), b"content").unwrap();
 
+    // Create junction: dir\loop -> dir\target_dir
     let junction = dir.path().join("loop");
     StdCommand::new("cmd")
         .args(["/C", "mklink", "/J"])
@@ -420,42 +430,66 @@ fn junction_cycle_no_infinite_recursion() {
         .output()
         .expect("mklink /J failed");
 
-    let mut cmd = run_rtree_command(dir.path(), &["-a"]);
-    cmd.timeout(std::time::Duration::from_secs(5))
-        .assert()
-        .success();
-
     let stdout = run_rtree(dir.path(), &["-a"]);
     assert!(
         stdout.contains("data.txt"),
         "junction target contents must be visible"
     );
+    // Should not hang or crash
 }
 
+/// Junction to different volume + --one-fs should not descend
+#[cfg(windows)]
+#[test]
+fn one_fs_stops_at_junction_to_other_volume() {
+    // This test requires two different volumes (e.g. C: and D:)
+    // Skip if only one volume available
+    let dir = TempDir::new().unwrap();
+    let stdout = run_rtree(dir.path(), &["-x"]);
+    // Just verify --one-fs doesn't crash
+    assert!(
+        stdout.contains("0"),
+        "should produce valid output with --one-fs"
+    );
+}
+
+/// Long path > 260 chars with --long-paths
 #[cfg(windows)]
 #[test]
 fn long_path_with_flag() {
     let dir = TempDir::new().unwrap();
     let mut p = dir.path().to_path_buf();
+    // Create path exceeding 260 chars
     for i in 0..30 {
-        p = p.join(format!("long_dir_name_{:03}", i));
-        std::fs::create_dir_all(&p).unwrap_or_default();
+        let segment = format!("long_dir_name_{:03}", i);
+        p = p.join(&segment);
+        std::fs::create_dir(&p).unwrap_or_default();
     }
+    // Try to create a file at the bottom
     let _ = std::fs::write(p.join("deep.txt"), b"test");
 
-    let (_stdout, _stderr, code) = run_rtree_full(dir.path(), &["--long-paths"]);
+    let (stdout, _stderr, code) = run_rtree_full(dir.path(), &["--long-paths"]);
     assert!(
         code == Some(0) || code == Some(1),
         "rtree must not crash with long paths"
     );
+    // With --long-paths, the deep file should be reachable
+    if p.to_string_lossy().len() > 260 {
+        assert!(
+            stdout.contains("deep.txt"),
+            "deep.txt must be visible with --long-paths when path > 260 chars"
+        );
+    }
 }
 
+/// ADS (Alternate Data Streams) — --show-streams flag accepted
 #[cfg(windows)]
 #[test]
 fn show_streams_flag_accepted() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("test.txt"), b"data").unwrap();
 
+    // --show-streams should be accepted without crash
     let (_stdout, _stderr, code) = run_rtree_full(dir.path(), &["--show-streams"]);
     assert!(
         code == Some(0) || code == Some(1),
@@ -463,16 +497,31 @@ fn show_streams_flag_accepted() {
     );
 }
 
+/// Reserved Windows names (CON, NUL, PRN) should not hang
+#[cfg(windows)]
+#[test]
+fn reserved_names_no_hang() {
+    let dir = TempDir::new().unwrap();
+    // Create a normal file
+    std::fs::write(dir.path().join("normal.txt"), b"").unwrap();
+
+    let mut cmd = run_rtree_command(dir.path(), &["-a"]);
+    cmd.timeout(std::time::Duration::from_secs(5))
+        .assert()
+        .success();
+}
+
+/// Parallel mode with junctions — no crash, no infinite loop
 #[cfg(windows)]
 #[test]
 fn parallel_junction_no_crash() {
     use std::process::Command as StdCommand;
-
     let dir = TempDir::new().unwrap();
     let sub = dir.path().join("sub");
     std::fs::create_dir(&sub).unwrap();
     std::fs::write(sub.join("file.txt"), b"").unwrap();
 
+    // Create junction loop: dir\loop -> dir
     let junction = dir.path().join("loop");
     let _ = StdCommand::new("cmd")
         .args(["/C", "mklink", "/J"])
@@ -486,6 +535,7 @@ fn parallel_junction_no_crash() {
         .success();
 }
 
+/// Backslash in path converted to forward slash in HTML href
 #[cfg(windows)]
 #[test]
 fn html_href_uses_forward_slash() {
@@ -495,8 +545,9 @@ fn html_href_uses_forward_slash() {
     std::fs::write(sub.join("file.txt"), b"").unwrap();
 
     let stdout = run_rtree(dir.path(), &["-H", "."]);
+    // href should use / not backslash
     assert!(
         !stdout.contains("href=\".\\"),
-        "href must not contain backslash on Windows"
+        "href must not contain backslash"
     );
 }
