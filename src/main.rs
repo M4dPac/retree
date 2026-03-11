@@ -17,7 +17,28 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    // 4. Обычный парсинг и запуск приложения.
+    // 4. Обычный парсинг.
     let args = rtree::cli::Args::parse();
-    rtree::app::run(args)
+
+    // 5. Запуск на потоке с гарантированным стеком 8 МиБ.
+    //    Windows выделяет main-thread всего 1 МиБ (vs 8 МиБ на Linux/macOS).
+    //    Рекурсивный walker тратит ~10–25 КиБ на фрейм (debug-сборка).
+    //    Без этого stack overflow возникает уже на ~100 уровнях вложенности.
+    const STACK_SIZE: usize = 8 * 1024 * 1024;
+
+    let builder = std::thread::Builder::new()
+        .name("rtree-main".into())
+        .stack_size(STACK_SIZE);
+
+    match builder.spawn(move || rtree::app::run(args)) {
+        Ok(handle) => match handle.join() {
+            Ok(code) => code,
+            Err(_) => ExitCode::from(1),
+        },
+        // Thread creation failed — run on current thread (best effort)
+        Err(_) => {
+            let args = rtree::cli::Args::parse();
+            rtree::app::run(args)
+        }
+    }
 }
