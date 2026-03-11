@@ -140,7 +140,7 @@ impl TextRenderer {
                 EntryType::Directory => name.push('/'),
                 EntryType::Symlink { .. } | EntryType::Junction { .. } => {}
                 EntryType::File => {
-                    if is_executable(&entry.path) {
+                    if crate::platform::is_executable(&entry.path) {
                         name.push('*');
                     }
                 }
@@ -372,16 +372,4 @@ fn format_posix_mode(mode: u32) -> String {
     s.push(if mode & 0o001 != 0 { 'x' } else { '-' });
 
     s
-}
-
-fn is_executable(path: &std::path::Path) -> bool {
-    if let Some(ext) = path.extension() {
-        let ext = ext.to_string_lossy().to_lowercase();
-        matches!(
-            ext.as_str(),
-            "exe" | "com" | "bat" | "cmd" | "ps1" | "vbs" | "js" | "msi"
-        )
-    } else {
-        false
-    }
 }

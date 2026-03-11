@@ -62,7 +62,7 @@ impl ColorScheme {
             EntryType::Junction { .. } => "ln",
             EntryType::File => {
                 // Check if executable
-                if is_executable(&entry.path) {
+                if crate::platform::is_executable(&entry.path) {
                     "ex"
                 } else {
                     "fi"
@@ -143,17 +143,5 @@ impl Default for ColorScheme {
             type_colors,
             ext_colors,
         }
-    }
-}
-
-fn is_executable(path: &std::path::Path) -> bool {
-    if let Some(ext) = path.extension() {
-        let ext = ext.to_string_lossy().to_lowercase();
-        matches!(
-            ext.as_str(),
-            "exe" | "com" | "bat" | "cmd" | "ps1" | "vbs" | "js" | "msi"
-        )
-    } else {
-        false
     }
 }

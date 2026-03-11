@@ -193,3 +193,33 @@ pub fn detect_system_language_id() -> Option<u16> {
         None
     }
 }
+
+// ═══════════════════════════════════════
+// Executable detection
+// ═══════════════════════════════════════
+
+/// Check if a file is executable.
+///
+/// - **Unix**: checks permission bits (`mode & 0o111 != 0`)
+/// - **Windows**: checks file extension (exe, com, bat, cmd, ps1, vbs, js, msi)
+pub fn is_executable(path: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        if let Some(ext) = path.extension() {
+            let ext = ext.to_string_lossy().to_lowercase();
+            matches!(
+                ext.as_str(),
+                "exe" | "com" | "bat" | "cmd" | "ps1" | "vbs" | "js" | "msi"
+            )
+        } else {
+            false
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::symlink_metadata(path)
+            .map(|m| m.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false)
+    }
+}
