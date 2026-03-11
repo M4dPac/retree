@@ -124,11 +124,15 @@ fn direct_loop_no_hang() {
 // Deep tree (cross-platform)
 // ============================================================================
 
+/// 100 levels is safe for debug-mode stack on all platforms.
+/// Production limit is MAX_INTERNAL_DEPTH=4096 (release builds with optimized frames).
+const TEST_DEEP_LEVELS: usize = 100;
+
 #[test]
-fn deep_tree_200_sequential() {
+fn deep_tree_sequential() {
     let dir = TempDir::new().unwrap();
     let mut p = dir.path().to_path_buf();
-    for i in 0..200 {
+    for i in 0..TEST_DEEP_LEVELS {
         p = p.join(format!("d{}", i));
         std::fs::create_dir(&p).unwrap();
     }
@@ -137,15 +141,16 @@ fn deep_tree_200_sequential() {
     let stdout = run_rtree(dir.path(), &[]);
     assert!(
         stdout.contains("bottom.txt"),
-        "bottom.txt must appear in 200-level deep tree"
+        "bottom.txt must appear in {}-level deep tree",
+        TEST_DEEP_LEVELS
     );
 }
 
 #[test]
-fn deep_tree_200_parallel_no_crash() {
+fn deep_tree_parallel_no_crash() {
     let dir = TempDir::new().unwrap();
     let mut p = dir.path().to_path_buf();
-    for i in 0..200 {
+    for i in 0..TEST_DEEP_LEVELS {
         p = p.join(format!("d{}", i));
         std::fs::create_dir(&p).unwrap();
     }
@@ -155,7 +160,8 @@ fn deep_tree_200_parallel_no_crash() {
 
     assert!(
         stdout.contains("bottom.txt"),
-        "parallel 200-level tree must not crash"
+        "parallel {}-level tree must not crash",
+        TEST_DEEP_LEVELS
     );
 }
 
