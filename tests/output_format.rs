@@ -51,7 +51,7 @@ fn test_html_output_structure() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(stdout.contains("<!DOCTYPE html>") || stdout.contains("<!doctype html>"));
     assert!(stdout.contains("<html"));
     assert!(stdout.contains("<body"));
@@ -71,7 +71,7 @@ fn test_html_contains_links_by_default() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         stdout.contains("<a "),
         "HTML output should contain hyperlinks by default. Got:\n{}",
@@ -96,7 +96,7 @@ fn test_html_title() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         stdout.contains("My Custom Title"),
         "HTML should contain custom title"
@@ -120,7 +120,7 @@ fn test_nolinks_removes_hyperlinks() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         !stdout.contains("<a "),
         "With --nolinks, HTML should not contain <a> tags. Got:\n{}",
@@ -189,7 +189,7 @@ fn test_xml_output_structure() {
 
     let output = rtree().arg("-X").arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         stdout.starts_with("<?xml"),
         "XML should start with <?xml declaration"
@@ -224,8 +224,7 @@ fn test_json_output_structure() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).expect("Output must be valid JSON");
+    let json: serde_json::Value = common::output_json(&output);
 
     let arr = json.as_array().expect("Root should be array");
     assert!(arr.len() >= 2, "Should have at least directory + report");
@@ -277,7 +276,7 @@ fn test_json_hierarchy_correct() {
 
     let output = rtree().args(["-J"]).arg(p).assert().success();
 
-    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+    let json: serde_json::Value = common::output_json(&output);
     let root_contents = json[0]["contents"].as_array().unwrap();
 
     assert!(root_contents
@@ -314,7 +313,7 @@ fn test_json_noreport() {
 
     let output = rtree().args(["-J", "--noreport"]).arg(p).assert().success();
 
-    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+    let json: serde_json::Value = common::output_json(&output);
     let arr = json.as_array().unwrap();
 
     let has_report = arr.iter().any(|e| e["type"].as_str() == Some("report"));
@@ -334,7 +333,7 @@ fn test_json_dirs_only() {
 
     let output = rtree().args(["-J", "-d"]).arg(p).assert().success();
 
-    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+    let json: serde_json::Value = common::output_json(&output);
 
     // inline count to avoid importing common helper for just one test
     fn count_files(v: &serde_json::Value) -> u64 {

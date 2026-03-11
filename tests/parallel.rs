@@ -127,7 +127,7 @@ fn test_parallel_json_output() {
 
     let output = rtree().args(["--parallel", "-J"]).arg(p).assert().success();
 
-    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+    let json: serde_json::Value = common::output_json(&output);
     assert!(json.is_array());
 }
 
@@ -140,7 +140,7 @@ fn test_parallel_xml_output() {
 
     let output = rtree().args(["--parallel", "-X"]).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(stdout.starts_with("<?xml"));
     assert!(stdout.contains("<tree>"));
 }
@@ -158,7 +158,7 @@ fn test_parallel_html_output() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(stdout.contains("<html"));
 }
 
@@ -181,7 +181,7 @@ fn test_parallel_indentation() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let child_line = stdout
         .lines()
         .find(|l| l.contains("child.txt"))
@@ -285,7 +285,7 @@ fn test_parallel_no_duplicates() {
     }
 
     let output = rtree().args(["--parallel", "-J"]).arg(p).assert().success();
-    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+    let json: serde_json::Value = common::output_json(&output);
 
     fn collect_paths(entry: &serde_json::Value, prefix: &str, paths: &mut Vec<String>) {
         if let Some(name) = entry.get("name").and_then(|n| n.as_str()) {

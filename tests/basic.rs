@@ -216,7 +216,7 @@ fn test_full_path_shows_path_prefix() {
 
     let output = rtree().args(["-f"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let file_line = stdout
         .lines()
         .find(|l| l.contains("file.txt"))
@@ -327,7 +327,7 @@ fn test_noreport_omits_statistics() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
 
     assert!(
         !predicate::str::is_match(r"\d+\s+director")

@@ -20,7 +20,7 @@ fn test_no_indent_removes_tree_chars() {
 
     let output = rtree().args(["-i"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
 
     assert!(!stdout.contains('├'), "-i should remove ├");
     assert!(!stdout.contains('└'), "-i should remove └");
@@ -49,7 +49,7 @@ fn test_ansi_line_graphics() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let has_unicode_tree = stdout.contains('├') || stdout.contains('└') || stdout.contains('│');
     assert!(
         has_unicode_tree,
@@ -80,7 +80,7 @@ fn test_no_color_strips_ansi_escapes() {
 
     let output = rtree().args(["-n"]).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         !stdout.contains("\x1b["),
         "With -n, output must not contain ANSI escape codes. Got:\n{:?}",
@@ -98,7 +98,7 @@ fn test_color_always_forces_ansi_escapes() {
 
     let output = rtree().args(["-C"]).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         stdout.contains("\x1b["),
         "With -C, output should contain ANSI escapes even in pipe. Got:\n{:?}",
@@ -117,7 +117,7 @@ fn test_color_never() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         !stdout.contains("\x1b["),
         "With --color=never, no ANSI escapes"
@@ -134,7 +134,7 @@ fn test_color_always_via_flag() {
 
     let output = rtree().args(["--color=always"]).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         stdout.contains("\x1b["),
         "With --color=always, should have ANSI escapes"
@@ -168,7 +168,7 @@ fn test_no_color_overrides_color_always() {
 
     let output = rtree().args(["-C", "-n"]).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         !stdout.contains("\x1b["),
         "With both -C and -n, -n should win (no ANSI). Got:\n{:?}",
@@ -186,7 +186,7 @@ fn test_no_color_env_variable() {
 
     let output = rtree().env("NO_COLOR", "1").arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         !stdout.contains("\x1b["),
         "With NO_COLOR=1, output must not contain ANSI escapes"
@@ -206,7 +206,7 @@ fn test_size_shows_bytes() {
 
     let output = rtree().args(["-s"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let file_line = stdout
         .lines()
         .find(|l| l.contains("file.txt"))
@@ -232,7 +232,7 @@ fn test_human_readable_shows_units() {
 
     let output = rtree().args(["-h"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let file_line = stdout
         .lines()
         .find(|l| l.contains("big.txt"))
@@ -270,7 +270,7 @@ fn test_date_shows_timestamp() {
 
     let output = rtree().args(["-D"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         predicate::str::is_match(r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}")
             .unwrap()
@@ -298,7 +298,7 @@ fn test_timefmt_custom_format() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
 
     assert!(
         predicate::str::is_match(r"\d{4}/\d{2}/\d{2}")
@@ -331,7 +331,7 @@ fn test_permissions_shows_perm_string() {
 
     let output = rtree().args(["-p"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let file_line = stdout
         .lines()
         .find(|l| l.contains("file.txt"))
@@ -366,7 +366,7 @@ fn test_uid_shows_owner() {
 
     let output = rtree().args(["-u"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let file_line = stdout
         .lines()
         .find(|l| l.contains("file.txt"))
@@ -392,7 +392,7 @@ fn test_gid_shows_group() {
 
     let output = rtree().args(["-g"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let file_line = stdout
         .lines()
         .find(|l| l.contains("file.txt"))
@@ -423,7 +423,7 @@ fn test_inodes_shows_number() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let file_line = stdout
         .lines()
         .find(|l| l.contains("file.txt"))
@@ -454,7 +454,7 @@ fn test_device_shows_number() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let file_line = stdout
         .lines()
         .find(|l| l.contains("file.txt"))
@@ -481,7 +481,7 @@ fn test_classify_appends_slash_to_dirs() {
 
     let output = rtree().args(["-F"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     assert!(
         stdout.contains("subdir/"),
         "With -F, directories should have / suffix. Got:\n{}",
@@ -716,7 +716,7 @@ fn test_tree_indentation_child_under_dir() {
 
     let output = rtree().args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let child_line = stdout
         .lines()
         .find(|l| l.contains("child_file.txt"))
@@ -739,7 +739,7 @@ fn test_tree_deep_indentation() {
 
     let output = rtree().args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let deep_line = stdout
         .lines()
         .find(|l| l.contains("deep.txt"))
@@ -763,7 +763,7 @@ fn test_last_branch_marker_single_child() {
 
     let output = rtree().args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let child_line = stdout
         .lines()
         .find(|l| l.contains("only_child.txt"))
@@ -786,7 +786,7 @@ fn test_branch_markers_multiple_children() {
 
     let output = rtree().args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let first_line = stdout
         .lines()
         .find(|l| l.contains("aaa.txt"))

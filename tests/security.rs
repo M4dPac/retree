@@ -5,85 +5,10 @@
 
 mod common;
 
-use assert_cmd::Command;
+use common::{run_rtree, run_rtree_args_full, run_rtree_command, run_rtree_full};
 use std::os::unix::fs as unix_fs;
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
 use tempfile::TempDir;
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-/// Get rtree binary path (built by cargo test).
-fn rtree_path() -> PathBuf {
-    let mut p = std::env::current_exe().unwrap();
-    p.pop();
-    p.pop();
-    p.push("rtree");
-    assert!(p.exists(), "rtree binary not found at {:?}", p);
-    p
-}
-
-/// Build an `rtree` command with a consistent test environment.
-fn rtree_command(args: &[&str]) -> Command {
-    let mut cmd = Command::new(rtree_path());
-    cmd.args(args)
-        .env("LC_ALL", "en_US.UTF-8")
-        .env("TREE_LANG", "en");
-    cmd
-}
-
-/// Build argument list for directory-based tests.
-///
-/// Adds `--no-icons --lang en -n`, then extra arguments, then the target path.
-fn rtree_dir_args(dir: &std::path::Path, extra_args: &[&str]) -> Vec<String> {
-    let mut args = vec![
-        "--no-icons".to_string(),
-        "--lang".to_string(),
-        "en".to_string(),
-        "-n".to_string(),
-    ];
-    args.extend(extra_args.iter().map(|s| s.to_string()));
-    args.push(dir.to_string_lossy().into_owned());
-    args
-}
-
-/// Run `rtree` and return `(stdout, stderr, exit_code)`.
-fn run_rtree_args_full(args: &[&str]) -> (String, String, Option<i32>) {
-    let out = rtree_command(args)
-        .output()
-        .expect("failed to execute rtree");
-
-    let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
-    let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
-    (stdout, stderr, out.status.code())
-}
-
-/// Build an `rtree` command for a directory-based test.
-fn run_rtree_command(dir: &std::path::Path, extra_args: &[&str]) -> Command {
-    let args = rtree_dir_args(dir, extra_args);
-    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    rtree_command(&refs)
-}
-
-/// Run `rtree` on a directory and return `(stdout, stderr, exit_code)`.
-fn run_rtree_full(dir: &std::path::Path, extra_args: &[&str]) -> (String, String, Option<i32>) {
-    let args = rtree_dir_args(dir, extra_args);
-    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    run_rtree_args_full(&refs)
-}
-
-/// Run `rtree` on a directory and return stdout only.
-///
-/// Panics on non-zero exit.
-fn run_rtree(dir: &std::path::Path, extra_args: &[&str]) -> String {
-    let (stdout, stderr, code) = run_rtree_full(dir, extra_args);
-    if code != Some(0) {
-        panic!("rtree failed (status {:?}):\nstderr: {}", code, stderr);
-    }
-    stdout
-}
 
 // ============================================================================
 // Terminal injection
@@ -405,8 +330,8 @@ fn parallel_and_sequential_same_file_count() {
     let par = run_rtree(dir.path(), &["--parallel"]);
 
     // Extract last line (report)
-    let seq_last = seq.lines().last().unwrap_or("").trim().to_string();
-    let par_last = par.lines().last().unwrap_or("").trim().to_string();
+    let seq_last = common::last_nonempty_line(&seq);
+    let par_last = common::last_nonempty_line(&par);
 
     assert_eq!(
         seq_last, par_last,

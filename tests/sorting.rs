@@ -20,7 +20,7 @@ fn test_version_sort_order() {
 
     let output = rtree().args(["-v"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let pos1 = stdout.find("file1.txt").unwrap();
     let pos2 = stdout.find("file2.txt").unwrap();
     let pos10 = stdout.find("file10.txt").unwrap();
@@ -49,7 +49,7 @@ fn test_time_sort_order() {
 
     let output = rtree().args(["-t"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let pos_old = stdout.find("old.txt").expect("old.txt not found");
     let pos_new = stdout.find("new.txt").expect("new.txt not found");
 
@@ -99,7 +99,7 @@ fn test_reverse_sort_order() {
 
     let output = rtree().args(["-r"]).args(CLEAN).arg(p).assert().success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let pos_z = stdout.find("zzz.txt").unwrap();
     let pos_a = stdout.find("aaa.txt").unwrap();
 
@@ -130,7 +130,7 @@ fn test_dirs_first_order() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let pos_dir = stdout.find("subdir").unwrap();
     let pos_file = stdout.find("aaa_file.txt").unwrap();
 
@@ -157,7 +157,7 @@ fn test_files_first_order() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let pos_file = stdout.find("zzz_file.txt").unwrap();
     let pos_dir = stdout.find("aaa_dir").unwrap();
 
@@ -189,7 +189,7 @@ fn test_sort_name() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let pos_a = stdout.find("aaa.txt").unwrap();
     let pos_b = stdout.find("bbb.txt").unwrap();
     let pos_c = stdout.find("ccc.txt").unwrap();
@@ -218,7 +218,7 @@ fn test_sort_size() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let pos_small = stdout.find("small.txt").unwrap();
     let pos_large = stdout.find("large.txt").unwrap();
 
@@ -270,7 +270,7 @@ fn test_sort_version() {
         .assert()
         .success();
 
-    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    let stdout = common::output_stdout(&output);
     let p1 = stdout.find("v1.txt").unwrap();
     let p2 = stdout.find("v2.txt").unwrap();
     let p10 = stdout.find("v10.txt").unwrap();
