@@ -35,7 +35,7 @@ jobs:
           targets: ${{ matrix.target }}
           components: clippy
 
-      - uses: Swatinem/rust-cache@ad397744b0d591a723ab90405b7247fac0e6b8db
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5
         with:
           key: ${{ matrix.target }}
 
@@ -90,8 +90,8 @@ jobs:
           sha256sum rtree-*.zip rtree-*.tar.gz > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-            - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+      - name: Install cosign
+        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22
 
       - name: Sign checksums
         run: cosign sign-blob --yes SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle
