@@ -338,3 +338,41 @@ fn parallel_and_sequential_same_file_count() {
         "sequential and parallel must produce the same summary line"
     );
 }
+
+// ============================================================================
+// Executable detection (Unix)
+// ============================================================================
+
+#[test]
+fn executable_bit_detected_on_unix() {
+    let dir = TempDir::new().unwrap();
+
+    // File with +x (should get * with -F)
+    let script = dir.path().join("script.sh");
+    std::fs::write(&script, b"#!/bin/sh\necho hi").unwrap();
+    let mut perms = std::fs::metadata(&script).unwrap().permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&script, perms).unwrap();
+
+    // File without +x (should NOT get *)
+    std::fs::write(dir.path().join("readme.txt"), b"").unwrap();
+
+    // .exe without +x (should NOT get * on Unix — permission bits take precedence)
+    std::fs::write(dir.path().join("program.exe"), b"").unwrap();
+
+    let stdout = run_rtree(dir.path(), &["-F"]);
+
+    assert!(
+        stdout.contains("script.sh*"),
+        "chmod +x file must get * marker with -F on Unix"
+    );
+    assert!(
+        !stdout.contains("readme.txt*"),
+        "non-executable file must not get * marker"
+    );
+    // On Unix, .exe without execute permission should NOT get *
+    assert!(
+        !stdout.contains("program.exe*"),
+        ".exe without +x should not get * marker on Unix"
+    );
+}
