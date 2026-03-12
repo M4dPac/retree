@@ -348,6 +348,14 @@ pub struct Args {
         help_heading = "Performance"
     )]
     pub queue_cap: Option<u64>,
+
+    /// Maximum total entries to display (0 = unlimited)
+    #[arg(
+        long = "max-entries",
+        value_name = "N",
+        help_heading = "Listing Options"
+    )]
+    pub max_entries: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]

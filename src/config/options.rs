@@ -98,4 +98,7 @@ pub struct Config {
     pub parallel: bool,
     pub threads: Option<usize>,
     pub queue_cap: Option<usize>,
+
+    /// Maximum total entries to display (streaming early termination)
+    pub max_entries: Option<usize>,
 }

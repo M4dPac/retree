@@ -80,7 +80,7 @@ impl TreeIterator {
         };
 
         if long_root.is_dir() {
-            match read_and_sort_filtered(&long_root, config, false) {
+            match read_and_sort_filtered(&long_root, config, false, 1) {
                 Ok((filtered, _total)) => {
                     if !filtered.is_empty() {
                         iter.stack.push(WalkState {
@@ -235,7 +235,7 @@ impl Iterator for TreeIterator {
                 parent_matched || self.config.filter.dir_matches_include(&name);
 
             // Read, sort, and filter children
-            match read_and_sort_filtered(&path, &self.config, child_parent_matched) {
+            match read_and_sort_filtered(&path, &self.config, child_parent_matched, depth + 1) {
                 Ok((filtered, total)) => {
                     // --filelimit: based on total (unfiltered) count
                     if let Some(limit) = self.config.file_limit {
@@ -292,6 +292,7 @@ fn read_and_sort_filtered(
     path: &Path,
     config: &Config,
     parent_matched: bool,
+    child_depth: usize,
 ) -> Result<(Vec<DirEntry>, usize), TreeError> {
     let long_path = crate::platform::to_long_path(path, config.long_paths);
     let read_dir = fs::read_dir(&long_path).map_err(|e| TreeError::Io(path.to_path_buf(), e))?;
@@ -304,6 +305,28 @@ fn read_and_sort_filtered(
     let filtered = entries
         .into_iter()
         .filter(|e| should_include(config, e, parent_matched))
+        .filter(|e| {
+            // --prune: remove directories with no visible descendants
+            if !config.prune {
+                return true;
+            }
+            let ft = match e.file_type() {
+                Ok(ft) => ft,
+                Err(_) => return true, // keep on error, will fail later
+            };
+            let is_dir =
+                ft.is_dir() || (config.follow_symlinks && ft.is_symlink() && e.path().is_dir());
+            if !is_dir {
+                return true; // files always pass prune
+            }
+            let name_os = e.file_name();
+            let name = name_os.to_string_lossy();
+            // --matchdirs: directory matching -P is protected from pruning
+            if config.filter.dir_matches_include(&name) {
+                return true;
+            }
+            has_visible_descendants(&e.path(), config, child_depth + 1, parent_matched)
+        })
         .collect();
 
     Ok((filtered, total))
@@ -355,4 +378,86 @@ fn should_include(config: &Config, dir_entry: &DirEntry, parent_matched: bool) -
     }
 
     true
+}
+
+/// Recursively check whether a directory contains any visible entries
+/// matching the current filter configuration.
+///
+/// Used by `--prune` to remove directories that would appear empty
+/// after filtering.  Matches GNU tree behavior where pruning cascades
+/// through nested empty directories.
+///
+/// Does NOT create Entry objects — only uses `read_dir` + `file_type`.
+fn has_visible_descendants(
+    path: &Path,
+    config: &Config,
+    depth: usize,
+    parent_matched: bool,
+) -> bool {
+    if depth >= MAX_INTERNAL_DEPTH {
+        return false;
+    }
+    if let Some(max) = config.max_depth {
+        if depth >= max {
+            return false;
+        }
+    }
+
+    let long_path = crate::platform::to_long_path(path, config.long_paths);
+    let read_dir = match fs::read_dir(&long_path) {
+        Ok(rd) => rd,
+        Err(_) => return false,
+    };
+
+    for entry in read_dir.filter_map(|e| e.ok()) {
+        let name_os = entry.file_name();
+        let name = name_os.to_string_lossy();
+
+        // Hidden files
+        if !config.show_all && name.starts_with('.') {
+            continue;
+        }
+
+        // -I: exclude pattern
+        if config.filter.excluded(&name) {
+            continue;
+        }
+
+        let file_type = match entry.file_type() {
+            Ok(ft) => ft,
+            Err(_) => continue,
+        };
+
+        let is_dir = file_type.is_dir()
+            || (config.follow_symlinks && file_type.is_symlink() && entry.path().is_dir());
+
+        if is_dir {
+            // Symlinks-to-dirs without following are "empty" for prune
+            if !config.follow_symlinks && file_type.is_symlink() {
+                continue;
+            }
+
+            // --matchdirs: directory matching -P counts as visible
+            if config.filter.dir_matches_include(&name) {
+                return true;
+            }
+
+            // Recurse into subdirectory
+            if has_visible_descendants(&entry.path(), config, depth + 1, parent_matched) {
+                return true;
+            }
+        } else {
+            // --dirs-only: files don't count
+            if config.dirs_only {
+                continue;
+            }
+
+            // File matches -P pattern (or parent already matched via --matchdirs)
+            if parent_matched || config.filter.matches(&name, false) {
+                return true;
+            }
+        }
+    }
+
+    false
 }
