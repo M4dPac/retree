@@ -4,8 +4,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::{Condvar, Mutex};
 
 use rayon::prelude::*;
 
@@ -31,7 +30,8 @@ const MAX_INTERNAL_DEPTH: usize = 4096;
 /// in parallel mode.  Provides backpressure to prevent excessive
 /// file-descriptor usage and memory spikes on wide trees.
 struct DirReadLimiter {
-    active: AtomicUsize,
+    state: Mutex<usize>,
+    cvar: Condvar,
     max: usize,
 }
 
@@ -41,37 +41,27 @@ struct DirReadGuard<'a>(&'a DirReadLimiter);
 impl DirReadLimiter {
     fn new(max: usize) -> Self {
         Self {
-            active: AtomicUsize::new(0),
+            state: Mutex::new(0),
+            cvar: Condvar::new(),
             max: max.max(1), // at least 1 to prevent deadlock
         }
     }
 
     fn acquire(&self) -> DirReadGuard<'_> {
-        loop {
-            let current = self.active.load(Ordering::Acquire);
-            if current < self.max {
-                if self
-                    .active
-                    .compare_exchange_weak(
-                        current,
-                        current + 1,
-                        Ordering::AcqRel,
-                        Ordering::Relaxed,
-                    )
-                    .is_ok()
-                {
-                    return DirReadGuard(self);
-                }
-            } else {
-                std::thread::yield_now();
-            }
+        let mut active = self.state.lock().unwrap_or_else(|p| p.into_inner());
+        while *active >= self.max {
+            active = self.cvar.wait(active).unwrap_or_else(|p| p.into_inner());
         }
+        *active += 1;
+        DirReadGuard(self)
     }
 }
 
 impl Drop for DirReadGuard<'_> {
     fn drop(&mut self) {
-        self.0.active.fetch_sub(1, Ordering::Release);
+        let mut active = self.0.state.lock().unwrap_or_else(|p| p.into_inner());
+        *active -= 1;
+        self.0.cvar.notify_one();
     }
 }
 
