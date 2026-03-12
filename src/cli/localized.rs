@@ -244,6 +244,10 @@ pub fn build_localized_command(lang: Language) -> clap::Command {
             a.help(msg(lang, MessageKey::ArgQueueCap))
                 .help_heading(msg(lang, MessageKey::HeadingPerformance))
         })
+        .mut_arg("max_entries", |a| {
+            a.help(msg(lang, MessageKey::ArgMaxEntries))
+                .help_heading(msg(lang, MessageKey::HeadingListingOptions))
+        })
         // --- Icons ---
         .mut_arg("icons", |a| {
             a.help(msg(lang, MessageKey::ArgIcons))

@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Early termination of traversal when entry limit is reached
 - New --max-entries option to limit total displayed entries
 - BuildResult::truncated flag indicating output truncation
+- Print stderr notification when output is truncated by --max-entries
+- Localized help text for --max-entries (EN, RU)
 
 ### Changed
 

@@ -73,6 +73,7 @@ pub enum MessageKey {
     ArgParallel,
     ArgThreads,
     ArgQueueCap,
+    ArgMaxEntries,
 
     // Sort types
     SortName,
@@ -231,6 +232,7 @@ fn get_message_en(key: MessageKey) -> &'static str {
         }
         MessageKey::ArgThreads => "Number of worker threads for parallel mode (default: CPU cores)",
         MessageKey::ArgQueueCap => "Maximum concurrent directory reads in parallel mode",
+        MessageKey::ArgMaxEntries => "Maximum total entries to display (limits memory usage)",
 
         // Sort types
         MessageKey::SortName => "name",
@@ -382,6 +384,9 @@ fn get_message_ru(key: MessageKey) -> &'static str {
         MessageKey::ArgThreads => "Количество рабочих потоков (по умолчанию: число ядер ЦП)",
         MessageKey::ArgQueueCap => {
             "Максимальное число одновременных чтений директорий в параллельном режиме"
+        }
+        MessageKey::ArgMaxEntries => {
+            "Максимальное количество выводимых элементов (ограничивает потребление памяти)"
         }
 
         // Sort types

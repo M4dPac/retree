@@ -158,5 +158,13 @@ fn render_tree<W: Write>(
     stats.errors += result.errors.len() as u64;
 
     // Dispatch to appropriate render backend
-    crate::render::dispatch(&result, config, output, stats)
+    let dispatch_result = crate::render::dispatch(&result, config, output, stats);
+
+    // Notify user if output was truncated by --max-entries
+    if result.truncated {
+        let max = config.max_entries.unwrap_or(0);
+        eprintln!("rtree: output truncated at {} entries (--max-entries)", max);
+    }
+
+    dispatch_result
 }
