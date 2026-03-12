@@ -37,6 +37,13 @@ impl Config {
 
         let line_style = if args.cp437 {
             LineStyle::Cp437
+        } else if let Some(ref charset) = args.charset {
+            match charset.to_uppercase().as_str() {
+                "IBM437" | "CP437" | "437" => LineStyle::Cp437,
+                "ASCII" | "US-ASCII" => LineStyle::Ascii,
+                // UTF-8 and anything else → default Ansi (Unicode box-drawing)
+                _ => LineStyle::Ansi,
+            }
         } else {
             LineStyle::Ansi
         };
