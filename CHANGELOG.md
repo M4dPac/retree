@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+- Replace spin-wait directory limiter with Condvar-based backpressure to reduce CPU usage in parallel mode
+
 ### Fixed
 
 - Prevent device identifier truncation by using 64-bit device and volume IDs (improves correctness of --one-fs handling)
