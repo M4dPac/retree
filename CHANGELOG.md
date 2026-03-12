@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Stack-based streaming tree iterator with support for --max-entries
+- Early termination of traversal when entry limit is reached
+
+### Changed
+
+- Sequential traversal backend rewritten to use heap-based stack instead of recursion
+
 ### Performance
 
 - Replace spin-wait directory limiter with Condvar-based backpressure to reduce CPU usage in parallel mode
@@ -16,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Prevent device identifier truncation by using 64-bit device and volume IDs (improves correctness of --one-fs handling)
+- Eliminate OS stack overflow risk in sequential traversal on deep directory trees
 
 ## [0.2.0] - 2026-03-11
 
