@@ -11,10 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Stack-based streaming tree iterator with support for --max-entries
 - Early termination of traversal when entry limit is reached
+- New --max-entries option to limit total displayed entries
+- BuildResult::truncated flag indicating output truncation
 
 ### Changed
 
 - Sequential traversal backend rewritten to use heap-based stack instead of recursion
+- Sequential traversal now uses streaming iterator by default
+- --prune now cascades through nested empty directories to match GNU tree behavior
 
 ### Performance
 
