@@ -115,3 +115,97 @@ pub fn is_reparse_point(path: &Path) -> bool {
         false
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::process::Command;
+
+    #[test]
+    fn test_get_junction_target_regular_dir_returns_none() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        assert!(get_junction_target(dir.path()).is_none());
+    }
+
+    #[test]
+    fn test_get_junction_target_regular_file_returns_none() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("file.txt");
+        fs::write(&file, b"x").expect("write");
+        assert!(get_junction_target(&file).is_none());
+    }
+
+    #[test]
+    fn test_get_junction_target_nonexistent() {
+        assert!(get_junction_target(Path::new(r"C:\__no_such_junction_42__")).is_none());
+    }
+
+    #[test]
+    fn test_get_junction_target_real_junction() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let target = dir.path().join("target_dir");
+        let junction = dir.path().join("my_junction");
+        fs::create_dir(&target).expect("mkdir");
+
+        let status = Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&junction)
+            .arg(&target)
+            .output()
+            .expect("mklink");
+        assert!(status.status.success(), "mklink /J failed: {:?}", status);
+
+        let resolved = get_junction_target(&junction);
+        assert!(resolved.is_some(), "must detect junction");
+
+        let resolved = resolved.expect("some");
+        let canon_target = fs::canonicalize(&target).expect("canonicalize target");
+        let canon_resolved = fs::canonicalize(&resolved).unwrap_or_else(|_| resolved.clone());
+        assert_eq!(canon_target, canon_resolved);
+    }
+
+    #[test]
+    fn test_is_reparse_point_regular_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("plain.txt");
+        fs::write(&file, b"x").expect("write");
+        assert!(!is_reparse_point(&file));
+    }
+
+    #[test]
+    fn test_is_reparse_point_regular_dir() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        assert!(!is_reparse_point(dir.path()));
+    }
+
+    #[test]
+    fn test_is_reparse_point_junction() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let target = dir.path().join("tgt");
+        let junction = dir.path().join("jnc");
+        fs::create_dir(&target).expect("mkdir");
+
+        let out = Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&junction)
+            .arg(&target)
+            .output()
+            .expect("mklink");
+        assert!(out.status.success());
+
+        assert!(is_reparse_point(&junction), "junction is a reparse point");
+    }
+
+    #[test]
+    fn test_junction_handle_closed_on_non_junction() {
+        // Stress: call many times to ensure handles are properly closed
+        let dir = tempfile::tempdir().expect("tempdir");
+        for i in 0..100 {
+            let sub = dir.path().join(format!("dir_{}", i));
+            fs::create_dir(&sub).expect("mkdir");
+            assert!(get_junction_target(&sub).is_none());
+        }
+        // If handles leaked, we'd hit the process handle limit
+    }
+}

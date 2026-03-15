@@ -41,3 +41,37 @@ pub fn get_console_width() -> Option<u16> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_enable_ansi_no_panic() {
+        // CI has no real console — must not panic
+        enable_ansi();
+    }
+
+    #[test]
+    fn test_enable_ansi_idempotent() {
+        // Calling twice must be safe
+        enable_ansi();
+        enable_ansi();
+    }
+
+    #[test]
+    fn test_is_tty_returns_bool_no_panic() {
+        let result = is_tty();
+        // In CI: typically false (piped stdout).  Just verify no panic.
+        let _ = result;
+    }
+
+    #[test]
+    fn test_get_console_width_no_panic() {
+        let width = get_console_width();
+        if let Some(w) = width {
+            assert!(w > 0, "width must be positive if Some");
+        }
+        // None is acceptable (no console attached)
+    }
+}

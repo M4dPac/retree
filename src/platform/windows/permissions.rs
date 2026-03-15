@@ -180,3 +180,88 @@ pub fn format_posix_style(read: bool, write: bool, execute: bool) -> String {
     s.push(if execute { 'x' } else { '-' });
     s
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    // ── get_file_owner (covers UNSAFE-P1, P2, P3) ──
+
+    #[test]
+    fn test_get_file_owner_regular_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("owned.txt");
+        fs::write(&file, b"data").expect("write");
+
+        let owner = get_file_owner(&file);
+        assert!(owner.is_some(), "owner must resolve for temp file");
+        assert!(!owner.as_ref().expect("some").is_empty());
+    }
+
+    #[test]
+    fn test_get_file_owner_directory() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let owner = get_file_owner(dir.path());
+        assert!(owner.is_some(), "owner must resolve for directory");
+    }
+
+    #[test]
+    fn test_get_file_owner_nonexistent() {
+        let owner = get_file_owner(Path::new(r"C:\__nonexistent_42__\x.txt"));
+        assert!(owner.is_none());
+    }
+
+    #[test]
+    fn test_get_file_owner_consistency() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("cons.txt");
+        fs::write(&file, b"x").expect("write");
+
+        let a = get_file_owner(&file);
+        let b = get_file_owner(&file);
+        assert_eq!(a, b, "owner must be stable across calls");
+    }
+
+    // ── get_file_group (covers UNSAFE-P4) ──
+
+    #[test]
+    fn test_get_file_group_regular_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("grouped.txt");
+        fs::write(&file, b"data").expect("write");
+
+        // Group may be None on some configs, but if Some → non-empty
+        if let Some(g) = get_file_group(&file) {
+            assert!(!g.is_empty(), "group name must not be empty");
+        }
+    }
+
+    #[test]
+    fn test_get_file_group_nonexistent() {
+        let group = get_file_group(Path::new(r"C:\__nonexistent_42__\x.txt"));
+        assert!(group.is_none());
+    }
+
+    // ── format_posix_style (pure, no unsafe — regression) ──
+
+    #[test]
+    fn test_format_posix_style_all() {
+        assert_eq!(format_posix_style(true, true, true), "rwx");
+    }
+
+    #[test]
+    fn test_format_posix_style_none() {
+        assert_eq!(format_posix_style(false, false, false), "---");
+    }
+
+    #[test]
+    fn test_format_posix_style_combos() {
+        assert_eq!(format_posix_style(true, false, false), "r--");
+        assert_eq!(format_posix_style(false, true, false), "-w-");
+        assert_eq!(format_posix_style(false, false, true), "--x");
+        assert_eq!(format_posix_style(true, false, true), "r-x");
+        assert_eq!(format_posix_style(true, true, false), "rw-");
+        assert_eq!(format_posix_style(false, true, true), "-wx");
+    }
+}
