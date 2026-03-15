@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enumerate NTFS streams using Win32 FindFirstStreamW API
 - Filter default ::$DATA stream automatically
 
+### Changed
+
+- --max-entries truncation now applies during tree flattening
+- When entries equal the limit, output is no longer marked as truncated
+
 ## [0.3.0] - 2026-03-12
 
 ### Added

@@ -231,7 +231,7 @@ fn test_max_entries_exact_boundary_no_truncation() {
 }
 
 #[test]
-fn test_max_entries_at_exact_count_truncates() {
+fn test_max_entries_at_exact_count_no_truncation() {
     let dir = tempdir().unwrap();
     let p = dir.path();
 
@@ -239,7 +239,7 @@ fn test_max_entries_at_exact_count_truncates() {
     fs::write(p.join("two.txt"), "").unwrap();
     fs::write(p.join("three.txt"), "").unwrap();
 
-    // Limit == entry count → truncation still triggers (off-by-one: limit is a strict cap)
+    // Limit == entry count → all entries shown, nothing truncated
     let output = rtree()
         .args(CLEAN)
         .args(["--max-entries", "3"])
@@ -249,7 +249,12 @@ fn test_max_entries_at_exact_count_truncates() {
 
     let stderr = common::output_stderr(&output);
     assert!(
-        stderr.contains("output truncated at 3 entries (--max-entries)"),
-        "When entries == limit, truncation expected, stderr: {stderr}"
+        !stderr.contains("truncated"),
+        "When entries == limit, no truncation expected, stderr: {stderr}"
     );
+
+    let stdout = common::output_stdout(&output);
+    assert!(stdout.contains("one.txt"));
+    assert!(stdout.contains("two.txt"));
+    assert!(stdout.contains("three.txt"));
 }

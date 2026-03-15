@@ -138,6 +138,7 @@ struct ParallelCtx<'a> {
 pub struct TraversalResult {
     pub entries: Vec<TreeEntry>,
     pub errors: Vec<TreeError>,
+    pub truncated: bool,
 }
 
 //
@@ -149,6 +150,7 @@ pub struct TraversalResult {
 pub struct OrderedEngine {
     parallel: bool,
     pool: Option<rayon::ThreadPool>,
+    max_entries: Option<usize>,
 }
 
 impl OrderedEngine {
@@ -166,6 +168,7 @@ impl OrderedEngine {
         Self {
             parallel: config.parallel,
             pool,
+            max_entries: config.max_entries,
         }
     }
 
@@ -240,14 +243,26 @@ impl OrderedEngine {
                 return TraversalResult {
                     entries: Vec::new(),
                     errors,
+                    truncated: false,
                 };
             }
         };
 
         let mut entries = Vec::new();
-        flatten_tree(&root_node, &[], &mut entries);
+        let mut truncated = false;
+        flatten_tree(
+            &root_node,
+            &[],
+            &mut entries,
+            self.max_entries,
+            &mut truncated,
+        );
 
-        TraversalResult { entries, errors }
+        TraversalResult {
+            entries,
+            errors,
+            truncated,
+        }
     }
 }
 
@@ -740,9 +755,20 @@ fn build_node_parallel_inner(
     Some(Node { entry, children })
 }
 
-fn flatten_tree(node: &Node, ancestors_last: &[bool], output: &mut Vec<TreeEntry>) {
+fn flatten_tree(
+    node: &Node,
+    ancestors_last: &[bool],
+    output: &mut Vec<TreeEntry>,
+    max_entries: Option<usize>,
+    truncated: &mut bool,
+) {
     let num_children = node.children.len();
     for (i, child) in node.children.iter().enumerate() {
+        if max_entries.is_some_and(|max| output.len() >= max) {
+            *truncated = true;
+            return;
+        }
+
         let is_last = i == num_children - 1;
 
         let mut entry = child.entry.clone();
@@ -753,7 +779,10 @@ fn flatten_tree(node: &Node, ancestors_last: &[bool], output: &mut Vec<TreeEntry
         if !child.children.is_empty() {
             let mut new_ancestors = ancestors_last.to_vec();
             new_ancestors.push(is_last);
-            flatten_tree(child, &new_ancestors, output);
+            flatten_tree(child, &new_ancestors, output, max_entries, truncated);
+            if *truncated {
+                return;
+            }
         }
     }
 }
