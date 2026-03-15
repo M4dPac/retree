@@ -25,6 +25,11 @@ mod windows_ads {
             let mut f = fs::File::create(&ads_path)
                 .unwrap_or_else(|e| panic!("cannot create ADS '{}': {}", ads_path, e));
             f.write_all(data).unwrap();
+            drop(f);
+
+            let read_back = fs::read(&ads_path)
+                .unwrap_or_else(|e| panic!("cannot read back ADS '{}': {}", ads_path, e));
+            assert_eq!(read_back, *data, "ADS content mismatch for {}", ads_path);
         }
 
         file_path
