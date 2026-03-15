@@ -290,7 +290,7 @@ pub struct Args {
     pub icon_style: IconStyle,
 
     // === Windows-specific ===
-    /// Show NTFS Alternate Data Streams (not yet implemented)
+    /// Show NTFS Alternate Data Streams
     #[arg(long = "show-streams", help_heading = "Windows")]
     pub show_streams: bool,
 

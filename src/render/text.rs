@@ -130,7 +130,12 @@ impl TextRenderer {
         }
 
         if config.full_path {
-            name.push_str(&entry.path.display().to_string());
+            if let EntryType::Ads { ref stream_name } = entry.entry_type {
+                // Show as /path/to/file.txt:stream_name
+                name.push_str(&format!("{}:{}", entry.path.display(), stream_name));
+            } else {
+                name.push_str(&entry.path.display().to_string());
+            }
         } else {
             name.push_str(entry.name_str());
         }

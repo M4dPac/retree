@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Support --show-streams to display NTFS Alternate Data Streams (Windows only)
+- Display ADS entries with optional size and full-path rendering
+
+### Windows
+
+- Enumerate NTFS streams using Win32 FindFirstStreamW API
+- Filter default ::$DATA stream automatically
+
 ## [0.3.0] - 2026-03-12
 
 ### Added
