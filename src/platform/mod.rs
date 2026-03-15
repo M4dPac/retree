@@ -89,6 +89,39 @@ pub fn get_file_attributes_raw(path: &Path) -> Option<u32> {
     }
 }
 
+// ═══════════════════════════════════════
+// Alternate Data Streams
+// ═══════════════════════════════════════
+
+/// NTFS Alternate Data Stream info (name + size).
+#[derive(Debug, Clone)]
+pub struct AdsStreamInfo {
+    pub name: String,
+    pub size: u64,
+}
+
+/// Enumerate NTFS Alternate Data Streams for the given path.
+///
+/// Returns only alternate streams — the default `::$DATA` is filtered out.
+/// Always returns empty `Vec` on non-Windows platforms or non-NTFS volumes.
+pub fn get_alternate_streams(path: &Path) -> Vec<AdsStreamInfo> {
+    #[cfg(windows)]
+    {
+        windows::streams::get_alternate_streams(path)
+            .into_iter()
+            .map(|s| AdsStreamInfo {
+                name: s.name,
+                size: s.size,
+            })
+            .collect()
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = path;
+        Vec::new()
+    }
+}
+
 /// Get POSIX file mode (Unix only, returns None on Windows)
 pub fn get_file_mode(path: &Path) -> Option<u32> {
     #[cfg(windows)]
