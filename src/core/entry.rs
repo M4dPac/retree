@@ -174,6 +174,32 @@ impl Entry {
         })
     }
 
+    /// Create an entry representing an NTFS Alternate Data Stream.
+    ///
+    /// The display name is set to `:stream_name` following NTFS convention.
+    /// The path points to the *parent file* (used for `--full-path` rendering).
+    pub fn from_ads(
+        parent_path: &Path,
+        stream_name: String,
+        stream_size: u64,
+        depth: usize,
+    ) -> Self {
+        Entry {
+            path: parent_path.to_path_buf(),
+            name: OsString::from(format!(":{}", stream_name)),
+            entry_type: EntryType::Ads { stream_name },
+            metadata: Some(EntryMetadata {
+                size: stream_size,
+                ..Default::default()
+            }),
+            depth,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        }
+    }
+
     pub fn name_str(&self) -> &str {
         self.name.to_str().unwrap_or("<invalid>")
     }

@@ -92,6 +92,32 @@ fn check_visited(visited: &Mutex<HashSet<PathBuf>>, key: PathBuf) -> bool {
 
 //
 // ==============================
+// ADS helper (Windows-only)
+// ==============================
+//
+
+/// Enumerate NTFS Alternate Data Streams for `path` and return them as
+/// child tree nodes at the given `depth`.
+///
+/// On non-Windows platforms this is a compile-time no-op.
+fn collect_ads_children(_path: &Path, _depth: usize) -> Vec<Node> {
+    #[cfg(windows)]
+    {
+        crate::platform::windows::streams::get_alternate_streams(_path)
+            .into_iter()
+            .map(|stream| Node {
+                entry: TreeEntry::from_ads(_path, stream.name, stream.size, _depth),
+                children: Vec::new(),
+            })
+            .collect()
+    }
+
+    #[cfg(not(windows))]
+    Vec::new()
+}
+
+//
+// ==============================
 // Parallel traversal context
 // ==============================
 //
@@ -439,9 +465,14 @@ fn build_node_sequential(
                 config.show_permissions,
             ) {
                 Ok(entry) => {
+                    let stream_children = if config.show_streams {
+                        collect_ads_children(&dir_entry.path(), depth + 2)
+                    } else {
+                        Vec::new()
+                    };
                     children.push(Node {
                         entry,
-                        children: Vec::new(),
+                        children: stream_children,
                     });
                 }
                 Err(e) => {
@@ -678,10 +709,17 @@ fn build_node_parallel_inner(
                     needs_file_id,
                     ctx.config.show_permissions,
                 ) {
-                    Ok(entry) => Some(Node {
-                        entry,
-                        children: Vec::new(),
-                    }),
+                    Ok(entry) => {
+                        let stream_children = if ctx.config.show_streams {
+                            collect_ads_children(&dir_entry.path(), depth + 2)
+                        } else {
+                            Vec::new()
+                        };
+                        Some(Node {
+                            entry,
+                            children: stream_children,
+                        })
+                    }
                     Err(e) => {
                         push_error(ctx.errors, e);
                         None
