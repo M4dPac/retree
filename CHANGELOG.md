@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Skip Windows reserved device names (CON, NUL, PRN, COM1–9, LPT1–9) during traversal with a warning to stderr
+- Reserved Windows device names no longer affect exit code (treated as warnings)
 
 ## [0.3.0] - 2026-03-12
 

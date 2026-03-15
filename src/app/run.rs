@@ -151,11 +151,17 @@ fn render_tree<W: Write>(
         }
     };
 
-    // Report traversal errors to stderr
+    // Report traversal errors/warnings to stderr
     for err in &result.errors {
         eprintln!("rtree: {}", err);
     }
-    stats.errors += result.errors.len() as u64;
+    // ReservedName is an informational warning, not a hard error — don't affect exit code
+    let hard_errors = result
+        .errors
+        .iter()
+        .filter(|e| !matches!(e, TreeError::ReservedName(_)))
+        .count();
+    stats.errors += hard_errors as u64;
 
     // Dispatch to appropriate render backend
     let dispatch_result = crate::render::dispatch(&result, config, output, stats);
