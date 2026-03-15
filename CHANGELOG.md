@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - --max-entries truncation now applies during tree flattening
 - When entries equal the limit, output is no longer marked as truncated
 
+### Fixed
+
+- Skip Windows reserved device names (CON, NUL, PRN, COM1–9, LPT1–9) during traversal with a warning to stderr
+
 ## [0.3.0] - 2026-03-12
 
 ### Added
