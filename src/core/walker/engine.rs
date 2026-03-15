@@ -416,6 +416,13 @@ fn build_node_sequential(
         let name_str = dir_entry.file_name();
         let name_lossy = name_str.to_string_lossy();
         let name = name_lossy.as_ref();
+
+        // Skip Windows reserved device names (CON, NUL, PRN, …).
+        if crate::platform::should_skip_reserved_name(name) {
+            errors.push(TreeError::ReservedName(dir_entry.path()));
+            continue;
+        }
+
         // -I always excludes matching entries
         if filter.excluded(name) {
             continue;
@@ -662,6 +669,13 @@ fn build_node_parallel_inner(
             let name_str = dir_entry.file_name();
             let name_lossy = name_str.to_string_lossy();
             let name = name_lossy.as_ref();
+
+            // Skip Windows reserved device names (CON, NUL, PRN, …).
+            if crate::platform::should_skip_reserved_name(name) {
+                push_error(ctx.errors, TreeError::ReservedName(dir_entry.path()));
+                return None;
+            }
+
             // -I always excludes matching entries
             if filter.excluded(name) {
                 return None;

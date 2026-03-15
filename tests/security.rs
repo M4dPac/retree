@@ -497,18 +497,27 @@ fn show_streams_flag_accepted() {
     );
 }
 
-/// Reserved Windows names (CON, NUL, PRN) should not hang
+/// Reserved Windows names — skipped with warning, no hang, no crash
 #[cfg(windows)]
 #[test]
-fn reserved_names_no_hang() {
+fn reserved_names_skipped_on_windows() {
     let dir = TempDir::new().unwrap();
-    // Create a normal file
     std::fs::write(dir.path().join("normal.txt"), b"").unwrap();
 
+    // These creations will likely fail on Windows (redirected to devices)
+    // but the test verifies rtree doesn't hang if they somehow exist
+    for name in ["CON", "NUL", "PRN", "AUX", "COM1", "LPT1"] {
+        let _ = std::fs::write(dir.path().join(name), b"x");
+    }
+
     let mut cmd = run_rtree_command(dir.path(), &["-a"]);
-    cmd.timeout(std::time::Duration::from_secs(5))
+    let assert = cmd
+        .timeout(std::time::Duration::from_secs(5))
         .assert()
         .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    assert!(stdout.contains("normal.txt"), "normal.txt must be listed");
 }
 
 /// Parallel mode with junctions — no crash, no infinite loop
@@ -549,5 +558,130 @@ fn html_href_uses_forward_slash() {
     assert!(
         !stdout.contains("href=\".\\"),
         "href must not contain backslash"
+    );
+}
+
+// ============================================================================
+// Windows reserved device name detection & traversal
+// ============================================================================
+
+#[test]
+fn reserved_name_detection_correctness() {
+    use rtree::platform::is_reserved_windows_name;
+
+    // Positive: must detect
+    let reserved = [
+        "CON",
+        "con",
+        "Con",
+        "PRN",
+        "prn",
+        "AUX",
+        "NUL",
+        "nul",
+        "COM1",
+        "COM9",
+        "com1",
+        "LPT1",
+        "LPT9",
+        "lpt1",
+        "CON.txt",
+        "NUL.tar.gz",
+        "aux.log",
+        "COM1.serial",
+    ];
+    for name in &reserved {
+        assert!(
+            is_reserved_windows_name(name),
+            "{name} must be detected as reserved"
+        );
+    }
+
+    // Negative: must NOT detect
+    let normal = [
+        "",
+        "CO",
+        "CONNN",
+        "CONNECT",
+        "console.log",
+        "COM0",
+        "COM10",
+        "LPT0",
+        "LPT10",
+        "NULLIFY",
+        "auxiliary",
+        "normal.txt",
+        "a",
+        "AB",
+        "contest",
+        "prune",
+        "lpt10.dat",
+    ];
+    for name in &normal {
+        assert!(
+            !is_reserved_windows_name(name),
+            "{name} must NOT be detected as reserved"
+        );
+    }
+}
+
+#[test]
+fn traverse_dir_with_reserved_names_no_crash() {
+    let dir = TempDir::new().unwrap();
+
+    // On Unix these are normal files; on Windows creation may silently fail
+    let names = ["CON", "NUL", "PRN", "AUX", "COM1", "LPT1"];
+    for name in &names {
+        let _ = std::fs::write(dir.path().join(name), b"test");
+    }
+    std::fs::write(dir.path().join("normal.txt"), b"ok").expect("write");
+
+    let (stdout, stderr, code) = run_rtree_full(dir.path(), &["-a"]);
+
+    assert!(
+        code == Some(0) || code == Some(1),
+        "rtree must not crash on reserved names, code={code:?}"
+    );
+    assert!(
+        stdout.contains("normal.txt"),
+        "normal.txt must always appear:\n{stdout}"
+    );
+
+    if cfg!(windows) {
+        // On Windows: reserved names skipped, warnings on stderr
+        for name in &names {
+            assert!(
+                !stdout.contains(name) || stderr.contains("Reserved Windows device name"),
+                "reserved name {name} should be skipped or warned about on Windows"
+            );
+        }
+    } else {
+        // On Unix: all files are regular, all must appear
+        for name in &names {
+            assert!(
+                stdout.contains(name),
+                "{name} should appear on Unix:\n{stdout}"
+            );
+        }
+    }
+}
+
+#[test]
+fn traverse_reserved_names_parallel_consistent() {
+    let dir = TempDir::new().unwrap();
+
+    for name in ["CON", "NUL", "PRN"] {
+        let _ = std::fs::write(dir.path().join(name), b"data");
+    }
+    std::fs::write(dir.path().join("safe.txt"), b"ok").expect("write");
+
+    let (seq_out, _, _) = run_rtree_full(dir.path(), &["-a"]);
+    let (par_out, _, _) = run_rtree_full(dir.path(), &["--parallel", "-a"]);
+
+    let seq_last = common::last_nonempty_line(&seq_out);
+    let par_last = common::last_nonempty_line(&par_out);
+    assert_eq!(
+        seq_last, par_last,
+        "sequential and parallel must agree on reserved-name handling"
     );
 }

@@ -30,6 +30,9 @@ pub enum TreeError {
     #[error("{}", format_invalid_name(.0))]
     InvalidName(PathBuf),
 
+    #[error("{}", format_reserved_name(.0))]
+    ReservedName(PathBuf),
+
     #[error("{}", format_io_error(.0, .1))]
     Io(PathBuf, #[source] std::io::Error),
 
@@ -77,6 +80,11 @@ fn format_path_too_long(path: &Path) -> String {
 
 fn format_invalid_name(path: &Path) -> String {
     let template = get_message(i18n::current(), MessageKey::ErrInvalidName);
+    template.replace("{}", &path.display().to_string())
+}
+
+fn format_reserved_name(path: &Path) -> String {
+    let template = get_message(i18n::current(), MessageKey::ErrReservedName);
     template.replace("{}", &path.display().to_string())
 }
 
