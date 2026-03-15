@@ -92,28 +92,23 @@ fn check_visited(visited: &Mutex<HashSet<PathBuf>>, key: PathBuf) -> bool {
 
 //
 // ==============================
-// ADS helper (Windows-only)
+// ADS helper
 // ==============================
 //
 
 /// Enumerate NTFS Alternate Data Streams for `path` and return them as
 /// child tree nodes at the given `depth`.
 ///
-/// On non-Windows platforms this is a compile-time no-op.
-fn collect_ads_children(_path: &Path, _depth: usize) -> Vec<Node> {
-    #[cfg(windows)]
-    {
-        crate::platform::windows::streams::get_alternate_streams(_path)
-            .into_iter()
-            .map(|stream| Node {
-                entry: TreeEntry::from_ads(_path, stream.name, stream.size, _depth),
-                children: Vec::new(),
-            })
-            .collect()
-    }
-
-    #[cfg(not(windows))]
-    Vec::new()
+/// On non-Windows platforms `crate::platform::get_alternate_streams`
+/// returns an empty `Vec` — zero runtime cost, no `#[cfg]` needed here.
+fn collect_ads_children(path: &Path, depth: usize) -> Vec<Node> {
+    crate::platform::get_alternate_streams(path)
+        .into_iter()
+        .map(|stream| Node {
+            entry: TreeEntry::from_ads(path, stream.name, stream.size, depth),
+            children: Vec::new(),
+        })
+        .collect()
 }
 
 //
