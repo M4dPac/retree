@@ -33,6 +33,7 @@ pub struct TreeIterator {
     errors: Vec<TreeError>,
     emitted: usize,
     max_entries: Option<usize>,
+    pending_ads: Vec<TreeEntry>,
 }
 
 /// State for one directory level on the traversal stack.
@@ -77,6 +78,7 @@ impl TreeIterator {
             errors: Vec::new(),
             emitted: 0,
             max_entries,
+            pending_ads: Vec::new(),
         };
 
         if long_root.is_dir() {
@@ -119,6 +121,11 @@ impl Iterator for TreeIterator {
             if self.emitted >= max {
                 return None;
             }
+        }
+
+        if let Some(ads_entry) = self.pending_ads.pop() {
+            self.emitted += 1;
+            return Some(Ok(ads_entry));
         }
 
         loop {
@@ -167,6 +174,26 @@ impl Iterator for TreeIterator {
 
             // ── File: emit immediately ──
             if !is_dir {
+                // Collect ADS if --show-streams
+                if self.config.show_streams {
+                    let streams = crate::platform::get_alternate_streams(&path);
+                    let num_streams = streams.len();
+                    if num_streams > 0 {
+                        let mut ads_ancestors = ancestors;
+                        ads_ancestors.push(is_last);
+
+                        // Push in reverse so pop() yields
+                        // in forward order
+                        for (i, stream) in streams.into_iter().enumerate().rev() {
+                            let mut ads_entry =
+                                TreeEntry::from_ads(&path, stream.name, stream.size, depth + 1);
+                            ads_entry.is_last = i == num_streams - 1;
+                            ads_entry.ancestors_last = ads_ancestors.clone();
+                            self.pending_ads.push(ads_entry);
+                        }
+                    }
+                }
+
                 self.emitted += 1;
                 return Some(Ok(entry));
             }
