@@ -2,6 +2,7 @@ use std::io::Write;
 
 use crate::config::{Config, LineStyle};
 use crate::core::entry::{Entry, EntryType};
+use crate::core::walker::Node;
 use crate::core::walker::TreeStats;
 use crate::core::BuildResult;
 use crate::error::TreeError;
@@ -24,6 +25,13 @@ struct TreeChars {
     #[allow(dead_code)]
     horizontal: &'static str,
     space: &'static str,
+}
+
+/// Mutable state for tree-based rendering (truncation tracking).
+struct RenderState {
+    max_entries: Option<usize>,
+    count: usize,
+    truncated: bool,
 }
 
 const ANSI_CHARS: TreeChars = TreeChars {
@@ -298,6 +306,46 @@ impl TextRenderer {
 
         Ok(())
     }
+
+    /// Recursively render children of a tree node (depth-first).
+    /// Mirrors `flatten_tree` logic: computes is_last/ancestors_last on the fly.
+    fn render_children<W: Write>(
+        &self,
+        node: &Node,
+        ancestors_last: &[bool],
+        config: &Config,
+        writer: &mut W,
+        stats: &mut TreeStats,
+        state: &mut RenderState,
+    ) -> Result<(), TreeError> {
+        let num_children = node.children.len();
+        for (i, child) in node.children.iter().enumerate() {
+            if state.max_entries.is_some_and(|max| state.count >= max) {
+                state.truncated = true;
+                return Ok(());
+            }
+
+            let is_last = i == num_children - 1;
+
+            let mut entry = child.entry.clone();
+            entry.is_last = is_last;
+            entry.ancestors_last = ancestors_last.to_vec();
+
+            self.write_entry(writer, &entry, config)?;
+            helpers::count_stats(&entry, stats);
+            state.count += 1;
+
+            if !child.children.is_empty() {
+                let mut new_ancestors = ancestors_last.to_vec();
+                new_ancestors.push(is_last);
+                self.render_children(child, &new_ancestors, config, writer, stats, state)?;
+                if state.truncated {
+                    return Ok(());
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Renderer for TextRenderer {
@@ -310,14 +358,26 @@ impl Renderer for TextRenderer {
     ) -> Result<(), TreeError> {
         let config = ctx.config;
 
-        // Root entry
-        self.write_entry(writer, &result.root, config)?;
-        helpers::count_stats(&result.root, stats);
+        if let Some(ref tree) = result.tree {
+            // Tree-based rendering
+            self.write_entry(writer, &result.root, config)?;
+            helpers::count_stats(&result.root, stats);
 
-        // Child entries
-        for entry in &result.entries {
-            self.write_entry(writer, entry, config)?;
-            helpers::count_stats(entry, stats);
+            let mut state = RenderState {
+                max_entries: config.max_entries,
+                count: 0,
+                truncated: false,
+            };
+            self.render_children(tree, &[], config, writer, stats, &mut state)?;
+        } else {
+            // Fallback: flat rendering
+            self.write_entry(writer, &result.root, config)?;
+            helpers::count_stats(&result.root, stats);
+
+            for entry in &result.entries {
+                self.write_entry(writer, entry, config)?;
+                helpers::count_stats(entry, stats);
+            }
         }
 
         // Report
