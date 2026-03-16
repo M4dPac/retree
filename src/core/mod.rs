@@ -28,6 +28,8 @@ pub struct BuildResult {
     pub errors: Vec<TreeError>,
     /// Whether the output was truncated by --max-entries
     pub truncated: bool,
+    /// Hierarchical tree (for future tree-based rendering)
+    pub tree: Option<walker::Node>,
 }
 
 /// Build a directory tree for the given path.
@@ -48,5 +50,6 @@ pub fn build_tree(config: &Config, path: &Path) -> Result<BuildResult, TreeError
         entries: traversal.entries,
         errors: traversal.errors,
         truncated: traversal.truncated,
+        tree: traversal.tree,
     })
 }

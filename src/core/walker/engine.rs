@@ -139,6 +139,7 @@ pub struct TraversalResult {
     pub entries: Vec<TreeEntry>,
     pub errors: Vec<TreeError>,
     pub truncated: bool,
+    pub tree: Option<Node>,
 }
 
 //
@@ -244,6 +245,7 @@ impl OrderedEngine {
                     entries: Vec::new(),
                     errors,
                     truncated: false,
+                    tree: None,
                 };
             }
         };
@@ -262,6 +264,7 @@ impl OrderedEngine {
             entries,
             errors,
             truncated,
+            tree: Some(root_node),
         }
     }
 }
