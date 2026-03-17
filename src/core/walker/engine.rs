@@ -136,9 +136,9 @@ struct ParallelCtx<'a> {
 /// Result of tree traversal: entries + any errors encountered
 #[derive(Default)]
 pub struct TraversalResult {
-    pub entries: Vec<TreeEntry>,
     pub errors: Vec<TreeError>,
     pub truncated: bool,
+    /// Hierarchical tree for rendering
     pub tree: Option<Node>,
 }
 
@@ -242,7 +242,6 @@ impl OrderedEngine {
             Some(node) => node,
             None => {
                 return TraversalResult {
-                    entries: Vec::new(),
                     errors,
                     truncated: false,
                     tree: None,
@@ -250,18 +249,11 @@ impl OrderedEngine {
             }
         };
 
-        let mut entries = Vec::new();
-        let mut truncated = false;
-        flatten_tree(
-            &root_node,
-            &[],
-            &mut entries,
-            self.max_entries,
-            &mut truncated,
-        );
+        let truncated = self
+            .max_entries
+            .is_some_and(|max| root_node.count_nodes().saturating_sub(1) > max);
 
         TraversalResult {
-            entries,
             errors,
             truncated,
             tree: Some(root_node),
@@ -772,6 +764,7 @@ fn build_node_parallel_inner(
     Some(Node { entry, children })
 }
 
+#[allow(dead_code)]
 fn flatten_tree(
     node: &Node,
     ancestors_last: &[bool],

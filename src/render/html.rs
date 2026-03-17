@@ -230,26 +230,18 @@ impl Renderer for HtmlRenderer {
 
         self.write_header(writer)?;
 
-        if let Some(ref tree) = result.tree {
-            // Tree-based rendering
-            self.write_entry(writer, &result.root)?;
-            helpers::count_stats(&result.root, stats);
+        // Root entry
+        self.write_entry(writer, &result.root)?;
+        helpers::count_stats(&result.root, stats);
 
+        // Children from tree
+        if let Some(ref tree) = result.tree {
             let mut state = RenderState {
                 max_entries: config.max_entries,
                 count: 0,
                 truncated: false,
             };
             self.render_children(tree, &[], writer, stats, &mut state)?;
-        } else {
-            // Fallback: flat rendering
-            self.write_entry(writer, &result.root)?;
-            helpers::count_stats(&result.root, stats);
-
-            for entry in &result.entries {
-                self.write_entry(writer, entry)?;
-                helpers::count_stats(entry, stats);
-            }
         }
 
         self.write_footer(writer, stats, config)?;
