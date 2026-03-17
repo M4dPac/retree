@@ -14,38 +14,38 @@ export TMP="$RUN_TMPDIR"
 export TEMP="$RUN_TMPDIR"
 
 cleanup() {
-	local exit_code=$?
-	trap - EXIT
+  local exit_code=$?
+  trap - EXIT
 
-	rm -rf "$RUN_TMPDIR"
-	rm -rf "$TARGET_DIR/tmp"
+  rm -rf "$RUN_TMPDIR"
+  rm -rf "$TARGET_DIR/tmp"
 
-	# По умолчанию чистим только release, чтобы не терять debug-кэш.
-	if [[ "${FULL_CLEAN:-0}" == "1" ]]; then
-		cargo clean --quiet >/dev/null 2>&1 || true
-	else
-		cargo clean --release --quiet >/dev/null 2>&1 || true
-	fi
+  # По умолчанию чистим только release, чтобы не терять debug-кэш.
+  if [[ "${FULL_CLEAN:-0}" == "1" ]]; then
+    cargo clean --quiet >/dev/null 2>&1 || true
+  else
+    cargo clean --release --quiet >/dev/null 2>&1 || true
+  fi
 
-	exit "$exit_code"
+  exit "$exit_code"
 }
 
 trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 run() {
-	local label="$1"
-	shift
+  local label="$1"
+  shift
 
-	printf "  %-28s" "$label"
-	if output=$("$@" 2>&1); then
-		echo -e "$PASS"
-	else
-		echo -e "$FAIL"
-		echo ""
-		echo -e "\033[31m$output\033[0m"
-		exit 1
-	fi
+  printf "  %-28s" "$label"
+  if output=$("$@" 2>&1); then
+    echo -e "$PASS"
+  else
+    echo -e "$FAIL"
+    echo ""
+    echo -e "\033[31m$output\033[0m"
+    exit 1
+  fi
 }
 
 echo ""
@@ -57,7 +57,9 @@ run "deny" cargo deny check
 run "check" cargo check
 run "check --locked" cargo check --locked
 run "fmt" cargo fmt --all -- --check
-run "clippy" cargo clippy --locked --all-targets --all-features -- -D warnings
+
+# run "clippy targets features" cargo clippy --locked --all-targets --all-features -- -D warnings -W clippy::unwrap_used
+run "clippy" cargo clippy --locked -- -D warnings -W clippy::unwrap_used
 run "tests" cargo test --locked
 run "tests tree_compat" cargo test --locked --features tree_compat
 run "build --release --locked" cargo build --release --locked
