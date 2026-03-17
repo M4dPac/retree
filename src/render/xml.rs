@@ -190,19 +190,20 @@ impl Renderer for XmlRenderer {
         write!(writer, "{}<directory name=\"{}\"", indent, name)?;
         Self::write_meta_attrs(writer, root_entry, config)?;
 
-        let has_tree_children = matches!(&result.tree, Some(t) if !t.children.is_empty());
-        if has_tree_children {
-            writeln!(writer, ">")?;
-            let tree = result.tree.as_ref().unwrap();
-            let mut state = RenderState {
-                max_entries: config.max_entries,
-                count: 0,
-                truncated: false,
-            };
-            Self::render_tree_children(writer, tree, config, stats, &mut state)?;
-            writeln!(writer, "{}</directory>", indent)?;
-        } else {
-            writeln!(writer, "></directory>")?;
+        match result.tree {
+            Some(ref tree) if !tree.children.is_empty() => {
+                writeln!(writer, ">")?;
+                let mut state = RenderState {
+                    max_entries: config.max_entries,
+                    count: 0,
+                    truncated: false,
+                };
+                Self::render_tree_children(writer, tree, config, stats, &mut state)?;
+                writeln!(writer, "{}</directory>", indent)?;
+            }
+            _ => {
+                writeln!(writer, "></directory>")?;
+            }
         }
 
         if !config.no_report {
