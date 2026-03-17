@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support --show-streams to display NTFS Alternate Data Streams (Windows only)
 - Display ADS entries with optional size and full-path rendering
 - Display NTFS Alternate Data Streams in streaming (--max-entries) mode
+- Experimental --streaming mode for text output (currently falls back to standard traversal)
 
 ### Windows
 

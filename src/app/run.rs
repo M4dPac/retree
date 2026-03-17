@@ -12,6 +12,8 @@ use std::process::ExitCode;
 
 use crate::cli::Args;
 use crate::config::Config;
+use crate::config::OutputFormat;
+use crate::core::walker::StreamingEngine;
 use crate::core::walker::TreeStats;
 use crate::error::TreeError;
 use crate::i18n;
@@ -141,6 +143,27 @@ fn render_tree<W: Write>(
     output: &mut W,
     stats: &mut TreeStats,
 ) -> Result<(), TreeError> {
+    // Streaming mode: text-only, traverse and render in single pass
+    if config.streaming && config.output_format == OutputFormat::Text {
+        let engine = StreamingEngine::new(config);
+        match engine.traverse_and_render(path, output, stats) {
+            Ok(errors) => {
+                for err in &errors {
+                    eprintln!("rtree: {}", err);
+                }
+                let hard_errors = errors
+                    .iter()
+                    .filter(|e| !matches!(e, TreeError::ReservedName(_)))
+                    .count();
+                stats.errors += hard_errors as u64;
+                return Ok(());
+            }
+            Err(_) => {
+                // Streaming not implemented or failed — fall through to standard path
+            }
+        }
+    }
+
     // Build the tree using core domain logic
     let result = match crate::core::build_tree(config, path) {
         Ok(r) => r,
