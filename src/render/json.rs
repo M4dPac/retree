@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::config::Config;
 use crate::core::entry::{Entry, EntryType};
-use crate::core::walker::TreeStats;
+use crate::core::walker::{Node, TreeStats};
 use crate::core::BuildResult;
 use crate::error::TreeError;
 
@@ -65,6 +65,20 @@ impl JsonRenderer {
             target,
             contents: Vec::new(),
         }
+    }
+
+    /// Recursively convert a Node tree into JsonEntry with stats counting.
+    fn node_to_json_entry(node: &Node, config: &Config, stats: &mut TreeStats) -> JsonEntry {
+        let mut json_entry = Self::make_json_entry(&node.entry, config);
+
+        for child in &node.children {
+            helpers::count_stats(&child.entry, stats);
+            json_entry
+                .contents
+                .push(Self::node_to_json_entry(child, config, stats));
+        }
+
+        json_entry
     }
 
     /// Format JSON in tree-compatible style (compact objects with indented nesting)
@@ -165,16 +179,30 @@ impl Renderer for JsonRenderer {
     ) -> Result<(), TreeError> {
         let config = ctx.config;
 
-        // Count stats for root
         helpers::count_stats(&result.root, stats);
 
-        // Stack-based tree building from flat entries.
-        let mut stack: Vec<JsonEntry> = vec![Self::make_json_entry(&result.root, config)];
+        let root = if let Some(ref tree) = result.tree {
+            // Tree-based: direct recursive conversion
+            Self::node_to_json_entry(tree, config, stats)
+        } else {
+            // Fallback: stack-based rebuild from flat entries
+            let mut stack: Vec<JsonEntry> = vec![Self::make_json_entry(&result.root, config)];
 
-        for entry in &result.entries {
-            helpers::count_stats(entry, stats);
+            for entry in &result.entries {
+                helpers::count_stats(entry, stats);
 
-            while stack.len() > entry.depth && stack.len() > 1 {
+                while stack.len() > entry.depth && stack.len() > 1 {
+                    if let Some(child) = stack.pop() {
+                        if let Some(parent) = stack.last_mut() {
+                            parent.contents.push(child);
+                        }
+                    }
+                }
+
+                stack.push(Self::make_json_entry(entry, config));
+            }
+
+            while stack.len() > 1 {
                 if let Some(child) = stack.pop() {
                     if let Some(parent) = stack.last_mut() {
                         parent.contents.push(child);
@@ -182,21 +210,11 @@ impl Renderer for JsonRenderer {
                 }
             }
 
-            stack.push(Self::make_json_entry(entry, config));
-        }
+            stack
+                .pop()
+                .unwrap_or_else(|| Self::make_json_entry(&result.root, config))
+        };
 
-        // Unwind remaining stack into root
-        while stack.len() > 1 {
-            if let Some(child) = stack.pop() {
-                if let Some(parent) = stack.last_mut() {
-                    parent.contents.push(child);
-                }
-            }
-        }
-
-        let root = stack
-            .pop()
-            .unwrap_or_else(|| Self::make_json_entry(&result.root, config));
         let root_value =
             serde_json::to_value(&root).map_err(|e| TreeError::Generic(e.to_string()))?;
         let mut output = vec![root_value];
