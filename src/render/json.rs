@@ -68,14 +68,28 @@ impl JsonRenderer {
     }
 
     /// Recursively convert a Node tree into JsonEntry with stats counting.
-    fn node_to_json_entry(node: &Node, config: &Config, stats: &mut TreeStats) -> JsonEntry {
+    fn node_to_json_entry(
+        node: &Node,
+        config: &Config,
+        stats: &mut TreeStats,
+        max_entries: Option<usize>,
+        count: &mut usize,
+    ) -> JsonEntry {
         let mut json_entry = Self::make_json_entry(&node.entry, config);
 
         for child in &node.children {
+            if max_entries.is_some_and(|max| *count >= max) {
+                break;
+            }
             helpers::count_stats(&child.entry, stats);
-            json_entry
-                .contents
-                .push(Self::node_to_json_entry(child, config, stats));
+            *count += 1;
+            json_entry.contents.push(Self::node_to_json_entry(
+                child,
+                config,
+                stats,
+                max_entries,
+                count,
+            ));
         }
 
         json_entry
@@ -182,37 +196,10 @@ impl Renderer for JsonRenderer {
         helpers::count_stats(&result.root, stats);
 
         let root = if let Some(ref tree) = result.tree {
-            // Tree-based: direct recursive conversion
-            Self::node_to_json_entry(tree, config, stats)
+            let mut count = 0usize;
+            Self::node_to_json_entry(tree, config, stats, config.max_entries, &mut count)
         } else {
-            // Fallback: stack-based rebuild from flat entries
-            let mut stack: Vec<JsonEntry> = vec![Self::make_json_entry(&result.root, config)];
-
-            for entry in &result.entries {
-                helpers::count_stats(entry, stats);
-
-                while stack.len() > entry.depth && stack.len() > 1 {
-                    if let Some(child) = stack.pop() {
-                        if let Some(parent) = stack.last_mut() {
-                            parent.contents.push(child);
-                        }
-                    }
-                }
-
-                stack.push(Self::make_json_entry(entry, config));
-            }
-
-            while stack.len() > 1 {
-                if let Some(child) = stack.pop() {
-                    if let Some(parent) = stack.last_mut() {
-                        parent.contents.push(child);
-                    }
-                }
-            }
-
-            stack
-                .pop()
-                .unwrap_or_else(|| Self::make_json_entry(&result.root, config))
+            Self::make_json_entry(&result.root, config)
         };
 
         let root_value =

@@ -22,8 +22,6 @@ use self::walker::OrderedEngine;
 pub struct BuildResult {
     /// Root entry of the tree
     pub root: Entry,
-    /// Flat list of all child entries in depth-first order
-    pub entries: Vec<Entry>,
     /// Errors encountered during traversal
     pub errors: Vec<TreeError>,
     /// Whether the output was truncated by --max-entries
@@ -47,7 +45,6 @@ pub fn build_tree(config: &Config, path: &Path) -> Result<BuildResult, TreeError
 
     Ok(BuildResult {
         root,
-        entries: traversal.entries,
         errors: traversal.errors,
         truncated: traversal.truncated,
         tree: traversal.tree,

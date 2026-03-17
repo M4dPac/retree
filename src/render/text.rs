@@ -358,26 +358,18 @@ impl Renderer for TextRenderer {
     ) -> Result<(), TreeError> {
         let config = ctx.config;
 
-        if let Some(ref tree) = result.tree {
-            // Tree-based rendering
-            self.write_entry(writer, &result.root, config)?;
-            helpers::count_stats(&result.root, stats);
+        // Root entry
+        self.write_entry(writer, &result.root, config)?;
+        helpers::count_stats(&result.root, stats);
 
+        // Children from tree
+        if let Some(ref tree) = result.tree {
             let mut state = RenderState {
                 max_entries: config.max_entries,
                 count: 0,
                 truncated: false,
             };
             self.render_children(tree, &[], config, writer, stats, &mut state)?;
-        } else {
-            // Fallback: flat rendering
-            self.write_entry(writer, &result.root, config)?;
-            helpers::count_stats(&result.root, stats);
-
-            for entry in &result.entries {
-                self.write_entry(writer, entry, config)?;
-                helpers::count_stats(entry, stats);
-            }
         }
 
         // Report

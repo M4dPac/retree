@@ -10,10 +10,7 @@ use super::context::RenderContext;
 use super::helpers;
 use super::traits::Renderer;
 
-pub struct XmlRenderer {
-    depth_stack: Vec<usize>,
-    pending_dir: Option<(usize, String)>,
-}
+pub struct XmlRenderer;
 
 /// Mutable state for tree-based rendering (truncation tracking).
 struct RenderState {
@@ -24,10 +21,7 @@ struct RenderState {
 
 impl XmlRenderer {
     pub fn new(_config: &Config) -> Self {
-        XmlRenderer {
-            depth_stack: Vec::new(),
-            pending_dir: None,
-        }
+        XmlRenderer
     }
 
     fn indent(depth: usize) -> String {
@@ -96,103 +90,6 @@ impl XmlRenderer {
                 write!(writer, " dev=\"{}\"", meta.device)?;
             }
         }
-        Ok(())
-    }
-
-    /// Flush any pending (deferred) directory opening tag.
-    /// Called when we know the directory has children (next entry is deeper).
-    fn flush_pending<W: Write>(&mut self, writer: &mut W) -> Result<(), TreeError> {
-        if let Some((depth, tag)) = self.pending_dir.take() {
-            writeln!(writer, "{}>", tag)?;
-            self.depth_stack.push(depth);
-        }
-        Ok(())
-    }
-
-    /// Close the pending directory as empty (self-closing on one line).
-    /// Called when next entry is at the same or higher level.
-    fn close_pending_empty<W: Write>(&mut self, writer: &mut W) -> Result<(), TreeError> {
-        if let Some((_depth, tag)) = self.pending_dir.take() {
-            writeln!(writer, "{}></directory>", tag)?;
-        }
-        Ok(())
-    }
-
-    fn write_entry<W: Write>(
-        &mut self,
-        writer: &mut W,
-        entry: &Entry,
-        config: &Config,
-    ) -> Result<(), TreeError> {
-        // First: if there's a pending directory and new entry is NOT its child,
-        // close it as empty.
-        if let Some(&(pending_depth, _)) = self.pending_dir.as_ref() {
-            if entry.depth <= pending_depth {
-                // Next entry is at the same or higher level — pending dir is empty
-                self.close_pending_empty(writer)?;
-            } else {
-                // Next entry is deeper — pending dir has children
-                self.flush_pending(writer)?;
-            }
-        }
-
-        // Close previous elements if we're going back up
-        while let Some(&prev_depth) = self.depth_stack.last() {
-            if prev_depth >= entry.depth {
-                self.depth_stack.pop();
-                writeln!(writer, "{}</directory>", Self::indent(prev_depth + 1))?;
-            } else {
-                break;
-            }
-        }
-
-        let indent = Self::indent(entry.depth + 1);
-        let name = helpers::escape_xml(entry.name_str());
-
-        match &entry.entry_type {
-            EntryType::Directory => {
-                // Build the opening tag but DON'T write it yet — defer it
-                let mut tag = format!("{}<directory name=\"{}\"", indent, name);
-                // We need to write meta attrs into the tag string
-                let mut meta_buf: Vec<u8> = Vec::new();
-                Self::write_meta_attrs(&mut meta_buf, entry, config)?;
-                tag.push_str(&String::from_utf8_lossy(&meta_buf));
-                self.pending_dir = Some((entry.depth, tag));
-            }
-            EntryType::File | EntryType::HardLink { .. } => {
-                write!(writer, "{}<file name=\"{}\"", indent, name)?;
-                Self::write_meta_attrs(writer, entry, config)?;
-                writeln!(writer, "></file>")?;
-            }
-            EntryType::Symlink { target, .. } => {
-                write!(
-                    writer,
-                    "{}<link name=\"{}\" target=\"{}\"",
-                    indent,
-                    name,
-                    helpers::escape_xml(&target.display().to_string())
-                )?;
-                Self::write_meta_attrs(writer, entry, config)?;
-                writeln!(writer, "></link>")?;
-            }
-            EntryType::Junction { target } => {
-                write!(
-                    writer,
-                    "{}<link name=\"{}\" target=\"{}\"",
-                    indent,
-                    name,
-                    helpers::escape_xml(&target.display().to_string())
-                )?;
-                Self::write_meta_attrs(writer, entry, config)?;
-                writeln!(writer, "></link>")?;
-            }
-            _ => {
-                write!(writer, "{}<file name=\"{}\"", indent, name)?;
-                Self::write_meta_attrs(writer, entry, config)?;
-                writeln!(writer, "/>")?;
-            }
-        }
-
         Ok(())
     }
 
@@ -284,47 +181,28 @@ impl Renderer for XmlRenderer {
         // Header
         writeln!(writer, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")?;
         writeln!(writer, "<tree>")?;
-        self.depth_stack.clear();
-        self.pending_dir = None;
 
-        if let Some(ref tree) = result.tree {
-            // Tree-based rendering — no pending_dir/depth_stack needed
-            helpers::count_stats(&result.root, stats);
+        // Root directory
+        helpers::count_stats(&result.root, stats);
+        let root_entry = &result.root;
+        let indent = Self::indent(root_entry.depth + 1);
+        let name = helpers::escape_xml(root_entry.name_str());
+        write!(writer, "{}<directory name=\"{}\"", indent, name)?;
+        Self::write_meta_attrs(writer, root_entry, config)?;
 
-            let root_entry = &result.root;
-            let indent = Self::indent(root_entry.depth + 1);
-            let name = helpers::escape_xml(root_entry.name_str());
-
-            write!(writer, "{}<directory name=\"{}\"", indent, name)?;
-            Self::write_meta_attrs(writer, root_entry, config)?;
-
-            if tree.children.is_empty() {
-                writeln!(writer, "></directory>")?;
-            } else {
-                writeln!(writer, ">")?;
-                let mut state = RenderState {
-                    max_entries: config.max_entries,
-                    count: 0,
-                    truncated: false,
-                };
-                Self::render_tree_children(writer, tree, config, stats, &mut state)?;
-                writeln!(writer, "{}</directory>", indent)?;
-            }
+        let has_tree_children = matches!(&result.tree, Some(t) if !t.children.is_empty());
+        if has_tree_children {
+            writeln!(writer, ">")?;
+            let tree = result.tree.as_ref().unwrap();
+            let mut state = RenderState {
+                max_entries: config.max_entries,
+                count: 0,
+                truncated: false,
+            };
+            Self::render_tree_children(writer, tree, config, stats, &mut state)?;
+            writeln!(writer, "{}</directory>", indent)?;
         } else {
-            // Fallback: flat rendering
-            self.write_entry(writer, &result.root, config)?;
-            helpers::count_stats(&result.root, stats);
-
-            for entry in &result.entries {
-                self.write_entry(writer, entry, config)?;
-                helpers::count_stats(entry, stats);
-            }
-
-            self.close_pending_empty(writer)?;
-
-            while let Some(depth) = self.depth_stack.pop() {
-                writeln!(writer, "{}</directory>", Self::indent(depth + 1))?;
-            }
+            writeln!(writer, "></directory>")?;
         }
 
         if !config.no_report {
