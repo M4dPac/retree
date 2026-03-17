@@ -330,6 +330,10 @@ pub struct Args {
     #[arg(long = "parallel", help_heading = "Performance")]
     pub parallel: bool,
 
+    /// Streaming mode: render output during traversal without building full tree
+    #[arg(long = "streaming", help_heading = "Performance")]
+    pub streaming: bool,
+
     /// Number of worker threads for parallel mode (default: CPU cores)
     #[arg(
         long = "threads",

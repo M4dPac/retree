@@ -156,6 +156,7 @@ impl Config {
             threads: args.threads.map(|n| n as usize),
             queue_cap: args.queue_cap.map(|n| n as usize),
             max_entries: args.max_entries,
+            streaming: args.streaming,
         })
     }
 

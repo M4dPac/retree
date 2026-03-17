@@ -101,4 +101,7 @@ pub struct Config {
 
     /// Maximum total entries to display (streaming early termination)
     pub max_entries: Option<usize>,
+
+    /// Streaming mode: traverse and render simultaneously
+    pub streaming: bool,
 }
