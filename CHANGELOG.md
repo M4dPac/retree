@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Partial implementation of --streaming text mode (root-only rendering)
 - Streaming text mode now lists flat directory children with correct sorting and filtering
 - `--streaming` now supports `-f` (full path output)
+- `--streaming` now supports `--max-entries`; output is truncated at the specified limit with a stderr notice
 
 ### Windows
 
@@ -31,12 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Skip Windows reserved device names (CON, NUL, PRN, COM1–9, LPT1–9) during traversal with a warning to stderr
 - Reserved Windows device names no longer affect exit code (treated as warnings)
-- `--streaming` now performs full recursive DFS traversal; previously
-  only immediate children of the root were emitted
-- Added internal recursion depth limit (4096) to prevent stack overflow
-  on deeply nested directory trees
-- `--streaming` with `-P` now correctly shows files inside matched
-  directories instead of hiding them
+- `--streaming` now performs full recursive DFS traversal; previously only immediate children of the root were emitted
+- Added internal recursion depth limit (4096) to prevent stack overflow on deeply nested directory trees
+- `--streaming` with `-P` now correctly shows files inside matched directories instead of hiding them
+- `--streaming --prune` now correctly falls back to normal mode instead of silently ignoring `--prune`
 
 ## [0.3.0] - 2026-03-12
 
