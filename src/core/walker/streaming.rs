@@ -15,6 +15,9 @@ use crate::core::walker::TreeStats;
 use crate::error::TreeError;
 use crate::i18n;
 
+/// Maximum internal recursion depth to prevent stack overflow.
+const MAX_INTERNAL_DEPTH: usize = 4096;
+
 /// Streaming tree traversal engine.
 ///
 /// Performs DFS traversal and writes text output inline,
@@ -85,6 +88,12 @@ impl<'a> StreamingEngine<'a> {
     ) -> Result<(), TreeError> {
         let config = self.config;
 
+        // Stack overflow protection
+        if depth >= MAX_INTERNAL_DEPTH {
+            errors.push(TreeError::MaxDepthExceeded(dir.to_path_buf()));
+            return Ok(());
+        }
+
         // max_depth: children at `depth` shown only if depth <= max.
         // Engine equivalent: parent at depth-1 checks `(depth-1) >= max`.
         if let Some(max) = config.max_depth {
@@ -133,6 +142,21 @@ impl<'a> StreamingEngine<'a> {
                 Ok(entry) => {
                     self.write_entry(writer, &entry)?;
                     count_entry_stats(&entry, stats);
+
+                    // Recurse into subdirectories
+                    if entry.entry_type.is_directory() {
+                        let mut child_ancestors = ancestors_last.to_vec();
+                        child_ancestors.push(is_last);
+                        self.emit_children(
+                            &entry.path,
+                            depth + 1,
+                            &child_ancestors,
+                            writer,
+                            stats,
+                            errors,
+                            needs_file_id,
+                        )?;
+                    }
                 }
                 Err(e) => errors.push(e),
             }
@@ -242,4 +266,3 @@ fn count_entry_stats(entry: &Entry, stats: &mut TreeStats) {
         _ => stats.files += 1,
     }
 }
-
