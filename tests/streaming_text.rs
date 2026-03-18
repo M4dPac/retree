@@ -369,3 +369,112 @@ fn test_streaming_sort_order_matches_regular_basic() {
         "sort order streaming should match normal"
     );
 }
+
+// ============================================================================
+// max_entries
+// ============================================================================
+
+/// --max-entries truncates streaming output.
+#[test]
+fn test_streaming_max_entries_truncates() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    for i in 0..15 {
+        fs::write(p.join(format!("file_{:02}.txt", i)), "").unwrap();
+    }
+
+    let (stdout, stderr, code) =
+        common::run_rtree_full(p, &["--streaming", "--max-entries", "5", "--noreport"]);
+    assert_eq!(code, Some(0), "exit 0 on truncation");
+    assert!(
+        stderr.contains("output truncated at 5 entries (--max-entries)"),
+        "truncation message expected, stderr: {stderr}"
+    );
+    let names = common::extract_names(&stdout);
+    assert!(
+        names.len() <= 5,
+        "at most 5 entries, got {}: {names:?}",
+        names.len()
+    );
+}
+
+/// --max-entries with enough room: no truncation.
+#[test]
+fn test_streaming_max_entries_no_truncation() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::write(p.join("a.txt"), "").unwrap();
+    fs::write(p.join("b.txt"), "").unwrap();
+
+    let (stdout, stderr, code) = common::run_rtree_full(p, &["--streaming", "--max-entries", "10"]);
+    assert_eq!(code, Some(0));
+    assert!(
+        !stderr.contains("truncated"),
+        "should NOT truncate, stderr: {stderr}"
+    );
+    assert!(stdout.contains("a.txt"));
+    assert!(stdout.contains("b.txt"));
+}
+
+/// --max-entries with nested dirs: DFS count includes subdirs.
+#[test]
+fn test_streaming_max_entries_nested() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    // 6 entries: dir_a, f1, f2, dir_b, f3, root.txt
+    fs::create_dir(p.join("dir_a")).unwrap();
+    fs::create_dir(p.join("dir_b")).unwrap();
+    fs::write(p.join("dir_a/f1.txt"), "").unwrap();
+    fs::write(p.join("dir_a/f2.txt"), "").unwrap();
+    fs::write(p.join("dir_b/f3.txt"), "").unwrap();
+    fs::write(p.join("root.txt"), "").unwrap();
+
+    let (stdout, stderr, _) =
+        common::run_rtree_full(p, &["--streaming", "--max-entries", "3", "--noreport"]);
+    assert!(
+        stderr.contains("output truncated at 3 entries (--max-entries)"),
+        "truncation expected, stderr: {stderr}"
+    );
+    let names = common::extract_names(&stdout);
+    assert!(
+        names.len() <= 3,
+        "at most 3 entries, got {}: {names:?}",
+        names.len()
+    );
+}
+
+// ============================================================================
+// prune: fallback to normal mode
+// ============================================================================
+
+/// --prune + --streaming: falls back to normal mode, works correctly.
+#[test]
+fn test_streaming_prune_falls_back_to_normal() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::create_dir(p.join("hollow")).unwrap();
+    fs::create_dir(p.join("filled")).unwrap();
+    fs::write(p.join("filled/file.txt"), "").unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "--prune", "--noreport"]);
+    let normal = common::run_rtree(p, &["--prune", "--noreport"]);
+
+    assert_eq!(
+        streaming, normal,
+        "--prune + --streaming should produce same output as --prune alone"
+    );
+    assert!(
+        !streaming.contains("hollow"),
+        "hollow dir should be pruned:\n{}",
+        streaming
+    );
+    assert!(
+        streaming.contains("filled"),
+        "filled dir should remain:\n{}",
+        streaming
+    );
+}
