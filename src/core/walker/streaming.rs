@@ -336,4 +336,3 @@ fn count_entry_stats(entry: &Entry, stats: &mut TreeStats) {
         _ => stats.files += 1,
     }
 }
-
