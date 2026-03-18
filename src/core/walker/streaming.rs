@@ -57,7 +57,16 @@ impl<'a> StreamingEngine<'a> {
         stats.directories += 1;
 
         // Flat children (no recursion into subdirectories yet)
-        self.emit_children(root, 1, &[], writer, stats, &mut errors, needs_file_id)?;
+        self.emit_children(
+            root,
+            1,
+            &[],
+            false,
+            writer,
+            stats,
+            &mut errors,
+            needs_file_id,
+        )?;
 
         // Report
         if !config.no_report {
@@ -81,6 +90,7 @@ impl<'a> StreamingEngine<'a> {
         dir: &Path,
         depth: usize,
         ancestors_last: &[bool],
+        parent_matched: bool,
         writer: &mut W,
         stats: &mut TreeStats,
         errors: &mut Vec<TreeError>,
@@ -124,7 +134,7 @@ impl<'a> StreamingEngine<'a> {
         // Pre-filter to know total count (needed for is_last)
         let filtered: Vec<&fs::DirEntry> = dir_entries
             .iter()
-            .filter(|de| self.should_include(de))
+            .filter(|de| self.should_include(de, parent_matched))
             .collect();
 
         let total = filtered.len();
@@ -145,12 +155,17 @@ impl<'a> StreamingEngine<'a> {
 
                     // Recurse into subdirectories
                     if entry.entry_type.is_directory() {
+                        let child_name = dir_entry.file_name();
+                        let child_name_str = child_name.to_string_lossy();
+                        let child_parent_matched =
+                            parent_matched || config.filter.dir_matches_include(&child_name_str);
                         let mut child_ancestors = ancestors_last.to_vec();
                         child_ancestors.push(is_last);
                         self.emit_children(
                             &entry.path,
                             depth + 1,
                             &child_ancestors,
+                            child_parent_matched,
                             writer,
                             stats,
                             errors,
@@ -166,7 +181,7 @@ impl<'a> StreamingEngine<'a> {
     }
 
     /// Check whether a directory entry should be included in output.
-    fn should_include(&self, de: &fs::DirEntry) -> bool {
+    fn should_include(&self, de: &fs::DirEntry, parent_matched: bool) -> bool {
         let config = self.config;
 
         // Hidden files
@@ -208,7 +223,7 @@ impl<'a> StreamingEngine<'a> {
                 ft.is_dir() || (config.follow_symlinks && ft.is_symlink() && de.path().is_dir())
             })
             .unwrap_or(false);
-        if !is_dir && !config.filter.matches(&name, false) {
+        if !is_dir && !parent_matched && !config.filter.matches(&name, false) {
             return false;
         }
 
@@ -219,9 +234,13 @@ impl<'a> StreamingEngine<'a> {
     fn write_entry<W: Write>(&self, writer: &mut W, entry: &Entry) -> Result<(), TreeError> {
         let config = self.config;
 
-        // Root: just the name
+        // Root: name (or full path with -f)
         if entry.depth == 0 {
-            writeln!(writer, "{}", entry.name_str())?;
+            if config.full_path {
+                writeln!(writer, "{}", entry.path.display())?;
+            } else {
+                writeln!(writer, "{}", entry.name_str())?;
+            }
             return Ok(());
         }
 
@@ -239,7 +258,12 @@ impl<'a> StreamingEngine<'a> {
             line.push_str(if entry.is_last { last_branch } else { branch });
         }
 
-        line.push_str(entry.name_str());
+        if config.full_path {
+            line.push_str(&entry.path.display().to_string());
+        } else {
+            line.push_str(entry.name_str());
+        }
+
         writeln!(writer, "{}", line)?;
         Ok(())
     }

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Experimental --streaming mode for text output (currently falls back to standard traversal)
 - Partial implementation of --streaming text mode (root-only rendering)
 - Streaming text mode now lists flat directory children with correct sorting and filtering
+- `--streaming` now supports `-f` (full path output)
 
 ### Windows
 
@@ -34,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only immediate children of the root were emitted
 - Added internal recursion depth limit (4096) to prevent stack overflow
   on deeply nested directory trees
+- `--streaming` with `-P` now correctly shows files inside matched
+  directories instead of hiding them
 
 ## [0.3.0] - 2026-03-12
 
