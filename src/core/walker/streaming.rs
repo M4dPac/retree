@@ -4,11 +4,13 @@
 //! `StreamingEngine` writes entries directly to output as they are visited.
 //! This reduces memory usage for large directory trees.
 
+use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-use crate::config::Config;
-use crate::core::entry::Entry;
+use crate::config::{Config, LineStyle};
+use crate::core::entry::{Entry, EntryType};
+use crate::core::sorter::sort_entries;
 use crate::core::walker::TreeStats;
 use crate::error::TreeError;
 use crate::i18n;
@@ -36,11 +38,10 @@ impl<'a> StreamingEngine<'a> {
         stats: &mut TreeStats,
     ) -> Result<Vec<TreeError>, TreeError> {
         let config = self.config;
-        let errors = Vec::new();
-
+        let mut errors = Vec::new();
         let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
 
-        // Create and emit root entry
+        // Root entry
         let root_entry = Entry::from_path(
             root,
             0,
@@ -49,13 +50,13 @@ impl<'a> StreamingEngine<'a> {
             needs_file_id,
             config.show_permissions,
         )?;
-
-        writeln!(writer, "{}", root_entry.name_str())?;
+        self.write_entry(writer, &root_entry)?;
         stats.directories += 1;
 
-        // TODO: Phase 6b — DFS traversal of children
+        // Flat children (no recursion into subdirectories yet)
+        self.emit_children(root, 1, &[], writer, stats, &mut errors, needs_file_id)?;
 
-        // Report line
+        // Report
         if !config.no_report {
             writeln!(writer)?;
             let report = i18n::format_report(
@@ -67,6 +68,178 @@ impl<'a> StreamingEngine<'a> {
         }
 
         Ok(errors)
+    }
+
+    /// Read, filter, sort, and emit children of a single directory.
+    ///
+    /// Does NOT recurse into subdirectories (TODO: next phase).
+    fn emit_children<W: Write>(
+        &self,
+        dir: &Path,
+        depth: usize,
+        ancestors_last: &[bool],
+        writer: &mut W,
+        stats: &mut TreeStats,
+        errors: &mut Vec<TreeError>,
+        needs_file_id: bool,
+    ) -> Result<(), TreeError> {
+        let config = self.config;
+
+        // max_depth: children at `depth` shown only if depth <= max.
+        // Engine equivalent: parent at depth-1 checks `(depth-1) >= max`.
+        if let Some(max) = config.max_depth {
+            if depth > max {
+                return Ok(());
+            }
+        }
+
+        let long_path = crate::platform::to_long_path(dir, config.long_paths);
+        let read_dir = match fs::read_dir(&long_path) {
+            Ok(rd) => rd,
+            Err(e) => {
+                errors.push(TreeError::Io(dir.to_path_buf(), e));
+                return Ok(());
+            }
+        };
+
+        let mut dir_entries: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
+        sort_entries(&mut dir_entries, &config.sort_config);
+
+        // filelimit: skip children if directory has too many raw entries
+        if let Some(limit) = config.file_limit {
+            if dir_entries.len() > limit {
+                return Ok(());
+            }
+        }
+
+        // Pre-filter to know total count (needed for is_last)
+        let filtered: Vec<&fs::DirEntry> = dir_entries
+            .iter()
+            .filter(|de| self.should_include(de))
+            .collect();
+
+        let total = filtered.len();
+        for (i, dir_entry) in filtered.iter().enumerate() {
+            let is_last = i == total - 1;
+
+            match Entry::from_dir_entry(
+                dir_entry,
+                depth,
+                is_last,
+                ancestors_last.to_vec(),
+                needs_file_id,
+                config.show_permissions,
+            ) {
+                Ok(entry) => {
+                    self.write_entry(writer, &entry)?;
+                    count_entry_stats(&entry, stats);
+                }
+                Err(e) => errors.push(e),
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Check whether a directory entry should be included in output.
+    fn should_include(&self, de: &fs::DirEntry) -> bool {
+        let config = self.config;
+
+        // Hidden files
+        if !config.show_all {
+            if let Some(name) = de.file_name().to_str() {
+                if name.starts_with('.') {
+                    return false;
+                }
+            }
+        }
+
+        // dirs_only: keep dirs and symlinks-to-dirs
+        if config.dirs_only {
+            let ft = match de.file_type() {
+                Ok(ft) => ft,
+                Err(_) => return false,
+            };
+            let is_dir =
+                ft.is_dir() || (config.follow_symlinks && ft.is_symlink() && de.path().is_dir());
+            let is_symlink_to_dir = ft.is_symlink() && de.path().is_dir();
+            if !is_dir && !is_symlink_to_dir {
+                return false;
+            }
+        }
+
+        let name_os = de.file_name();
+        let name = name_os.to_string_lossy();
+
+        // -I exclude patterns
+        if config.filter.excluded(&name) {
+            return false;
+        }
+
+        // -P include pattern (files only; dirs always pass)
+        let is_dir = de
+            .file_type()
+            .ok()
+            .map(|ft| {
+                ft.is_dir() || (config.follow_symlinks && ft.is_symlink() && de.path().is_dir())
+            })
+            .unwrap_or(false);
+        if !is_dir && !config.filter.matches(&name, false) {
+            return false;
+        }
+
+        true
+    }
+
+    /// Write a single entry line to output.
+    fn write_entry<W: Write>(&self, writer: &mut W, entry: &Entry) -> Result<(), TreeError> {
+        let config = self.config;
+
+        // Root: just the name
+        if entry.depth == 0 {
+            writeln!(writer, "{}", entry.name_str())?;
+            return Ok(());
+        }
+
+        // Tree prefix
+        let (branch, last_branch, vertical, space) = match config.line_style {
+            LineStyle::Ascii => ("|-- ", "`-- ", "|   ", "    "),
+            _ => ("├── ", "└── ", "│   ", "    "),
+        };
+
+        let mut line = String::new();
+        if !config.no_indent {
+            for &ancestor_last in &entry.ancestors_last {
+                line.push_str(if ancestor_last { space } else { vertical });
+            }
+            line.push_str(if entry.is_last { last_branch } else { branch });
+        }
+
+        line.push_str(entry.name_str());
+        writeln!(writer, "{}", line)?;
+        Ok(())
+    }
+}
+
+/// Count an entry in traversal statistics.
+fn count_entry_stats(entry: &Entry, stats: &mut TreeStats) {
+    match &entry.entry_type {
+        EntryType::Directory => stats.directories += 1,
+        EntryType::Symlink { target, broken } => {
+            stats.symlinks += 1;
+            if !*broken
+                && entry
+                    .path
+                    .parent()
+                    .map(|p| p.join(target).is_dir())
+                    .unwrap_or(false)
+            {
+                stats.directories += 1;
+            } else {
+                stats.files += 1;
+            }
+        }
+        _ => stats.files += 1,
     }
 }
 
