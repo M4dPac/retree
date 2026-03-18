@@ -144,18 +144,23 @@ fn render_tree<W: Write>(
     stats: &mut TreeStats,
 ) -> Result<(), TreeError> {
     // Streaming mode: text-only, traverse and render in single pass
-    if config.streaming && config.output_format == OutputFormat::Text {
+    if config.streaming && config.output_format == OutputFormat::Text && !config.prune {
         let engine = StreamingEngine::new(config);
         match engine.traverse_and_render(path, output, stats) {
-            Ok(errors) => {
-                for err in &errors {
+            Ok(result) => {
+                for err in &result.errors {
                     eprintln!("rtree: {}", err);
                 }
-                let hard_errors = errors
+                let hard_errors = result
+                    .errors
                     .iter()
                     .filter(|e| !matches!(e, TreeError::ReservedName(_)))
                     .count();
                 stats.errors += hard_errors as u64;
+                if result.truncated {
+                    let max = config.max_entries.unwrap_or(0);
+                    eprintln!("rtree: output truncated at {} entries (--max-entries)", max);
+                }
                 return Ok(());
             }
             Err(_) => {

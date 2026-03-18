@@ -15,6 +15,34 @@ use crate::core::walker::TreeStats;
 use crate::error::TreeError;
 use crate::i18n;
 
+/// Result of streaming traversal.
+pub struct StreamingResult {
+    pub errors: Vec<TreeError>,
+    pub truncated: bool,
+}
+
+/// Mutable traversal state for max_entries tracking.
+struct StreamState {
+    count: usize,
+    max_entries: Option<usize>,
+    truncated: bool,
+}
+
+impl StreamState {
+    fn new(max_entries: Option<usize>) -> Self {
+        Self {
+            count: 0,
+            max_entries,
+            truncated: false,
+        }
+    }
+
+    /// Check if we've reached the entry limit.
+    fn should_stop(&self) -> bool {
+        self.max_entries.is_some_and(|max| self.count >= max)
+    }
+}
+
 /// Maximum internal recursion depth to prevent stack overflow.
 const MAX_INTERNAL_DEPTH: usize = 4096;
 
@@ -39,7 +67,7 @@ impl<'a> StreamingEngine<'a> {
         root: &Path,
         writer: &mut W,
         stats: &mut TreeStats,
-    ) -> Result<Vec<TreeError>, TreeError> {
+    ) -> Result<StreamingResult, TreeError> {
         let config = self.config;
         let mut errors = Vec::new();
         let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
@@ -56,7 +84,8 @@ impl<'a> StreamingEngine<'a> {
         self.write_entry(writer, &root_entry)?;
         stats.directories += 1;
 
-        // Flat children (no recursion into subdirectories yet)
+        // DFS children with max_entries tracking
+        let mut state = StreamState::new(config.max_entries);
         self.emit_children(
             root,
             1,
@@ -66,6 +95,7 @@ impl<'a> StreamingEngine<'a> {
             stats,
             &mut errors,
             needs_file_id,
+            &mut state,
         )?;
 
         // Report
@@ -79,12 +109,16 @@ impl<'a> StreamingEngine<'a> {
             writeln!(writer, "{}", report)?;
         }
 
-        Ok(errors)
+        Ok(StreamingResult {
+            errors,
+            truncated: state.truncated,
+        })
     }
 
     /// Read, filter, sort, and emit children of a single directory.
     ///
     /// Does NOT recurse into subdirectories (TODO: next phase).
+    #[allow(clippy::too_many_arguments)]
     fn emit_children<W: Write>(
         &self,
         dir: &Path,
@@ -95,6 +129,7 @@ impl<'a> StreamingEngine<'a> {
         stats: &mut TreeStats,
         errors: &mut Vec<TreeError>,
         needs_file_id: bool,
+        state: &mut StreamState,
     ) -> Result<(), TreeError> {
         let config = self.config;
 
@@ -139,6 +174,12 @@ impl<'a> StreamingEngine<'a> {
 
         let total = filtered.len();
         for (i, dir_entry) in filtered.iter().enumerate() {
+            // max_entries: stop before writing
+            if state.should_stop() {
+                state.truncated = true;
+                return Ok(());
+            }
+
             let is_last = i == total - 1;
 
             match Entry::from_dir_entry(
@@ -152,6 +193,7 @@ impl<'a> StreamingEngine<'a> {
                 Ok(entry) => {
                     self.write_entry(writer, &entry)?;
                     count_entry_stats(&entry, stats);
+                    state.count += 1;
 
                     // Recurse into subdirectories
                     if entry.entry_type.is_directory() {
@@ -170,7 +212,11 @@ impl<'a> StreamingEngine<'a> {
                             stats,
                             errors,
                             needs_file_id,
+                            state,
                         )?;
+                        if state.truncated {
+                            return Ok(());
+                        }
                     }
                 }
                 Err(e) => errors.push(e),
@@ -290,3 +336,4 @@ fn count_entry_stats(entry: &Entry, stats: &mut TreeStats) {
         _ => stats.files += 1,
     }
 }
+
