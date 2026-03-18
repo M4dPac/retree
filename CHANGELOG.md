@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Display ADS entries with optional size and full-path rendering
 - Display NTFS Alternate Data Streams in streaming (--max-entries) mode
 - Experimental --streaming mode for text output (currently falls back to standard traversal)
+- Partial implementation of --streaming text mode (root-only rendering)
+- Streaming text mode now lists flat directory children with correct sorting and filtering
 
 ### Windows
 
