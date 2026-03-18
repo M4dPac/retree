@@ -28,7 +28,6 @@ fn test_streaming_flag_smoke() {
 
 /// --streaming produces identical text output to normal mode.
 #[test]
-#[ignore] // children traversal not yet recursive
 fn test_streaming_basic_execution() {
     let dir = tempdir().unwrap();
     let p = dir.path();
@@ -125,5 +124,51 @@ fn test_streaming_flat_directory_sort_order() {
         names,
         vec!["apple.txt", "banana.txt", "cherry.txt"],
         "children should be sorted by name"
+    );
+}
+
+// ============================================================================
+// Nested / recursive DFS
+// ============================================================================
+
+/// Nested structure: streaming matches normal output.
+#[test]
+fn test_streaming_nested_execution() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::create_dir_all(p.join("a/b/c")).unwrap();
+    fs::write(p.join("a/b/c/deep.txt"), "").unwrap();
+    fs::write(p.join("a/b/mid.txt"), "").unwrap();
+    fs::write(p.join("a/top.txt"), "").unwrap();
+    fs::write(p.join("root.txt"), "").unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_rtree(p, &["--noreport"]);
+
+    assert_eq!(
+        streaming, normal,
+        "nested streaming should match normal output"
+    );
+}
+
+/// DFS order: directory contents appear immediately after the directory.
+#[test]
+fn test_streaming_depth_first_order_basic() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::create_dir(p.join("alpha")).unwrap();
+    fs::write(p.join("alpha/inside.txt"), "").unwrap();
+    fs::write(p.join("beta.txt"), "").unwrap();
+
+    let output = common::run_rtree(p, &["--streaming", "--noreport"]);
+    let names = common::extract_names(&output);
+
+    assert_eq!(
+        names,
+        vec!["alpha", "inside.txt", "beta.txt"],
+        "DFS: alpha's child should appear before beta.txt, got: {:?}",
+        names
     );
 }
