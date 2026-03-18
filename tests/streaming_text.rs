@@ -172,3 +172,200 @@ fn test_streaming_depth_first_order_basic() {
         names
     );
 }
+
+// ============================================================================
+// Indentation and tree connectors
+// ============================================================================
+
+/// ├── for non-last, └── for last sibling.
+#[test]
+fn test_streaming_last_branch_rendering_basic() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::write(p.join("aaa.txt"), "").unwrap();
+    fs::write(p.join("zzz.txt"), "").unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_rtree(p, &["--noreport"]);
+
+    assert_eq!(streaming, normal, "branch chars should match normal mode");
+    assert!(
+        streaming.contains("├── aaa.txt"),
+        "first child uses ├──:\n{}",
+        streaming
+    );
+    assert!(
+        streaming.contains("└── zzz.txt"),
+        "last child uses └──:\n{}",
+        streaming
+    );
+}
+
+/// │ prefix for non-last parent, space prefix for last parent.
+#[test]
+fn test_streaming_indentation_basic() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::create_dir(p.join("dir_a")).unwrap();
+    fs::write(p.join("dir_a/child.txt"), "").unwrap();
+    fs::create_dir(p.join("dir_b")).unwrap();
+    fs::write(p.join("dir_b/child.txt"), "").unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_rtree(p, &["--noreport"]);
+
+    assert_eq!(streaming, normal, "indentation should match normal mode");
+
+    // dir_a is not last → its child gets │ prefix
+    assert!(
+        streaming.contains("│   └── child.txt"),
+        "non-last parent should produce │ prefix:\n{}",
+        streaming
+    );
+}
+
+/// Deeper nesting: │ and spaces propagate correctly through 3+ levels.
+#[test]
+fn test_streaming_nested_indentation_basic() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    // dir_a not last → children get │; inner is last-child of dir_a → its children get "│       "
+    fs::create_dir_all(p.join("dir_a/inner")).unwrap();
+    fs::write(p.join("dir_a/inner/deep.txt"), "").unwrap();
+    // dir_b is last → children get space
+    fs::create_dir(p.join("dir_b")).unwrap();
+    fs::write(p.join("dir_b/leaf.txt"), "").unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_rtree(p, &["--noreport"]);
+
+    assert_eq!(
+        streaming, normal,
+        "nested indentation should match normal mode:\nstreaming:\n{}normal:\n{}",
+        streaming, normal
+    );
+}
+
+// ============================================================================
+// Feature parity: filtering, depth, sorting
+// ============================================================================
+
+/// -a: streaming shows hidden files.
+#[test]
+fn test_streaming_show_all() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::write(p.join(".hidden"), "").unwrap();
+    fs::write(p.join("visible.txt"), "").unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "-a", "--noreport"]);
+    let normal = common::run_rtree(p, &["-a", "--noreport"]);
+    assert_eq!(streaming, normal, "-a streaming should match normal");
+}
+
+/// -d: streaming shows only directories.
+#[test]
+fn test_streaming_dirs_only() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::create_dir(p.join("subdir")).unwrap();
+    fs::write(p.join("file.txt"), "").unwrap();
+    fs::write(p.join("subdir/inner.txt"), "").unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "-d", "--noreport"]);
+    let normal = common::run_rtree(p, &["-d", "--noreport"]);
+    assert_eq!(streaming, normal, "-d streaming should match normal");
+}
+
+/// -L: streaming respects max depth.
+#[test]
+fn test_streaming_depth_limit() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::create_dir_all(p.join("l1/l2/l3")).unwrap();
+    fs::write(p.join("l1/l2/l3/deep.txt"), "").unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "-L", "2", "--noreport"]);
+    let normal = common::run_rtree(p, &["-L", "2", "--noreport"]);
+    assert_eq!(streaming, normal, "-L 2 streaming should match normal");
+}
+
+/// -P: streaming include pattern filters files.
+#[test]
+fn test_streaming_pattern_include() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::write(p.join("file.rs"), "").unwrap();
+    fs::write(p.join("file.txt"), "").unwrap();
+    fs::write(p.join("other.rs"), "").unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "-P", "*.rs", "--noreport"]);
+    let normal = common::run_rtree(p, &["-P", "*.rs", "--noreport"]);
+    assert_eq!(streaming, normal, "-P streaming should match normal");
+}
+
+/// -I: streaming exclude pattern hides entries.
+#[test]
+fn test_streaming_exclude() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::write(p.join("keep.rs"), "").unwrap();
+    fs::write(p.join("skip.txt"), "").unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "-I", "*.txt", "--noreport"]);
+    let normal = common::run_rtree(p, &["-I", "*.txt", "--noreport"]);
+    assert_eq!(streaming, normal, "-I streaming should match normal");
+}
+
+/// --filelimit: streaming skips large directories' children.
+#[test]
+fn test_streaming_filelimit() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::create_dir(p.join("big")).unwrap();
+    for i in 0..5 {
+        fs::write(p.join(format!("big/file{}.txt", i)), "").unwrap();
+    }
+    fs::create_dir(p.join("small")).unwrap();
+    fs::write(p.join("small/ok.txt"), "").unwrap();
+
+    let output = common::run_rtree(p, &["--streaming", "--filelimit", "2", "--noreport"]);
+
+    // Core behavior: children of big dir are skipped
+    assert!(output.contains("big"), "big dir shown:\n{}", output);
+    assert!(output.contains("ok.txt"), "small/ok.txt shown:\n{}", output);
+    assert!(
+        !output.contains("file0.txt"),
+        "big's children hidden:\n{}",
+        output
+    );
+}
+
+/// Sorting: streaming sort order matches normal mode.
+#[test]
+fn test_streaming_sort_order_matches_regular_basic() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::create_dir(p.join("cherry")).unwrap();
+    fs::create_dir(p.join("apple")).unwrap();
+    fs::write(p.join("cherry/c.txt"), "").unwrap();
+    fs::write(p.join("apple/a.txt"), "").unwrap();
+    fs::write(p.join("banana.txt"), "").unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_rtree(p, &["--noreport"]);
+    assert_eq!(
+        streaming, normal,
+        "sort order streaming should match normal"
+    );
+}
