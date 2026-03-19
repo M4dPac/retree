@@ -120,6 +120,15 @@ fn bench_small_100(c: &mut Criterion) {
         b.iter(|| run_rtree(temp.path(), &["--parallel", "-C"]));
     });
 
+    // Streaming
+    group.bench_function("streaming_plain", |b| {
+        b.iter(|| run_rtree(temp.path(), &["--streaming"]));
+    });
+
+    group.bench_function("streaming_color", |b| {
+        b.iter(|| run_rtree(temp.path(), &["--streaming", "-C"]));
+    });
+
     group.finish();
 }
 
@@ -147,6 +156,12 @@ fn bench_medium_10k(c: &mut Criterion) {
     group.bench_function("par_8", |b| {
         b.iter(|| run_rtree(temp.path(), &["--parallel", "--threads", "8"]));
     });
+
+    // Streaming
+    group.bench_function("streaming_plain", |b| {
+        b.iter(|| run_rtree(temp.path(), &["--streaming"]));
+    });
+
     group.finish();
 }
 
@@ -175,6 +190,11 @@ fn bench_large_100k(c: &mut Criterion) {
 
     group.bench_function("par_8", |b| {
         b.iter(|| run_rtree(temp.path(), &["--parallel", "--threads", "8"]));
+    });
+
+    // Streaming
+    group.bench_function("streaming_plain", |b| {
+        b.iter(|| run_rtree(temp.path(), &["--streaming"]));
     });
 
     group.finish();
@@ -307,6 +327,56 @@ fn bench_options(c: &mut Criterion) {
 }
 
 // ============================================================================
+// STREAMING VS STANDARD BENCHMARKS
+// ============================================================================
+
+fn bench_streaming_comparison(c: &mut Criterion) {
+    let temp = TempDir::new().unwrap();
+    generate_test_tree(temp.path(), 10_000).unwrap();
+    // Warm FS cache
+    run_rtree(temp.path(), &[]);
+
+    let mut group = c.benchmark_group("streaming_vs_standard_10k");
+    group.sample_size(20);
+    group.measurement_time(Duration::from_secs(10));
+
+    // Standard sequential (baseline)
+    group.bench_function("seq_plain", |b| {
+        b.iter(|| run_rtree(temp.path(), &[]));
+    });
+
+    // Streaming
+    group.bench_function("streaming_plain", |b| {
+        b.iter(|| run_rtree(temp.path(), &["--streaming"]));
+    });
+
+    // Parallel (for reference)
+    group.bench_function("par_auto", |b| {
+        b.iter(|| run_rtree(temp.path(), &["--parallel"]));
+    });
+
+    // Streaming with max-entries (early termination)
+    group.bench_function("streaming_max100", |b| {
+        b.iter(|| run_rtree(temp.path(), &["--streaming", "--max-entries", "100"]));
+    });
+
+    group.bench_function("seq_max100", |b| {
+        b.iter(|| run_rtree(temp.path(), &["--max-entries", "100"]));
+    });
+
+    // With metadata
+    group.bench_function("seq_metadata", |b| {
+        b.iter(|| run_rtree(temp.path(), &["-s", "-D", "-p"]));
+    });
+
+    group.bench_function("streaming_metadata", |b| {
+        b.iter(|| run_rtree(temp.path(), &["--streaming", "-s", "-D", "-p"]));
+    });
+
+    group.finish();
+}
+
+// ============================================================================
 // REGISTER ALL BENCHMARKS
 // ============================================================================
 
@@ -317,6 +387,7 @@ criterion_group!(
     bench_large_100k,
     bench_xlarge_1m,
     bench_output_formats,
-    bench_options
+    bench_options,
+    bench_streaming_comparison
 );
 criterion_main!(benches);
