@@ -29,15 +29,17 @@ struct StreamState {
     max_entries: Option<usize>,
     truncated: bool,
     visited: HashSet<PathBuf>,
+    root_device: Option<u64>,
 }
 
 impl StreamState {
-    fn new(max_entries: Option<usize>) -> Self {
+    fn new(max_entries: Option<usize>, root_device: Option<u64>) -> Self {
         Self {
             count: 0,
             max_entries,
             truncated: false,
             visited: HashSet::new(),
+            root_device,
         }
     }
 
@@ -93,7 +95,12 @@ impl<'a> StreamingEngine<'a> {
         stats.directories += 1;
 
         // DFS children with max_entries tracking
-        let mut state = StreamState::new(config.max_entries);
+        let root_device = if config.one_fs {
+            crate::platform::get_file_id(root).map(|info| info.volume_serial)
+        } else {
+            None
+        };
+        let mut state = StreamState::new(config.max_entries, root_device);
         let root_canon = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
         state.visited.insert(root_canon);
         self.emit_children(
@@ -125,9 +132,8 @@ impl<'a> StreamingEngine<'a> {
         })
     }
 
-    /// Read, filter, sort, and emit children of a single directory.
-    ///
-    /// Does NOT recurse into subdirectories (TODO: next phase).
+    /// Read, filter, sort, and emit children of a single directory,
+    /// then recursively descend into subdirectories (DFS).
     #[allow(clippy::too_many_arguments)]
     fn emit_children<W: Write>(
         &self,
@@ -226,6 +232,14 @@ impl<'a> StreamingEngine<'a> {
                     } else {
                         false
                     };
+
+                    // --one-fs: don't descend into different filesystems
+                    let descend = descend
+                        && state.root_device.map_or(true, |root_dev| {
+                            crate::platform::get_file_id(&entry.path)
+                                .map(|info| info.volume_serial == root_dev)
+                                .unwrap_or(true)
+                        });
 
                     self.text.write_entry(writer, &entry, config)?;
                     count_entry_stats(&entry, stats);
