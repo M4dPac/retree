@@ -245,6 +245,27 @@ impl<'a> StreamingEngine<'a> {
                     count_entry_stats(&entry, stats);
                     state.count += 1;
 
+                    // Emit NTFS Alternate Data Streams for non-descended entries
+                    if config.show_streams && !descend {
+                        let streams = crate::platform::get_alternate_streams(&entry.path);
+                        let num_streams = streams.len();
+                        for (si, stream) in streams.into_iter().enumerate() {
+                            if state.should_stop() {
+                                state.truncated = true;
+                                return Ok(());
+                            }
+                            let mut ads_entry =
+                                Entry::from_ads(&entry.path, stream.name, stream.size, depth + 1);
+                            ads_entry.is_last = si == num_streams - 1;
+                            let mut ads_ancestors = ancestors_last.to_vec();
+                            ads_ancestors.push(is_last);
+                            ads_entry.ancestors_last = ads_ancestors;
+                            self.text.write_entry(writer, &ads_entry, config)?;
+                            count_entry_stats(&ads_entry, stats);
+                            state.count += 1;
+                        }
+                    }
+
                     if descend {
                         let child_name = dir_entry.file_name();
                         let child_name_str = child_name.to_string_lossy();
