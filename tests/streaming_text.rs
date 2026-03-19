@@ -524,3 +524,53 @@ fn test_streaming_symlink_cycle() {
         streaming, normal
     );
 }
+
+// ============================================================================
+// Comprehensive flag combinations
+// ============================================================================
+
+/// Streaming output matches normal output across various flag combinations.
+#[test]
+fn test_streaming_comprehensive_matches_normal() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    // Complex tree structure
+    fs::create_dir_all(p.join("src/core")).unwrap();
+    fs::create_dir_all(p.join("src/utils")).unwrap();
+    fs::create_dir(p.join("docs")).unwrap();
+    fs::write(p.join("src/core/main.rs"), "").unwrap();
+    fs::write(p.join("src/core/lib.rs"), "").unwrap();
+    fs::write(p.join("src/utils/helper.rs"), "").unwrap();
+    fs::write(p.join("docs/readme.md"), "").unwrap();
+    fs::write(p.join(".hidden"), "").unwrap();
+    fs::write(p.join("Cargo.toml"), "").unwrap();
+
+    let flag_combos: &[&[&str]] = &[
+        &["--noreport"],
+        &["-a", "--noreport"],
+        &["-d", "--noreport"],
+        &["-L", "2", "--noreport"],
+        &["-P", "*.rs", "--noreport"],
+        &["-I", "*.md", "--noreport"],
+        &["-f", "--noreport"],
+        &["--dirsfirst", "--noreport"],
+        &["-r", "--noreport"],
+        &["-a", "-d", "--noreport"],
+        &["-L", "1", "-a", "--noreport"],
+    ];
+
+    for flags in flag_combos {
+        let mut streaming_args: Vec<&str> = vec!["--streaming"];
+        streaming_args.extend_from_slice(flags);
+
+        let streaming = common::run_rtree(p, &streaming_args);
+        let normal = common::run_rtree(p, flags);
+
+        assert_eq!(
+            streaming, normal,
+            "streaming should match normal with flags {:?}\nstreaming:\n{}normal:\n{}",
+            flags, streaming, normal
+        );
+    }
+}
