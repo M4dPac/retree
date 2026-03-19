@@ -8,17 +8,13 @@ use std::sync::{Condvar, Mutex};
 
 use rayon::prelude::*;
 
+use super::common;
 use crate::config::Config;
 use crate::core::entry::Entry as TreeEntry;
 use crate::core::sorter::sort_entries;
 use crate::error::TreeError;
 
 pub use crate::core::tree::Tree as Node;
-
-/// Maximum internal recursion depth to prevent stack overflow.
-/// Protects both sequential (8 MB stack ≈ ~7 000 frames) and
-/// parallel (rayon 2 MB stack ≈ ~1 700 frames) modes.
-const MAX_INTERNAL_DEPTH: usize = 4096;
 
 //
 // ==============================
@@ -177,11 +173,7 @@ impl OrderedEngine {
         let mut errors = Vec::new();
         let visited = HashSet::new();
 
-        let root_device = if config.one_fs {
-            crate::platform::get_file_id(root.as_ref()).map(|info| info.volume_serial)
-        } else {
-            None
-        };
+        let root_device = common::compute_root_device(config, root.as_ref());
 
         let dir_limiter = DirReadLimiter::new(config.queue_cap.unwrap_or(64));
         let root_path = root.as_ref();
@@ -277,12 +269,12 @@ fn build_node_sequential(
     root_device: Option<u64>,
 ) -> Option<Node> {
     // Internal depth limit to prevent stack overflow
-    if depth >= MAX_INTERNAL_DEPTH {
+    if depth >= common::MAX_INTERNAL_DEPTH {
         errors.push(TreeError::MaxDepthExceeded(path.to_path_buf()));
         return None;
     }
 
-    let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
+    let needs_file_id = common::needs_file_id(config);
     let mut entry = match TreeEntry::from_path(
         path,
         depth,
@@ -367,69 +359,21 @@ fn build_node_sequential(
         }
     }
 
-    let filter = config.filter.clone();
-
     let mut children = Vec::new();
 
     for dir_entry in dir_entries {
-        let file_type = match dir_entry.file_type() {
-            Ok(ft) => ft,
-            Err(e) => {
-                errors.push(TreeError::Io(dir_entry.path(), e));
+        let is_dir = match common::filter_entry(config, &dir_entry, parent_matched) {
+            common::FilterResult::Include { is_dir } => is_dir,
+            common::FilterResult::Reserved => {
+                errors.push(TreeError::ReservedName(dir_entry.path()));
                 continue;
             }
+            common::FilterResult::Exclude => continue,
         };
-
-        let is_dir = file_type.is_dir()
-            || (config.follow_symlinks && file_type.is_symlink() && dir_entry.path().is_dir());
-
-        if !config.show_all {
-            if let Some(name) = dir_entry.file_name().to_str() {
-                if name.starts_with('.') {
-                    continue;
-                }
-            }
-        }
-
-        // dirs_only: include directories and symlinks to directories
-        if config.dirs_only {
-            let is_symlink_to_dir = file_type.is_symlink() && dir_entry.path().is_dir();
-            if !is_dir && !is_symlink_to_dir {
-                continue;
-            }
-        }
-
-        // prune: symlinks to directories are "empty" when not followed — skip them
-        if config.prune
-            && !config.follow_symlinks
-            && file_type.is_symlink()
-            && dir_entry.path().is_dir()
-        {
-            continue;
-        }
-
-        let name_str = dir_entry.file_name();
-        let name_lossy = name_str.to_string_lossy();
-        let name = name_lossy.as_ref();
-
-        // Skip Windows reserved device names (CON, NUL, PRN, …).
-        if crate::platform::should_skip_reserved_name(name) {
-            errors.push(TreeError::ReservedName(dir_entry.path()));
-            continue;
-        }
-
-        // -I always excludes matching entries
-        if filter.excluded(name) {
-            continue;
-        }
-        // Files: -P (include) applies, unless parent dir matched with --matchdirs
-        if !is_dir && !parent_matched && !filter.matches(name, false) {
-            continue;
-        }
 
         if is_dir {
             // Check for recursive symlink when following
-            if config.follow_symlinks && file_type.is_symlink() {
+            if config.follow_symlinks && dir_entry.file_type().is_ok_and(|ft| ft.is_symlink()) {
                 if let Ok(canon) = dir_entry.path().canonicalize() {
                     if visited.contains(&canon) {
                         match TreeEntry::from_dir_entry(
@@ -455,7 +399,11 @@ fn build_node_sequential(
                     }
                 }
             }
-            let child_parent_matched = parent_matched || filter.dir_matches_include(name);
+            let child_name = dir_entry.file_name();
+            let child_name_str = child_name.to_string_lossy();
+            let child_parent_matched =
+                parent_matched || config.filter.dir_matches_include(&child_name_str);
+
             if let Some(child) = build_node_sequential(
                 &dir_entry.path(),
                 depth + 1,
@@ -523,7 +471,7 @@ fn build_node_parallel_inner(
     parent_matched: bool,
 ) -> Option<Node> {
     // Internal depth limit to prevent stack overflow
-    if depth >= MAX_INTERNAL_DEPTH {
+    if depth >= common::MAX_INTERNAL_DEPTH {
         push_error(ctx.errors, TreeError::MaxDepthExceeded(path.to_path_buf()));
         return None;
     }
