@@ -26,6 +26,8 @@ If no path is given, the current directory is used. Multiple paths can be specif
 |        | `--streaming`     | Streaming text output (render during traversal) |
 |        | `--max-entries N` | Limit total displayed entries                   |
 
+> **Note:** `--streaming` applies to text output only. With `--prune` or structured formats (`-J`, `-X`, `-H`), standard traversal is used automatically.
+
 ---
 
 ## 🔍 Filtering
