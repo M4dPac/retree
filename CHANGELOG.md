@@ -11,14 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support --show-streams to display NTFS Alternate Data Streams (Windows only)
 - Display ADS entries with optional size and full-path rendering
-- Display NTFS Alternate Data Streams in streaming (--max-entries) mode
-- Experimental --streaming mode for text output (currently falls back to standard traversal)
-- Partial implementation of --streaming text mode (root-only rendering)
-- Streaming text mode now lists flat directory children with correct sorting and filtering
-- `--streaming` now supports `-f` (full path output)
-- `--streaming` now supports `--max-entries`; output is truncated at the specified limit with a stderr notice
-- `--streaming` now respects `-x` / `--one-fs` (stays on the root filesystem)
-- `--streaming` now displays NTFS Alternate Data Streams (`--show-streams`)
+- `--streaming` mode for text output: single-pass DFS rendering with lower memory usage
+  - Supports `-a`, `-d`, `-L`, `-P`, `-I`, `-f`, `--filelimit`, `--max-entries`, `--one-fs`
+  - Per-directory sorting, filtering, symlink/junction cycle detection, ADS support
+  - `--prune` and structured formats (`-J`, `-X`, `-H`) fall back to standard traversal
+  - Output truncated at `--max-entries` limit with stderr notification
 
 ### Windows
 
@@ -34,12 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Skip Windows reserved device names (CON, NUL, PRN, COM1–9, LPT1–9) during traversal with a warning to stderr
 - Reserved Windows device names no longer affect exit code (treated as warnings)
-- `--streaming` now performs full recursive DFS traversal; previously only immediate children of the root were emitted
 - Added internal recursion depth limit (4096) to prevent stack overflow on deeply nested directory trees
-- `--streaming` with `-P` now correctly shows files inside matched directories instead of hiding them
-- `--streaming --prune` now correctly falls back to normal mode instead of silently ignoring `--prune`
-- `--streaming` now detects symlink/junction cycles and marks them as `[recursive]` instead of looping indefinitely
-- `--streaming` now skips Windows reserved device names (CON, NUL, PRN…)
 
 ## [0.3.0] - 2026-03-12
 
