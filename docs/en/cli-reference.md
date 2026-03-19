@@ -10,19 +10,21 @@ If no path is given, the current directory is used. Multiple paths can be specif
 
 ## 🖥️ Listing Options
 
-| Flag   | Long form       | Description                               |
-| ------ | --------------- | ----------------------------------------- |
-| `-a`   | `--all`         | Show all files including hidden           |
-| `-d`   | `--dirs-only`   | List directories only                     |
-| `-l`   | `--follow`      | Follow symbolic links                     |
-| `-f`   | `--full-path`   | Print full path prefix                    |
-| `-x`   | `--one-fs`      | Stay on current filesystem                |
-| `-L N` | `--level N`     | Descend only N levels deep                |
-|        | `--filelimit N` | Skip dirs with more than N entries        |
-|        | `--noreport`    | Omit final report                         |
-|        | `--parallel`    | Enable parallel traversal                 |
-|        | `--threads N`   | Number of worker threads                  |
-|        | `--queue-cap N` | Queue capacity per thread (default: 4096) |
+| Flag   | Long form         | Description                                     |
+| ------ | ----------------- | ----------------------------------------------- |
+| `-a`   | `--all`           | Show all files including hidden                 |
+| `-d`   | `--dirs-only`     | List directories only                           |
+| `-l`   | `--follow`        | Follow symbolic links                           |
+| `-f`   | `--full-path`     | Print full path prefix                          |
+| `-x`   | `--one-fs`        | Stay on current filesystem                      |
+| `-L N` | `--level N`       | Descend only N levels deep                      |
+|        | `--filelimit N`   | Skip dirs with more than N entries              |
+|        | `--noreport`      | Omit final report                               |
+|        | `--parallel`      | Enable parallel traversal                       |
+|        | `--threads N`     | Number of worker threads                        |
+|        | `--queue-cap N`   | Queue capacity per thread (default: 4096)       |
+|        | `--streaming`     | Streaming text output (render during traversal) |
+|        | `--max-entries N` | Limit total displayed entries                   |
 
 ---
 
