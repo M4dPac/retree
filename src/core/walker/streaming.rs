@@ -9,6 +9,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use super::common;
 use crate::config::Config;
 use crate::core::entry::{Entry, EntryType};
 use crate::core::sorter::sort_entries;
@@ -49,9 +50,6 @@ impl StreamState {
     }
 }
 
-/// Maximum internal recursion depth to prevent stack overflow.
-const MAX_INTERNAL_DEPTH: usize = 4096;
-
 /// Streaming tree traversal engine.
 ///
 /// Performs DFS traversal and writes text output inline,
@@ -80,7 +78,7 @@ impl<'a> StreamingEngine<'a> {
     ) -> Result<StreamingResult, TreeError> {
         let config = self.config;
         let mut errors = Vec::new();
-        let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
+        let needs_file_id = common::needs_file_id(config);
 
         // Root entry
         let root_entry = Entry::from_path(
@@ -95,12 +93,11 @@ impl<'a> StreamingEngine<'a> {
         stats.directories += 1;
 
         // DFS children with max_entries tracking
-        let root_device = if config.one_fs {
-            crate::platform::get_file_id(root).map(|info| info.volume_serial)
-        } else {
-            None
-        };
-        let mut state = StreamState::new(config.max_entries, root_device);
+        let mut state = StreamState::new(
+            config.max_entries,
+            common::compute_root_device(config, root),
+        );
+
         let root_canon = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
         state.visited.insert(root_canon);
         self.emit_children(
@@ -150,7 +147,7 @@ impl<'a> StreamingEngine<'a> {
         let config = self.config;
 
         // Stack overflow protection
-        if depth >= MAX_INTERNAL_DEPTH {
+        if depth >= common::MAX_INTERNAL_DEPTH {
             errors.push(TreeError::MaxDepthExceeded(dir.to_path_buf()));
             return Ok(());
         }
@@ -185,7 +182,16 @@ impl<'a> StreamingEngine<'a> {
         // Pre-filter to know total count (needed for is_last)
         let filtered: Vec<&fs::DirEntry> = dir_entries
             .iter()
-            .filter(|de| self.should_include(de, parent_matched))
+            .filter(
+                |de| match common::filter_entry(config, de, parent_matched) {
+                    common::FilterResult::Include { .. } => true,
+                    common::FilterResult::Reserved => {
+                        errors.push(TreeError::ReservedName(de.path()));
+                        false
+                    }
+                    common::FilterResult::Exclude => false,
+                },
+            )
             .collect();
 
         let total = filtered.len();
@@ -294,61 +300,6 @@ impl<'a> StreamingEngine<'a> {
         }
 
         Ok(())
-    }
-
-    /// Check whether a directory entry should be included in output.
-    fn should_include(&self, de: &fs::DirEntry, parent_matched: bool) -> bool {
-        let config = self.config;
-
-        // Hidden files
-        if !config.show_all {
-            if let Some(name) = de.file_name().to_str() {
-                if name.starts_with('.') {
-                    return false;
-                }
-            }
-        }
-
-        // dirs_only: keep dirs and symlinks-to-dirs
-        if config.dirs_only {
-            let ft = match de.file_type() {
-                Ok(ft) => ft,
-                Err(_) => return false,
-            };
-            let is_dir =
-                ft.is_dir() || (config.follow_symlinks && ft.is_symlink() && de.path().is_dir());
-            let is_symlink_to_dir = ft.is_symlink() && de.path().is_dir();
-            if !is_dir && !is_symlink_to_dir {
-                return false;
-            }
-        }
-
-        let name_os = de.file_name();
-        let name = name_os.to_string_lossy();
-
-        // Skip Windows reserved device names (CON, NUL, PRN, …).
-        if crate::platform::should_skip_reserved_name(&name) {
-            return false;
-        }
-
-        // -I exclude patterns
-        if config.filter.excluded(&name) {
-            return false;
-        }
-
-        // -P include pattern (files only; dirs always pass)
-        let is_dir = de
-            .file_type()
-            .ok()
-            .map(|ft| {
-                ft.is_dir() || (config.follow_symlinks && ft.is_symlink() && de.path().is_dir())
-            })
-            .unwrap_or(false);
-        if !is_dir && !parent_matched && !config.filter.matches(&name, false) {
-            return false;
-        }
-
-        true
     }
 }
 
