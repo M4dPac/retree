@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--streaming` now supports `-f` (full path output)
 - `--streaming` now supports `--max-entries`; output is truncated at the specified limit with a stderr notice
 - `--streaming` now respects `-x` / `--one-fs` (stays on the root filesystem)
+- `--streaming` now displays NTFS Alternate Data Streams (`--show-streams`)
 
 ### Windows
 
