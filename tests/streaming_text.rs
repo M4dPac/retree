@@ -574,3 +574,58 @@ fn test_streaming_comprehensive_matches_normal() {
         );
     }
 }
+
+// ============================================================================
+// Metadata flags
+// ============================================================================
+
+/// Streaming output matches normal output with metadata display flags.
+#[test]
+fn test_streaming_metadata_flags_match_normal() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::create_dir(p.join("subdir")).unwrap();
+    fs::write(p.join("file.txt"), "some content").unwrap();
+    fs::write(p.join("subdir/inner.rs"), "fn main() {}").unwrap();
+
+    let flag_combos: &[&[&str]] = &[
+        &["-s", "--noreport"],             // size in bytes
+        &["-h", "--noreport"],             // human-readable size
+        &["-s", "-h", "--noreport"],       // both size flags
+        &["-F", "--noreport"],             // classify (/ for dirs, * for exec)
+        &["-q", "--noreport"],             // safe print
+        &["-p", "--noreport"],             // permissions
+        &["-D", "--noreport"],             // modification date
+        &["--inodes", "--noreport"],       // inode numbers
+        &["-s", "-F", "-q", "--noreport"], // combined
+    ];
+
+    for flags in flag_combos {
+        let mut streaming_args: Vec<&str> = vec!["--streaming"];
+        streaming_args.extend_from_slice(flags);
+
+        let streaming = common::run_rtree(p, &streaming_args);
+        let normal = common::run_rtree(p, flags);
+
+        assert_eq!(
+            streaming, normal,
+            "metadata flags {:?} should match normal:\nstreaming:\n{}normal:\n{}",
+            flags, streaming, normal
+        );
+    }
+}
+
+/// Streaming with --si units matches normal.
+#[test]
+fn test_streaming_si_units() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::write(p.join("data.bin"), vec![0u8; 2048]).unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "-h", "--si", "--noreport"]);
+    let normal = common::run_rtree(p, &["-h", "--si", "--noreport"]);
+
+    assert_eq!(streaming, normal, "--si streaming should match normal");
+}
