@@ -291,6 +291,11 @@ impl<'a> StreamingEngine<'a> {
         let name_os = de.file_name();
         let name = name_os.to_string_lossy();
 
+        // Skip Windows reserved device names (CON, NUL, PRN, …).
+        if crate::platform::should_skip_reserved_name(&name) {
+            return false;
+        }
+
         // -I exclude patterns
         if config.filter.excluded(&name) {
             return false;
