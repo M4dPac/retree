@@ -16,7 +16,7 @@ use crate::core::sorter::sort_entries;
 use crate::core::walker::TreeStats;
 use crate::error::TreeError;
 use crate::i18n;
-use crate::render::TextRenderer;
+use crate::render::{helpers::count_stats, TextRenderer};
 
 /// Result of streaming traversal.
 pub struct StreamingResult {
@@ -248,7 +248,7 @@ impl<'a> StreamingEngine<'a> {
                         });
 
                     self.text.write_entry(writer, &entry, config)?;
-                    count_entry_stats(&entry, stats);
+                    count_stats(&entry, stats);
                     state.count += 1;
 
                     // Emit NTFS Alternate Data Streams for non-descended entries
@@ -267,7 +267,7 @@ impl<'a> StreamingEngine<'a> {
                             ads_ancestors.push(is_last);
                             ads_entry.ancestors_last = ads_ancestors;
                             self.text.write_entry(writer, &ads_entry, config)?;
-                            count_entry_stats(&ads_entry, stats);
+                            count_stats(&ads_entry, stats);
                             state.count += 1;
                         }
                     }
@@ -300,27 +300,5 @@ impl<'a> StreamingEngine<'a> {
         }
 
         Ok(())
-    }
-}
-
-/// Count an entry in traversal statistics.
-fn count_entry_stats(entry: &Entry, stats: &mut TreeStats) {
-    match &entry.entry_type {
-        EntryType::Directory => stats.directories += 1,
-        EntryType::Symlink { target, broken } => {
-            stats.symlinks += 1;
-            if !*broken
-                && entry
-                    .path
-                    .parent()
-                    .map(|p| p.join(target).is_dir())
-                    .unwrap_or(false)
-            {
-                stats.directories += 1;
-            } else {
-                stats.files += 1;
-            }
-        }
-        _ => stats.files += 1,
     }
 }
