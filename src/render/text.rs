@@ -286,7 +286,7 @@ impl TextRenderer {
         }
     }
 
-    fn write_entry<W: Write>(
+    pub fn write_entry<W: Write>(
         &self,
         writer: &mut W,
         entry: &Entry,
