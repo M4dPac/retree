@@ -71,6 +71,7 @@ pub enum MessageKey {
     ArgHelp,
     ArgJsonPretty,
     ArgParallel,
+    ArgStreaming,
     ArgThreads,
     ArgQueueCap,
     ArgMaxEntries,
@@ -231,6 +232,9 @@ fn get_message_en(key: MessageKey) -> &'static str {
         MessageKey::ArgParallel => {
             "Enable parallel directory traversal (faster for large directories)"
         }
+        MessageKey::ArgStreaming => {
+            "Streaming mode: render output during traversal without building full"
+        }
         MessageKey::ArgThreads => "Number of worker threads for parallel mode (default: CPU cores)",
         MessageKey::ArgQueueCap => "Maximum concurrent directory reads in parallel mode",
         MessageKey::ArgMaxEntries => "Maximum total entries to display (limits memory usage)",
@@ -383,6 +387,9 @@ fn get_message_ru(key: MessageKey) -> &'static str {
         MessageKey::ArgHelp => "Показать справку",
         MessageKey::ArgJsonPretty => "Форматированный JSON-вывод",
         MessageKey::ArgParallel => "Параллельный обход каталогов (быстрее для больших деревьев)",
+        MessageKey::ArgStreaming => {
+            "Потоковый режим: вывод результатов во время обхода без построения полного дерева"
+        }
         MessageKey::ArgThreads => "Количество рабочих потоков (по умолчанию: число ядер ЦП)",
         MessageKey::ArgQueueCap => {
             "Максимальное число одновременных чтений директорий в параллельном режиме"

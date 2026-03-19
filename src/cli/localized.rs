@@ -236,6 +236,10 @@ pub fn build_localized_command(lang: Language) -> clap::Command {
             a.help(msg(lang, MessageKey::ArgParallel))
                 .help_heading(msg(lang, MessageKey::HeadingPerformance))
         })
+        .mut_arg("streaming", |a| {
+            a.help(msg(lang, MessageKey::ArgStreaming))
+                .help_heading(msg(lang, MessageKey::HeadingPerformance))
+        })
         .mut_arg("threads", |a| {
             a.help(msg(lang, MessageKey::ArgThreads))
                 .help_heading(msg(lang, MessageKey::HeadingPerformance))
