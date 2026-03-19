@@ -150,6 +150,7 @@ More details: 👉 [Benchmarks](docs/en/performance.md)
 | NTFS ADS           |    ❌    |  ✅   |
 | Junction points    |    ❌    |  ✅   |
 | Long paths         |    ❌    |  ✅   |
+| Streaming output   |    ❌    |  ✅   |
 | Multilingual UI    |    ❌    |  ✅   |
 
 ---
@@ -158,7 +159,8 @@ More details: 👉 [Benchmarks](docs/en/performance.md)
 
 - [ ] Stable release on crates.io
 - [ ] Config file (`~/.rtreerc.toml`)
-- [ ] `.gitignore` support
+- [ ] `.gitignore` / `.treeignore` support
+- [ ] Directory size aggregation (`--du`)
 - [ ] Interactive mode
 - [ ] Homebrew / Scoop / Winget packages
 
