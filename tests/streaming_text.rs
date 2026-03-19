@@ -478,3 +478,49 @@ fn test_streaming_prune_falls_back_to_normal() {
         streaming
     );
 }
+
+// ============================================================================
+// Symlinks and cycle detection
+// ============================================================================
+
+/// Symlink target is displayed in streaming output.
+#[cfg(unix)]
+#[test]
+fn test_streaming_symlink_display() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::write(p.join("target.txt"), "hello").unwrap();
+    std::os::unix::fs::symlink("target.txt", p.join("link.txt")).unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_rtree(p, &["--noreport"]);
+
+    assert_eq!(streaming, normal, "symlink display should match normal");
+    assert!(
+        streaming.contains("->"),
+        "symlink target arrow should appear:\n{}",
+        streaming
+    );
+}
+
+/// Symlink cycle with -l: streaming terminates and matches normal output.
+#[cfg(unix)]
+#[test]
+fn test_streaming_symlink_cycle() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::create_dir(p.join("subdir")).unwrap();
+    fs::write(p.join("subdir/file.txt"), "").unwrap();
+    std::os::unix::fs::symlink(p, p.join("subdir/loop")).unwrap();
+
+    let streaming = common::run_rtree(p, &["--streaming", "-l", "--noreport"]);
+    let normal = common::run_rtree(p, &["-l", "--noreport"]);
+
+    assert_eq!(
+        streaming, normal,
+        "cycle handling should match normal mode:\nstreaming:\n{}normal:\n{}",
+        streaming, normal
+    );
+}
