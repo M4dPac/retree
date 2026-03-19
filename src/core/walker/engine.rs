@@ -476,7 +476,7 @@ fn build_node_parallel_inner(
         return None;
     }
 
-    let needs_file_id = ctx.config.one_fs || ctx.config.show_inodes || ctx.config.show_device;
+    let needs_file_id = common::needs_file_id(ctx.config);
     let mut entry = match TreeEntry::from_path(
         path,
         depth,
@@ -566,71 +566,23 @@ fn build_node_parallel_inner(
         }
     }
 
-    let filter = ctx.config.filter.clone();
-
     let children: Vec<Node> = dir_entries
         .par_iter()
         .filter_map(|dir_entry| {
-            let file_type = match dir_entry.file_type() {
-                Ok(ft) => ft,
-                Err(e) => {
-                    push_error(ctx.errors, TreeError::Io(dir_entry.path(), e));
+            let is_dir = match common::filter_entry(ctx.config, dir_entry, parent_matched) {
+                common::FilterResult::Include { is_dir } => is_dir,
+                common::FilterResult::Reserved => {
+                    push_error(ctx.errors, TreeError::ReservedName(dir_entry.path()));
                     return None;
                 }
+                common::FilterResult::Exclude => return None,
             };
-
-            let is_dir = file_type.is_dir()
-                || (ctx.config.follow_symlinks
-                    && file_type.is_symlink()
-                    && dir_entry.path().is_dir());
-
-            if !ctx.config.show_all {
-                if let Some(name) = dir_entry.file_name().to_str() {
-                    if name.starts_with('.') {
-                        return None;
-                    }
-                }
-            }
-
-            // dirs_only: include directories and symlinks to directories
-            if ctx.config.dirs_only {
-                let is_symlink_to_dir = file_type.is_symlink() && dir_entry.path().is_dir();
-                if !is_dir && !is_symlink_to_dir {
-                    return None;
-                }
-            }
-
-            // prune: symlinks to directories are "empty" when not followed — skip them
-            if ctx.config.prune
-                && !ctx.config.follow_symlinks
-                && file_type.is_symlink()
-                && dir_entry.path().is_dir()
-            {
-                return None;
-            }
-
-            let name_str = dir_entry.file_name();
-            let name_lossy = name_str.to_string_lossy();
-            let name = name_lossy.as_ref();
-
-            // Skip Windows reserved device names (CON, NUL, PRN, …).
-            if crate::platform::should_skip_reserved_name(name) {
-                push_error(ctx.errors, TreeError::ReservedName(dir_entry.path()));
-                return None;
-            }
-
-            // -I always excludes matching entries
-            if filter.excluded(name) {
-                return None;
-            }
-            // Files: -P (include) applies, unless parent dir matched with --matchdirs
-            if !is_dir && !parent_matched && !filter.matches(name, false) {
-                return None;
-            }
 
             if is_dir {
                 // Check for recursive symlink when following — atomic check-and-insert
-                if ctx.config.follow_symlinks && file_type.is_symlink() {
+                if ctx.config.follow_symlinks
+                    && dir_entry.file_type().is_ok_and(|ft| ft.is_symlink())
+                {
                     if let Ok(canon) = dir_entry.path().canonicalize() {
                         // Read-only check: is this symlink target already visited?
                         // Don't insert here — the actual insert happens in
@@ -665,7 +617,10 @@ fn build_node_parallel_inner(
                         }
                     }
                 }
-                let child_parent_matched = parent_matched || filter.dir_matches_include(name);
+                let child_name = dir_entry.file_name();
+                let child_name_str = child_name.to_string_lossy();
+                let child_parent_matched =
+                    parent_matched || ctx.config.filter.dir_matches_include(&child_name_str);
                 build_node_parallel_inner(&dir_entry.path(), depth + 1, ctx, child_parent_matched)
             } else {
                 match TreeEntry::from_dir_entry(
