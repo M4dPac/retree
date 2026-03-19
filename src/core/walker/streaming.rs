@@ -4,16 +4,18 @@
 //! `StreamingEngine` writes entries directly to output as they are visited.
 //! This reduces memory usage for large directory trees.
 
+use std::collections::HashSet;
 use std::fs;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use crate::config::{Config, LineStyle};
+use crate::config::Config;
 use crate::core::entry::{Entry, EntryType};
 use crate::core::sorter::sort_entries;
 use crate::core::walker::TreeStats;
 use crate::error::TreeError;
 use crate::i18n;
+use crate::render::TextRenderer;
 
 /// Result of streaming traversal.
 pub struct StreamingResult {
@@ -26,6 +28,7 @@ struct StreamState {
     count: usize,
     max_entries: Option<usize>,
     truncated: bool,
+    visited: HashSet<PathBuf>,
 }
 
 impl StreamState {
@@ -34,6 +37,7 @@ impl StreamState {
             count: 0,
             max_entries,
             truncated: false,
+            visited: HashSet::new(),
         }
     }
 
@@ -52,11 +56,15 @@ const MAX_INTERNAL_DEPTH: usize = 4096;
 /// computing is_last/ancestors_last on the fly.
 pub struct StreamingEngine<'a> {
     config: &'a Config,
+    text: TextRenderer,
 }
 
 impl<'a> StreamingEngine<'a> {
     pub fn new(config: &'a Config) -> Self {
-        Self { config }
+        Self {
+            config,
+            text: TextRenderer::new(config),
+        }
     }
 
     /// Traverse directory tree and write text output directly.
@@ -81,11 +89,13 @@ impl<'a> StreamingEngine<'a> {
             needs_file_id,
             config.show_permissions,
         )?;
-        self.write_entry(writer, &root_entry)?;
+        self.text.write_entry(writer, &root_entry, config)?;
         stats.directories += 1;
 
         // DFS children with max_entries tracking
         let mut state = StreamState::new(config.max_entries);
+        let root_canon = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+        state.visited.insert(root_canon);
         self.emit_children(
             root,
             1,
@@ -190,13 +200,38 @@ impl<'a> StreamingEngine<'a> {
                 needs_file_id,
                 config.show_permissions,
             ) {
-                Ok(entry) => {
-                    self.write_entry(writer, &entry)?;
+                Ok(mut entry) => {
+                    // Determine if this entry is a traversable directory
+                    let should_descend = match &entry.entry_type {
+                        EntryType::Directory => true,
+                        EntryType::Symlink { broken: false, .. } if config.follow_symlinks => {
+                            entry.path.is_dir()
+                        }
+                        EntryType::Junction { .. } if config.show_junctions => true,
+                        _ => false,
+                    };
+
+                    // Cycle detection: check visited before writing
+                    let descend = if should_descend {
+                        let canon = entry
+                            .path
+                            .canonicalize()
+                            .unwrap_or_else(|_| entry.path.clone());
+                        if state.visited.insert(canon) {
+                            true
+                        } else {
+                            entry.recursive_link = true;
+                            false
+                        }
+                    } else {
+                        false
+                    };
+
+                    self.text.write_entry(writer, &entry, config)?;
                     count_entry_stats(&entry, stats);
                     state.count += 1;
 
-                    // Recurse into subdirectories
-                    if entry.entry_type.is_directory() {
+                    if descend {
                         let child_name = dir_entry.file_name();
                         let child_name_str = child_name.to_string_lossy();
                         let child_parent_matched =
@@ -274,44 +309,6 @@ impl<'a> StreamingEngine<'a> {
         }
 
         true
-    }
-
-    /// Write a single entry line to output.
-    fn write_entry<W: Write>(&self, writer: &mut W, entry: &Entry) -> Result<(), TreeError> {
-        let config = self.config;
-
-        // Root: name (or full path with -f)
-        if entry.depth == 0 {
-            if config.full_path {
-                writeln!(writer, "{}", entry.path.display())?;
-            } else {
-                writeln!(writer, "{}", entry.name_str())?;
-            }
-            return Ok(());
-        }
-
-        // Tree prefix
-        let (branch, last_branch, vertical, space) = match config.line_style {
-            LineStyle::Ascii => ("|-- ", "`-- ", "|   ", "    "),
-            _ => ("├── ", "└── ", "│   ", "    "),
-        };
-
-        let mut line = String::new();
-        if !config.no_indent {
-            for &ancestor_last in &entry.ancestors_last {
-                line.push_str(if ancestor_last { space } else { vertical });
-            }
-            line.push_str(if entry.is_last { last_branch } else { branch });
-        }
-
-        if config.full_path {
-            line.push_str(&entry.path.display().to_string());
-        } else {
-            line.push_str(entry.name_str());
-        }
-
-        writeln!(writer, "{}", line)?;
-        Ok(())
     }
 }
 
