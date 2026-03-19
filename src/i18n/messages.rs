@@ -1,7 +1,7 @@
 use super::Language;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
+#[cfg_attr(test, derive(strum::EnumIter))]
 pub enum MessageKey {
     // CLI Help
     AppDescription,

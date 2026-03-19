@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::i18n::Language;
+use strum::IntoEnumIterator;
 
 // ============================================================================
 // Russian Pluralization Tests
@@ -264,18 +265,16 @@ fn test_language_code() {
 
 #[test]
 fn test_all_message_keys_en_non_empty() {
-    let keys = all_message_keys();
-    for key in &keys {
-        let msg = get_message(Language::English, *key);
+    for key in MessageKey::iter() {
+        let msg = get_message(Language::English, key);
         assert!(!msg.is_empty(), "English message for {:?} is empty", key);
     }
 }
 
 #[test]
 fn test_all_message_keys_ru_non_empty() {
-    let keys = all_message_keys();
-    for key in &keys {
-        let msg = get_message(Language::Russian, *key);
+    for key in MessageKey::iter() {
+        let msg = get_message(Language::Russian, key);
         assert!(!msg.is_empty(), "Russian message for {:?} is empty", key);
     }
 }
@@ -364,117 +363,4 @@ fn test_messages_differ_between_languages() {
             key, en
         );
     }
-}
-
-// ============================================================================
-// Helper: list all MessageKey variants
-// ============================================================================
-
-fn all_message_keys() -> Vec<MessageKey> {
-    vec![
-        MessageKey::AppDescription,
-        MessageKey::AppAfterHelp,
-        MessageKey::ArgPaths,
-        MessageKey::ArgAll,
-        MessageKey::ArgDirsOnly,
-        MessageKey::ArgFollow,
-        MessageKey::ArgFullPath,
-        MessageKey::ArgOneFs,
-        MessageKey::ArgLevel,
-        MessageKey::ArgFileLimit,
-        MessageKey::ArgNoReport,
-        MessageKey::ArgPattern,
-        MessageKey::ArgExclude,
-        MessageKey::ArgMatchDirs,
-        MessageKey::ArgIgnoreCase,
-        MessageKey::ArgPrune,
-        MessageKey::ArgVersionSort,
-        MessageKey::ArgTimeSort,
-        MessageKey::ArgCtimeSort,
-        MessageKey::ArgUnsorted,
-        MessageKey::ArgReverse,
-        MessageKey::ArgDirsFirst,
-        MessageKey::ArgFilesFirst,
-        MessageKey::ArgSort,
-        MessageKey::ArgNoIndent,
-        MessageKey::ArgAnsi,
-        MessageKey::ArgCp437,
-        MessageKey::ArgNoColor,
-        MessageKey::ArgColorAlways,
-        MessageKey::ArgColor,
-        MessageKey::ArgSize,
-        MessageKey::ArgHuman,
-        MessageKey::ArgSi,
-        MessageKey::ArgDate,
-        MessageKey::ArgTimeFmt,
-        MessageKey::ArgPerm,
-        MessageKey::ArgUid,
-        MessageKey::ArgGid,
-        MessageKey::ArgInodes,
-        MessageKey::ArgDevice,
-        MessageKey::ArgClassify,
-        MessageKey::ArgSafe,
-        MessageKey::ArgLiteral,
-        MessageKey::ArgCharset,
-        MessageKey::ArgOutput,
-        MessageKey::ArgHtml,
-        MessageKey::ArgTitle,
-        MessageKey::ArgNoLinks,
-        MessageKey::ArgHtmlIntro,
-        MessageKey::ArgHtmlOutro,
-        MessageKey::ArgXml,
-        MessageKey::ArgJson,
-        MessageKey::ArgIcons,
-        MessageKey::ArgNoIcons,
-        MessageKey::ArgIconStyle,
-        MessageKey::ArgShowStreams,
-        MessageKey::ArgShowJunctions,
-        MessageKey::ArgHideSystem,
-        MessageKey::ArgPermissions,
-        MessageKey::ArgLongPaths,
-        MessageKey::ArgLang,
-        MessageKey::SortName,
-        MessageKey::SortSize,
-        MessageKey::SortMtime,
-        MessageKey::SortCtime,
-        MessageKey::SortVersion,
-        MessageKey::SortNone,
-        MessageKey::ColorAuto,
-        MessageKey::ColorAlways,
-        MessageKey::ColorNever,
-        MessageKey::IconsAuto,
-        MessageKey::IconsAlways,
-        MessageKey::IconsNever,
-        MessageKey::IconStyleNerd,
-        MessageKey::IconStyleUnicode,
-        MessageKey::IconStyleAscii,
-        MessageKey::PermPosix,
-        MessageKey::PermWindows,
-        MessageKey::Directories,
-        MessageKey::Files,
-        MessageKey::Directory,
-        MessageKey::File,
-        MessageKey::DirectoriesAndFiles,
-        MessageKey::ErrAccessDenied,
-        MessageKey::ErrNotFound,
-        MessageKey::ErrNotDirectory,
-        MessageKey::ErrSymlinkLoop,
-        MessageKey::ErrSymlinkError,
-        MessageKey::ErrPathTooLong,
-        MessageKey::ErrInvalidName,
-        MessageKey::ErrIo,
-        MessageKey::ErrInvalidPattern,
-        MessageKey::ErrConfig,
-        MessageKey::BrokenLink,
-        MessageKey::ExceedsFileLimit,
-        MessageKey::HtmlTitle,
-        MessageKey::XmlEncoding,
-        MessageKey::TypeFile,
-        MessageKey::TypeDirectory,
-        MessageKey::TypeLink,
-        MessageKey::TypeJunction,
-        MessageKey::TypeStream,
-        MessageKey::TypeOther,
-        MessageKey::ReportFormat,
-    ]
 }
