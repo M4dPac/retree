@@ -666,36 +666,3 @@ fn build_node_parallel_inner(
 
     Some(Node { entry, children })
 }
-
-#[allow(dead_code)]
-fn flatten_tree(
-    node: &Node,
-    ancestors_last: &[bool],
-    output: &mut Vec<TreeEntry>,
-    max_entries: Option<usize>,
-    truncated: &mut bool,
-) {
-    let num_children = node.children.len();
-    for (i, child) in node.children.iter().enumerate() {
-        if max_entries.is_some_and(|max| output.len() >= max) {
-            *truncated = true;
-            return;
-        }
-
-        let is_last = i == num_children - 1;
-
-        let mut entry = child.entry.clone();
-        entry.is_last = is_last;
-        entry.ancestors_last = ancestors_last.to_vec();
-        output.push(entry);
-
-        if !child.children.is_empty() {
-            let mut new_ancestors = ancestors_last.to_vec();
-            new_ancestors.push(is_last);
-            flatten_tree(child, &new_ancestors, output, max_entries, truncated);
-            if *truncated {
-                return;
-            }
-        }
-    }
-}

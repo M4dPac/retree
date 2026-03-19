@@ -308,7 +308,7 @@ impl TextRenderer {
     }
 
     /// Recursively render children of a tree node (depth-first).
-    /// Mirrors `flatten_tree` logic: computes is_last/ancestors_last on the fly.
+    /// computes is_last/ancestors_last on the fly.
     fn render_children<W: Write>(
         &self,
         node: &Node,
