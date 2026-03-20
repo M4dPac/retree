@@ -60,3 +60,7 @@ strip = true
 [[bench]]
 name = "rtree_perf"
 harness = false
+
+[[bench]]
+name = "rtree_perf_xlarge"
+harness = false
