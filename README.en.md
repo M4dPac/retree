@@ -16,7 +16,7 @@ Written in Rust. Optimized for Windows. Runs on Windows, Linux, and macOS.
 ## 🎯 Why rtree?
 
 - ✅ GNU `tree` compatibility
-- ⚡ Parallel traversal (up to 10–17× faster on large trees)
+- ⚡ Parallel traversal (up to 6× faster on large trees)
 - 🎨 `LS_COLORS` and `TREE_COLORS` support
 - 🔤 Icons (Nerd Font / Unicode / ASCII)
 - 📦 Export to JSON / XML / HTML
@@ -122,16 +122,24 @@ rtree [OPTIONS] [PATH...]
 
 rtree uses Rayon (work-stealing), lazy metadata loading, optimized sorting, and streaming output.
 
-Real benchmark results (median time, Criterion, `release` mode):
+Real benchmark results (median time, Criterion, `release` mode, Windows/NTFS, end-to-end):
 
-| Files     | Sequential | Parallel (auto) |
-| --------- | ---------- | --------------- |
-| 100       | ~4 ms      | ~5 ms           |
-| 10 000    | ~139 ms    | ~45 ms          |
-| 100 000   | ~1.65 s    | ~416 ms         |
-| 1 000 000 | ~17.5 s    | ~8.9 s          |
+| Files     | Sequential | Parallel (auto) | Streaming   |
+| --------- | ---------- | --------------- | ----------- |
+| 100       | ~54 ms     | ~14 ms          | ~54 ms      |
+| 10 000    | ~5.3 s     | ~861 ms         | ~5.7 s      |
+| 100 000   | ~51.5 s    | ~9.4 s          | ~53.5 s     |
+| 1 000 000 | ~576 s     | ~102 s          | —           |
 
-> Parallel mode is effective starting at ~10 000 files. On small trees, thread overhead may increase total time.
+💾 **Memory usage** (PeakWorkingSet64):
+
+| Files     | Sequential | Streaming | Savings  |
+| --------- | ---------- | --------- | -------- |
+| 10 000    | 15.6 MB   | 6.6 MB    | **58%**  |
+| 100 000   | 100.2 MB  | 10.4 MB   | **90%**  |
+
+> Parallel mode is effective starting at ~1 000 files (up to 6× speedup).
+> Streaming mode does not build the tree in memory — 90%+ savings on large trees.
 
 More details: 👉 [Benchmarks](docs/en/performance.md)
 
