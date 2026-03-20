@@ -87,7 +87,7 @@ fn bench_large_100k(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("large_100k_files");
     group.sample_size(10);
-    group.measurement_time(Duration::from_secs(15));
+    group.measurement_time(Duration::from_secs(120));
 
     group.bench_function("seq_plain", |b| {
         b.iter(|| run_rtree(&t.path, &[]));
@@ -116,8 +116,8 @@ fn bench_output_formats(c: &mut Criterion) {
     let t = tree_10k();
 
     let mut group = c.benchmark_group("output_formats_10k");
-    group.sample_size(15);
-    group.measurement_time(Duration::from_secs(10));
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(60));
 
     group.bench_function("text_seq", |b| {
         b.iter(|| run_rtree(&t.path, &[]));
@@ -149,8 +149,8 @@ fn bench_options(c: &mut Criterion) {
     let t = tree_10k();
 
     let mut group = c.benchmark_group("options_10k");
-    group.sample_size(15);
-    group.measurement_time(Duration::from_secs(10));
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(60));
 
     group.bench_function("plain", |b| {
         b.iter(|| run_rtree(&t.path, &[]));
@@ -188,8 +188,8 @@ fn bench_streaming_comparison(c: &mut Criterion) {
     let t = tree_10k();
 
     let mut group = c.benchmark_group("streaming_vs_standard_10k");
-    group.sample_size(20);
-    group.measurement_time(Duration::from_secs(10));
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(60));
 
     group.bench_function("seq_plain", |b| {
         b.iter(|| run_rtree(&t.path, &[]));

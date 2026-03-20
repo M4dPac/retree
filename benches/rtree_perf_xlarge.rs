@@ -11,7 +11,7 @@ fn bench_xlarge_1m(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("xlarge_1m_files");
     group.sample_size(10);
-    group.measurement_time(Duration::from_secs(120));
+    group.measurement_time(Duration::from_secs(700));
     group.warm_up_time(Duration::from_secs(10));
 
     group.bench_function("seq_plain", |b| {
