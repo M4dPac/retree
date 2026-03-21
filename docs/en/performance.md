@@ -35,7 +35,7 @@ Parallel mode uses Rayon with a work-stealing algorithm for load balancing.
 | 100       | 54 ms   | 14 ms        | 54 ms       |
 | 10 000    | 5.3 s   | 861 ms       | 5.7 s       |
 | 100 000   | 51.5 s  | 9.4 s        | 53.5 s      |
-| 1 000 000 | ~576 s  | ~102 s       | —           |
+| 1 000 000 | ~576 s  | ~102 s       | 622 s           |
 
 ### 🧵 Thread scaling (10 000 files)
 
@@ -46,6 +46,15 @@ Parallel mode uses Rayon with a work-stealing algorithm for load balancing.
 | 4        | 1.46 s  | 3.6×    |
 | 8        | 940 ms  | 5.6×    |
 | auto     | 861 ms  | 6.2×    |
+
+### 🧵 Thread scaling (1 000 000 files, hyperfine)
+
+| Threads |   Time   | Speedup |
+| ------: | -------: | ------: |
+|  1 (seq)| ~493 s   |    1.0× |
+|       2 | ~412 s   |    1.2× |
+|       4 | ~151 s   |    3.3× |
+|       8 | ~102 s   |    4.8× |
 
 ### 📦 Output formats (10 000 files)
 
@@ -90,8 +99,9 @@ Measurement: `PeakWorkingSet64` (Windows Task Manager → "Peak Working Set").
 
 | Files   | Sequential | Streaming | Parallel | Streaming savings |
 |---------|------------|-----------|----------|-------------------|
-| 10 000  | 15.6 MB    | 6.6 MB    | 20.8 MB  | 58%               |
-| 100 000 | 100.2 MB   | 10.4 MB   | 98.8 MB  | 90%               |
+| 10 000  | 15.6 MB    | 6.6 MB    | 20.8 MB    | **58%**             |
+| 100 000 | 100.2 MB   | 10.4 MB   | 98.8 MB    | **90%**             |
+| 1 000 000 |  938.9 MB  |  59.0 MB  | 828 MB   | **94%**             |
 
 > Streaming mode does not build the tree in memory — it outputs entries as they are discovered. On large trees, memory savings reach 90%+.
 

@@ -129,7 +129,7 @@ Real benchmark results (median time, Criterion, `release` mode, Windows/NTFS, en
 | 100       | ~54 ms     | ~14 ms          | ~54 ms      |
 | 10 000    | ~5.3 s     | ~861 ms         | ~5.7 s      |
 | 100 000   | ~51.5 s    | ~9.4 s          | ~53.5 s     |
-| 1 000 000 | ~576 s     | ~102 s          | —           |
+| 1 000 000 | ~576 s     | ~102 s          | ~622 s           |
 
 💾 **Memory usage** (PeakWorkingSet64):
 
