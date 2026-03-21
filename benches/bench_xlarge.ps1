@@ -20,7 +20,7 @@ $outFile     = Join-Path $projectRoot "target\bench_1m.md"
 $r = "`"$rtree`""
 $t = "`"$treePath`""
 
-# ── Prerequisites ────────────────────────────────────────────────────
+# -- Prerequisites ---------------------------------------------------
 
 if (-not (Get-Command hyperfine -ErrorAction SilentlyContinue)) {
     Write-Host "hyperfine not found. Install:" -ForegroundColor Red
@@ -29,12 +29,15 @@ if (-not (Get-Command hyperfine -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-# ── Build ────────────────────────────────────────────────────────────
+# -- Build -----------------------------------------------------------
 
 Write-Host "`nBuilding rtree (release)..." -ForegroundColor Cyan
 Push-Location $projectRoot
+$ErrorActionPreference = "Continue"
 cargo build --release 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) {
+$buildExit = $LASTEXITCODE
+$ErrorActionPreference = "Stop"
+if ($buildExit -ne 0) {
     Write-Host "Build failed." -ForegroundColor Red
     Pop-Location
     exit 1
@@ -47,7 +50,7 @@ if (-not (Test-Path $rtree)) {
     exit 1
 }
 
-# ── Ensure 1M tree exists ─────────────────────────────────────────────
+# -- Ensure 1M tree exists -------------------------------------------
 
 if (-not (Test-Path (Join-Path $treePath ".tree_ready"))) {
     Write-Host "`n1M tree not found. Creating (one-time, may take a while)..." -ForegroundColor Yellow
@@ -62,7 +65,7 @@ if (-not (Test-Path (Join-Path $treePath ".tree_ready"))) {
 
 Write-Host "Tree found : $treePath" -ForegroundColor Green
 
-# ── Helper : run one hyperfine section and append result to $outFile ──
+# -- Helper : run one hyperfine section and append to $outFile -------
 
 $tmpMd = Join-Path $env:TEMP "rtree_bench_section.md"
 
@@ -80,16 +83,15 @@ function Invoke-Section {
         exit 1
     }
 
-    # Append section header + table to the single output file
     "`n## $Title`n" | Add-Content -Path $outFile -Encoding UTF8
-    Get-Content $tmpMd   | Add-Content -Path $outFile -Encoding UTF8
+    Get-Content $tmpMd | Add-Content -Path $outFile -Encoding UTF8
 }
 
-# ── Init output file ──────────────────────────────────────────────────
+# -- Init output file ------------------------------------------------
 
-"# rtree benchmark — 1M files`n" | Set-Content -Path $outFile -Encoding UTF8
+"# rtree benchmark - 1M files`n" | Set-Content -Path $outFile -Encoding UTF8
 
-# ── Benchmark 1 : mode comparison ────────────────────────────────────
+# -- Benchmark 1 : mode comparison -----------------------------------
 
 Invoke-Section "Mode comparison (sequential / parallel / streaming)" @(
     "--warmup", "1", "--runs", "5",
@@ -98,7 +100,7 @@ Invoke-Section "Mode comparison (sequential / parallel / streaming)" @(
     "--command-name", "streaming",  "$r $t --noreport --streaming"
 )
 
-# ── Benchmark 2 : parallel thread scaling ────────────────────────────
+# -- Benchmark 2 : parallel thread scaling ---------------------------
 
 Invoke-Section "Parallel thread scaling" @(
     "--warmup", "1", "--runs", "3",
@@ -107,7 +109,7 @@ Invoke-Section "Parallel thread scaling" @(
     "$r $t --noreport --parallel --threads {threads}"
 )
 
-# ── Benchmark 3 : output formats ──────────────────────────────────────
+# -- Benchmark 3 : output formats ------------------------------------
 
 Invoke-Section "Output formats (text / JSON / XML)" @(
     "--warmup", "1", "--runs", "3",
@@ -116,7 +118,7 @@ Invoke-Section "Output formats (text / JSON / XML)" @(
     "--command-name", "xml",  "$r $t --noreport -X"
 )
 
-# ── Summary ───────────────────────────────────────────────────────────
+# -- Done ------------------------------------------------------------
 
 Remove-Item $tmpMd -ErrorAction SilentlyContinue
 

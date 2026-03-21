@@ -36,10 +36,14 @@ $treeMap = @{
 
 Write-Host "`nBuilding rtree (release)..." -ForegroundColor Cyan
 Push-Location $projectRoot
+$ErrorActionPreference = "Continue"
 cargo build --release 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    cargo build --release
-    if ($LASTEXITCODE -ne 0) { Pop-Location; exit 1 }
+$buildExit = $LASTEXITCODE
+$ErrorActionPreference = "Stop"
+if ($buildExit -ne 0) {
+    Write-Host "Build failed." -ForegroundColor Red
+    Pop-Location
+    exit 1
 }
 Pop-Location
 
@@ -220,7 +224,7 @@ foreach ($group in ($allResults | Group-Object Size)) {
 
 # ── Export markdown ───────────────────────────────────────────────────
 
-$md  = @("# rtree benchmark — peak memory (PeakWorkingSet64)", "")
+$md  = @("# rtree benchmark - peak memory (PeakWorkingSet64)", "")
 $md += "| Size | Mode | Avg MB | Min MB | Max MB |"
 $md += "|------|------|-------:|-------:|-------:|"
 
