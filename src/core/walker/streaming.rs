@@ -84,19 +84,7 @@ impl<'a> StreamingEngine<'a> {
         // first — the \\?\ prefix only works with absolute paths.
         // canonicalize also normalises `.` and `..` which is critical on
         // Windows where \\?\ disables path normalisation.
-        let root_abs;
-        let effective_root = if config.long_paths && !root.is_absolute() {
-            root_abs = std::fs::canonicalize(root).unwrap_or_else(|_| {
-                std::env::current_dir()
-                    .map(|cwd| cwd.join(root))
-                    .unwrap_or_else(|_| root.to_path_buf())
-            });
-            root_abs.as_path()
-        } else {
-            root
-        };
-        let long_root_buf = crate::platform::to_long_path(effective_root, config.long_paths);
-
+        let long_root_buf = common::resolve_long_root(root, config.long_paths);
         let root = long_root_buf.as_path();
 
         // Root entry
@@ -266,20 +254,16 @@ impl<'a> StreamingEngine<'a> {
                     // --one-fs: don't descend into different filesystems.
                     // If volume cannot be determined, conservatively don't descend.
                     let descend = descend
-                        && match state.root_device {
-                            Some(root_dev) => match crate::platform::get_file_id(&entry.path) {
-                                Some(info) => info.volume_serial == root_dev,
-                                None => {
-                                    errors.push(TreeError::Io(
-                                        entry.path.clone(),
-                                        std::io::Error::other(
-                                            "cannot determine volume for --one-fs",
-                                        ),
-                                    ));
-                                    false
-                                }
-                            },
-                            None => true,
+                        && match common::check_one_fs(state.root_device, &entry.path) {
+                            common::OnefsCheck::Proceed => true,
+                            common::OnefsCheck::DifferentDevice => false,
+                            common::OnefsCheck::Unknown => {
+                                errors.push(TreeError::Io(
+                                    entry.path.clone(),
+                                    std::io::Error::other("cannot determine volume for --one-fs"),
+                                ));
+                                false
+                            }
                         };
 
                     self.text.write_entry(writer, &entry, config)?;

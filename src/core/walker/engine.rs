@@ -173,24 +173,7 @@ impl OrderedEngine {
         let mut errors = Vec::new();
         let visited = HashSet::new();
 
-        // When --long-paths is requested, resolve relative root to absolute
-        // first — the \\?\ prefix only works with absolute paths.
-        // canonicalize also normalises `.` and `..` which is critical on
-        // Windows where \\?\ disables path normalisation.
-        let root_ref = root.as_ref();
-        let root_abs;
-        let effective_root = if config.long_paths && !root_ref.is_absolute() {
-            root_abs = std::fs::canonicalize(root_ref).unwrap_or_else(|_| {
-                std::env::current_dir()
-                    .map(|cwd| cwd.join(root_ref))
-                    .unwrap_or_else(|_| root_ref.to_path_buf())
-            });
-            root_abs.as_path()
-        } else {
-            root_ref
-        };
-        let long_root_buf = crate::platform::to_long_path(effective_root, config.long_paths);
-
+        let long_root_buf = common::resolve_long_root(root.as_ref(), config.long_paths);
         let root_path = long_root_buf.as_path();
 
         let root_device = common::compute_root_device(config, root_path);
@@ -326,43 +309,27 @@ fn build_node_sequential(
         crate::core::entry::EntryType::Junction { .. }
     ) && !config.show_junctions
     {
-        return Some(Node {
-            entry,
-            children: Vec::new(),
-        });
+        return Some(common::leaf_node(entry));
     }
 
     if let Some(max) = config.max_depth {
         if depth >= max {
-            return Some(Node {
-                entry,
-                children: Vec::new(),
-            });
+            return Some(common::leaf_node(entry));
         }
     }
 
     // --one-fs: skip directories on different volumes.
     // If volume cannot be determined, conservatively don't descend.
-    if let Some(root_dev) = root_device {
-        match crate::platform::get_file_id(path) {
-            Some(info) if info.volume_serial != root_dev => {
-                return Some(Node {
-                    entry,
-                    children: Vec::new(),
-                });
-            }
-            None => {
-                errors.push(TreeError::Io(
-                    path.to_path_buf(),
-                    std::io::Error::other("cannot determine volume for --one-fs"),
-                ));
-                return Some(Node {
-                    entry,
-                    children: Vec::new(),
-                });
-            }
-            _ => {}
+    match common::check_one_fs(root_device, path) {
+        common::OnefsCheck::DifferentDevice => return Some(common::leaf_node(entry)),
+        common::OnefsCheck::Unknown => {
+            errors.push(TreeError::Io(
+                path.to_path_buf(),
+                std::io::Error::other("cannot determine volume for --one-fs"),
+            ));
+            return Some(common::leaf_node(entry));
         }
+        common::OnefsCheck::Proceed => {}
     }
 
     // Track visited directories for cycle detection (junctions, symlinks, mount points).
@@ -370,10 +337,7 @@ fn build_node_sequential(
     let canon_key = common::make_visited_key(path);
     if !visited.insert(canon_key) {
         entry.recursive_link = true;
-        return Some(Node {
-            entry,
-            children: Vec::new(),
-        });
+        return Some(common::leaf_node(entry));
     }
 
     let long_path = crate::platform::to_long_path(path, config.long_paths);
@@ -381,10 +345,7 @@ fn build_node_sequential(
         Ok(rd) => rd,
         Err(e) => {
             errors.push(TreeError::Io(path.to_path_buf(), e));
-            return Some(Node {
-                entry,
-                children: Vec::new(),
-            });
+            return Some(common::leaf_node(entry));
         }
     };
 
@@ -395,10 +356,7 @@ fn build_node_sequential(
     if let Some(limit) = config.file_limit {
         if dir_entries.len() > limit {
             entry.filelimit_exceeded = Some(dir_entries.len());
-            return Some(Node {
-                entry,
-                children: Vec::new(),
-            });
+            return Some(common::leaf_node(entry));
         }
     }
 
@@ -429,10 +387,7 @@ fn build_node_sequential(
                     ) {
                         Ok(mut entry) => {
                             entry.recursive_link = true;
-                            children.push(Node {
-                                entry,
-                                children: Vec::new(),
-                            });
+                            children.push(common::leaf_node(entry));
                         }
                         Err(e) => {
                             errors.push(e);
@@ -486,15 +441,8 @@ fn build_node_sequential(
 
     // prune: skip empty directories (except root at depth 0)
     // With --matchdirs, directories matching -P pattern are protected from pruning
-    if config.prune && children.is_empty() && depth > 0 {
-        let dir_name = path
-            .file_name()
-            .map(|n| n.to_string_lossy())
-            .unwrap_or_default();
-        let dir_name = dir_name.as_ref();
-        if !config.filter.dir_matches_include(dir_name) {
-            return None;
-        }
+    if common::should_prune(config, path, depth, children.is_empty()) {
+        return None;
     }
 
     Some(Node { entry, children })
@@ -542,46 +490,30 @@ fn build_node_parallel_inner(
         crate::core::entry::EntryType::Junction { .. }
     ) && !ctx.config.show_junctions
     {
-        return Some(Node {
-            entry,
-            children: Vec::new(),
-        });
+        return Some(common::leaf_node(entry));
     }
 
     if let Some(max) = ctx.config.max_depth {
         if depth >= max {
-            return Some(Node {
-                entry,
-                children: Vec::new(),
-            });
+            return Some(common::leaf_node(entry));
         }
     }
 
     // --one-fs: skip directories on different volumes.
     // If volume cannot be determined, conservatively don't descend.
-    if let Some(root_dev) = ctx.root_device {
-        match crate::platform::get_file_id(path) {
-            Some(info) if info.volume_serial != root_dev => {
-                return Some(Node {
-                    entry,
-                    children: Vec::new(),
-                });
-            }
-            None => {
-                push_error(
-                    ctx.errors,
-                    TreeError::Io(
-                        path.to_path_buf(),
-                        std::io::Error::other("cannot determine volume for --one-fs"),
-                    ),
-                );
-                return Some(Node {
-                    entry,
-                    children: Vec::new(),
-                });
-            }
-            _ => {}
+    match common::check_one_fs(ctx.root_device, path) {
+        common::OnefsCheck::DifferentDevice => return Some(common::leaf_node(entry)),
+        common::OnefsCheck::Unknown => {
+            push_error(
+                ctx.errors,
+                TreeError::Io(
+                    path.to_path_buf(),
+                    std::io::Error::other("cannot determine volume for --one-fs"),
+                ),
+            );
+            return Some(common::leaf_node(entry));
         }
+        common::OnefsCheck::Proceed => {}
     }
 
     // Track visited directories for cycle detection (junctions, symlinks, mount points).
@@ -589,10 +521,7 @@ fn build_node_parallel_inner(
     let canon_key = common::make_visited_key(path);
     if check_visited(ctx.visited, canon_key) {
         entry.recursive_link = true;
-        return Some(Node {
-            entry,
-            children: Vec::new(),
-        });
+        return Some(common::leaf_node(entry));
     }
 
     // Acquire backpressure permit — limits concurrent read_dir operations.
@@ -602,10 +531,7 @@ fn build_node_parallel_inner(
         Ok(rd) => rd,
         Err(e) => {
             push_error(ctx.errors, TreeError::Io(path.to_path_buf(), e));
-            return Some(Node {
-                entry,
-                children: Vec::new(),
-            });
+            return Some(common::leaf_node(entry));
         }
     };
 
@@ -619,10 +545,7 @@ fn build_node_parallel_inner(
     if let Some(limit) = ctx.config.file_limit {
         if dir_entries.len() > limit {
             entry.filelimit_exceeded = Some(dir_entries.len());
-            return Some(Node {
-                entry,
-                children: Vec::new(),
-            });
+            return Some(common::leaf_node(entry));
         }
     }
 
@@ -659,10 +582,7 @@ fn build_node_parallel_inner(
                         ) {
                             Ok(mut entry) => {
                                 entry.recursive_link = true;
-                                Some(Node {
-                                    entry,
-                                    children: Vec::new(),
-                                })
+                                Some(common::leaf_node(entry))
                             }
                             Err(e) => {
                                 push_error(ctx.errors, e);
@@ -707,15 +627,8 @@ fn build_node_parallel_inner(
 
     // prune: skip empty directories (except root at depth 0)
     // With --matchdirs, directories matching -P pattern are protected from pruning
-    if ctx.config.prune && children.is_empty() && depth > 0 {
-        let dir_name = path
-            .file_name()
-            .map(|n| n.to_string_lossy())
-            .unwrap_or_default();
-        let dir_name = dir_name.as_ref();
-        if !ctx.config.filter.dir_matches_include(dir_name) {
-            return None;
-        }
+    if common::should_prune(ctx.config, path, depth, children.is_empty()) {
+        return None;
     }
 
     Some(Node { entry, children })

@@ -7,6 +7,8 @@ use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
 
 use crate::config::Config;
+use crate::core::entry::Entry;
+use crate::core::tree::Tree;
 
 /// Maximum internal recursion depth to prevent stack overflow.
 /// Protects both sequential (8 MB stack ≈ ~7 000 frames) and
@@ -124,4 +126,75 @@ pub fn filter_entry(config: &Config, de: &DirEntry, parent_matched: bool) -> Fil
     }
 
     FilterResult::Include { is_dir }
+}
+
+// ──────────────────────────────────────────────
+// Helpers extracted from engine / streaming
+// ──────────────────────────────────────────────
+
+/// Create a leaf tree node (no children).
+///
+/// Shorthand for the ubiquitous `Tree { entry, children: Vec::new() }`.
+pub fn leaf_node(entry: Entry) -> Tree {
+    Tree {
+        entry,
+        children: Vec::new(),
+    }
+}
+
+/// Resolve root path with `--long-paths` support.
+///
+/// When `long_paths` is enabled and the root is relative, canonicalizes it
+/// first (\\?\ prefix requires absolute paths and no `.`/`..` components).
+/// Then applies `platform::to_long_path`.
+pub fn resolve_long_root(root: &Path, long_paths: bool) -> PathBuf {
+    let effective = if long_paths && !root.is_absolute() {
+        std::fs::canonicalize(root).unwrap_or_else(|_| {
+            std::env::current_dir()
+                .map(|cwd| cwd.join(root))
+                .unwrap_or_else(|_| root.to_path_buf())
+        })
+    } else {
+        root.to_path_buf()
+    };
+    crate::platform::to_long_path(&effective, long_paths)
+}
+
+/// Result of `--one-fs` boundary check.
+pub enum OnefsCheck {
+    /// Same device (or `--one-fs` not enabled) — descend normally.
+    Proceed,
+    /// Different device — do not descend.
+    DifferentDevice,
+    /// Cannot determine device — caller should emit error and not descend.
+    Unknown,
+}
+
+/// Check whether `path` resides on the same filesystem as the root.
+///
+/// Returns `Proceed` when `root_device` is `None` (i.e. `--one-fs` disabled).
+pub fn check_one_fs(root_device: Option<u64>, path: &Path) -> OnefsCheck {
+    match root_device {
+        None => OnefsCheck::Proceed,
+        Some(root_dev) => match crate::platform::get_file_id(path) {
+            Some(info) if info.volume_serial == root_dev => OnefsCheck::Proceed,
+            Some(_) => OnefsCheck::DifferentDevice,
+            None => OnefsCheck::Unknown,
+        },
+    }
+}
+
+/// Determine whether an empty directory should be pruned.
+///
+/// Returns `true` when `--prune` is active, the directory has no children,
+/// is not the root (`depth > 0`), and does not match a `--matchdirs` pattern.
+pub fn should_prune(config: &Config, path: &Path, depth: usize, children_empty: bool) -> bool {
+    if !config.prune || !children_empty || depth == 0 {
+        return false;
+    }
+    let dir_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy())
+        .unwrap_or_default();
+    !config.filter.dir_matches_include(dir_name.as_ref())
 }
