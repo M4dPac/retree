@@ -173,9 +173,20 @@ impl OrderedEngine {
         let mut errors = Vec::new();
         let visited = HashSet::new();
 
-        // Convert root to long path early so that from_path, compute_root_device,
-        // and all subsequent operations see the \\?\ prefix on Windows.
-        let long_root_buf = crate::platform::to_long_path(root.as_ref(), config.long_paths);
+        // When --long-paths is requested, resolve relative root to absolute
+        // first — the \\?\ prefix only works with absolute paths.
+        let root_ref = root.as_ref();
+        let root_abs;
+        let effective_root = if config.long_paths && !root_ref.is_absolute() {
+            root_abs = std::env::current_dir()
+                .map(|cwd| cwd.join(root_ref))
+                .unwrap_or_else(|_| root_ref.to_path_buf());
+            root_abs.as_path()
+        } else {
+            root_ref
+        };
+
+        let long_root_buf = crate::platform::to_long_path(effective_root, config.long_paths);
         let root_path = long_root_buf.as_path();
 
         let root_device = common::compute_root_device(config, root_path);

@@ -80,9 +80,19 @@ impl<'a> StreamingEngine<'a> {
         let mut errors = Vec::new();
         let needs_file_id = common::needs_file_id(config);
 
-        // Convert root to long path early so that from_path and all subsequent
-        // operations see the \\?\ prefix on Windows.
-        let long_root_buf = crate::platform::to_long_path(root, config.long_paths);
+        // When --long-paths is requested, resolve relative root to absolute
+        // first — the \\?\ prefix only works with absolute paths.
+        let root_abs;
+        let effective_root = if config.long_paths && !root.is_absolute() {
+            root_abs = std::env::current_dir()
+                .map(|cwd| cwd.join(root))
+                .unwrap_or_else(|_| root.to_path_buf());
+            root_abs.as_path()
+        } else {
+            root
+        };
+        let long_root_buf = crate::platform::to_long_path(effective_root, config.long_paths);
+
         let root = long_root_buf.as_path();
 
         // Root entry
