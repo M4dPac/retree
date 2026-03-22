@@ -80,6 +80,11 @@ impl<'a> StreamingEngine<'a> {
         let mut errors = Vec::new();
         let needs_file_id = common::needs_file_id(config);
 
+        // Convert root to long path early so that from_path and all subsequent
+        // operations see the \\?\ prefix on Windows.
+        let long_root_buf = crate::platform::to_long_path(root, config.long_paths);
+        let root = long_root_buf.as_path();
+
         // Root entry
         let root_entry = Entry::from_path(
             root,
