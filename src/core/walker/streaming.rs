@@ -244,13 +244,24 @@ impl<'a> StreamingEngine<'a> {
                         false
                     };
 
-                    // --one-fs: don't descend into different filesystems
+                    // --one-fs: don't descend into different filesystems.
+                    // If volume cannot be determined, conservatively don't descend.
                     let descend = descend
-                        && state.root_device.map_or(true, |root_dev| {
-                            crate::platform::get_file_id(&entry.path)
-                                .map(|info| info.volume_serial == root_dev)
-                                .unwrap_or(true)
-                        });
+                        && match state.root_device {
+                            Some(root_dev) => match crate::platform::get_file_id(&entry.path) {
+                                Some(info) => info.volume_serial == root_dev,
+                                None => {
+                                    errors.push(TreeError::Io(
+                                        entry.path.clone(),
+                                        std::io::Error::other(
+                                            "cannot determine volume for --one-fs",
+                                        ),
+                                    ));
+                                    false
+                                }
+                            },
+                            None => true,
+                        };
 
                     self.text.write_entry(writer, &entry, config)?;
                     count_stats(&entry, stats);
