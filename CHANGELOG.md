@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `--long-paths` now correctly applies the `\\?\` prefix from the root of traversal, preventing MAX_PATH errors on deeply nested trees
+- `--one-fs` now reports an error when the volume serial of a directory cannot be determined, instead of silently descending into it
 
 ## [0.4.0] - 2026-03-19
 
