@@ -11,8 +11,7 @@ use crate::core::entry::Entry;
 use crate::core::tree::Tree;
 
 /// Maximum internal recursion depth to prevent stack overflow.
-/// Protects both sequential (8 MB stack ≈ ~7 000 frames) and
-/// parallel (rayon 2 MB stack ≈ ~1 700 frames) modes.
+/// Protects both sequential and parallel (8 MiB stack ≈ ~7 000 frames) modes.
 pub const MAX_INTERNAL_DEPTH: usize = 4096;
 
 /// Key for the visited-set used by cycle detection.
