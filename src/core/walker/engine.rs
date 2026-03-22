@@ -511,29 +511,9 @@ fn build_node_parallel_inner(
         }
     };
 
-    // Track visited directories for cycle detection (junctions, symlinks, mount points)
-    let canon_key = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    if check_visited(ctx.visited, canon_key) {
-        entry.recursive_link = true;
-        return Some(Node {
-            entry,
-            children: Vec::new(),
-        });
-    }
-
-    // --one-fs: skip directories on different volumes
-    if let Some(root_dev) = ctx.root_device {
-        if let Some(info) = crate::platform::get_file_id(path) {
-            if info.volume_serial != root_dev {
-                return Some(Node {
-                    entry,
-                    children: Vec::new(),
-                });
-            }
-        }
-    }
-
-    // Junctions: show in listing but don't descend unless --show-junctions
+    // Junctions: show in listing but don't descend unless --show-junctions.
+    // Checked before visited-insert so non-descended junctions don't
+    // pollute the visited set (matches streaming engine behaviour).
     if matches!(
         entry.entry_type,
         crate::core::entry::EntryType::Junction { .. }
@@ -552,6 +532,44 @@ fn build_node_parallel_inner(
                 children: Vec::new(),
             });
         }
+    }
+
+    // --one-fs: skip directories on different volumes.
+    // If volume cannot be determined, conservatively don't descend.
+    if let Some(root_dev) = ctx.root_device {
+        match crate::platform::get_file_id(path) {
+            Some(info) if info.volume_serial != root_dev => {
+                return Some(Node {
+                    entry,
+                    children: Vec::new(),
+                });
+            }
+            None => {
+                push_error(
+                    ctx.errors,
+                    TreeError::Io(
+                        path.to_path_buf(),
+                        std::io::Error::other("cannot determine volume for --one-fs"),
+                    ),
+                );
+                return Some(Node {
+                    entry,
+                    children: Vec::new(),
+                });
+            }
+            _ => {}
+        }
+    }
+
+    // Track visited directories for cycle detection (junctions, symlinks, mount points).
+    // Placed after early-return checks so we only mark directories we actually descend into.
+    let canon_key = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    if check_visited(ctx.visited, canon_key) {
+        entry.recursive_link = true;
+        return Some(Node {
+            entry,
+            children: Vec::new(),
+        });
     }
 
     // Acquire backpressure permit — limits concurrent read_dir operations.
