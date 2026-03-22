@@ -797,3 +797,28 @@ fn triple_symlink_same_target_file_id_dedup() {
         "at least 2 of 3 symlinks must be marked recursive, got {recursive_count}\n{stdout}"
     );
 }
+
+// ============================================================================
+// --long-paths with relative root (Windows only)
+// ============================================================================
+
+#[cfg(windows)]
+#[test]
+fn long_paths_relative_root_resolves() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("test.txt"), b"data").unwrap();
+
+    // Use relative path "." after cd into temp dir
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_rtree"))
+        .args(["--long-paths", "--no-icons", "."])
+        .current_dir(dir.path())
+        .output()
+        .expect("rtree failed to start");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("test.txt"),
+        "--long-paths with relative root must still list files:\n{stdout}"
+    );
+    assert!(output.status.success(), "must exit cleanly");
+}
