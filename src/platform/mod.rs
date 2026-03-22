@@ -76,6 +76,26 @@ pub fn get_file_id(path: &Path) -> Option<FileIdInfo> {
     }
 }
 
+/// Get file ID, **following** symlinks and reparse points.
+///
+/// Unlike [`get_file_id`] (which uses `symlink_metadata` on Unix),
+/// this variant resolves through symlinks so the returned identity
+/// corresponds to the *target* — required for cycle detection.
+///
+/// On Windows `CreateFileW` already follows reparse points, so this
+/// delegates to [`get_file_id`].
+pub fn get_file_id_follow(path: &Path) -> Option<FileIdInfo> {
+    #[cfg(windows)]
+    {
+        //TODO: CreateFileW without FILE_FLAG_OPEN_REPARSE_POINT follows junctions/symlinks
+        get_file_id(path)
+    }
+    #[cfg(not(windows))]
+    {
+        unix::get_file_id_follow(path)
+    }
+}
+
 /// Get raw Windows file attributes (always None on non-Windows)
 pub fn get_file_attributes_raw(path: &Path) -> Option<u32> {
     #[cfg(windows)]

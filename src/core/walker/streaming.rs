@@ -7,7 +7,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use super::common;
 use crate::config::Config;
@@ -29,7 +29,7 @@ struct StreamState {
     count: usize,
     max_entries: Option<usize>,
     truncated: bool,
-    visited: HashSet<PathBuf>,
+    visited: HashSet<common::VisitedKey>,
     root_device: Option<u64>,
 }
 
@@ -112,8 +112,7 @@ impl<'a> StreamingEngine<'a> {
             ));
         }
 
-        let root_canon = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-        state.visited.insert(root_canon);
+        state.visited.insert(common::make_visited_key(root));
         self.emit_children(
             root,
             1,
@@ -239,11 +238,8 @@ impl<'a> StreamingEngine<'a> {
 
                     // Cycle detection: check visited before writing
                     let descend = if should_descend {
-                        let canon = entry
-                            .path
-                            .canonicalize()
-                            .unwrap_or_else(|_| entry.path.clone());
-                        if state.visited.insert(canon) {
+                        let visit_key = common::make_visited_key(&entry.path);
+                        if state.visited.insert(visit_key) {
                             true
                         } else {
                             entry.recursive_link = true;

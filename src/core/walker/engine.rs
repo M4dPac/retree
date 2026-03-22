@@ -3,7 +3,7 @@
 
 use std::collections::HashSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Condvar, Mutex};
 
 use rayon::prelude::*;
@@ -79,7 +79,7 @@ fn push_error(errors: &Mutex<Vec<TreeError>>, error: TreeError) {
 /// Atomically check-and-insert into the visited set.
 /// Returns `true` if the path was **already** present (= cycle).
 /// On poison: recovers and still inserts.
-fn check_visited(visited: &Mutex<HashSet<PathBuf>>, key: PathBuf) -> bool {
+fn check_visited(visited: &Mutex<HashSet<common::VisitedKey>>, key: common::VisitedKey) -> bool {
     match visited.lock() {
         Ok(mut v) => !v.insert(key),
         Err(poisoned) => !poisoned.into_inner().insert(key),
@@ -118,7 +118,7 @@ fn collect_ads_children(path: &Path, depth: usize) -> Vec<Node> {
 struct ParallelCtx<'a> {
     config: &'a Config,
     errors: &'a Mutex<Vec<TreeError>>,
-    visited: &'a Mutex<HashSet<PathBuf>>,
+    visited: &'a Mutex<HashSet<common::VisitedKey>>,
     dir_limiter: &'a DirReadLimiter,
     root_device: Option<u64>,
 }
@@ -277,7 +277,7 @@ fn build_node_sequential(
     depth: usize,
     config: &Config,
     errors: &mut Vec<TreeError>,
-    visited: &mut HashSet<PathBuf>,
+    visited: &mut HashSet<common::VisitedKey>,
     parent_matched: bool,
     root_device: Option<u64>,
 ) -> Option<Node> {
@@ -352,7 +352,7 @@ fn build_node_sequential(
 
     // Track visited directories for cycle detection (junctions, symlinks, mount points).
     // Placed after early-return checks so we only mark directories we actually descend into.
-    let canon_key = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let canon_key = common::make_visited_key(path);
     if !visited.insert(canon_key) {
         entry.recursive_link = true;
         return Some(Node {
@@ -402,29 +402,28 @@ fn build_node_sequential(
         if is_dir {
             // Check for recursive symlink when following
             if config.follow_symlinks && dir_entry.file_type().is_ok_and(|ft| ft.is_symlink()) {
-                if let Ok(canon) = dir_entry.path().canonicalize() {
-                    if visited.contains(&canon) {
-                        match TreeEntry::from_dir_entry(
-                            &dir_entry,
-                            depth + 1,
-                            false,
-                            vec![],
-                            needs_file_id,
-                            config.show_permissions,
-                        ) {
-                            Ok(mut entry) => {
-                                entry.recursive_link = true;
-                                children.push(Node {
-                                    entry,
-                                    children: Vec::new(),
-                                });
-                            }
-                            Err(e) => {
-                                errors.push(e);
-                            }
+                let symlink_key = common::make_visited_key(&dir_entry.path());
+                if visited.contains(&symlink_key) {
+                    match TreeEntry::from_dir_entry(
+                        &dir_entry,
+                        depth + 1,
+                        false,
+                        vec![],
+                        needs_file_id,
+                        config.show_permissions,
+                    ) {
+                        Ok(mut entry) => {
+                            entry.recursive_link = true;
+                            children.push(Node {
+                                entry,
+                                children: Vec::new(),
+                            });
                         }
-                        continue;
+                        Err(e) => {
+                            errors.push(e);
+                        }
                     }
+                    continue;
                 }
             }
             let child_name = dir_entry.file_name();
@@ -572,7 +571,7 @@ fn build_node_parallel_inner(
 
     // Track visited directories for cycle detection (junctions, symlinks, mount points).
     // Placed after early-return checks so we only mark directories we actually descend into.
-    let canon_key = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let canon_key = common::make_visited_key(path);
     if check_visited(ctx.visited, canon_key) {
         entry.recursive_link = true;
         return Some(Node {
@@ -629,38 +628,32 @@ fn build_node_parallel_inner(
                 if ctx.config.follow_symlinks
                     && dir_entry.file_type().is_ok_and(|ft| ft.is_symlink())
                 {
-                    if let Ok(canon) = dir_entry.path().canonicalize() {
-                        // Read-only check: is this symlink target already visited?
-                        // Don't insert here — the actual insert happens in
-                        // build_node_parallel_inner when the target directory is entered.
-                        // This avoids a bug where the pre-check insert prevents the
-                        // builder from descending into the target.
-                        let is_visited = match ctx.visited.lock() {
-                            Ok(v) => v.contains(&canon),
-                            Err(poisoned) => poisoned.into_inner().contains(&canon),
+                    let symlink_key = common::make_visited_key(&dir_entry.path());
+                    let is_visited = match ctx.visited.lock() {
+                        Ok(v) => v.contains(&symlink_key),
+                        Err(poisoned) => poisoned.into_inner().contains(&symlink_key),
+                    };
+                    if is_visited {
+                        return match TreeEntry::from_dir_entry(
+                            dir_entry,
+                            depth + 1,
+                            false,
+                            vec![],
+                            needs_file_id,
+                            ctx.config.show_permissions,
+                        ) {
+                            Ok(mut entry) => {
+                                entry.recursive_link = true;
+                                Some(Node {
+                                    entry,
+                                    children: Vec::new(),
+                                })
+                            }
+                            Err(e) => {
+                                push_error(ctx.errors, e);
+                                None
+                            }
                         };
-                        if is_visited {
-                            return match TreeEntry::from_dir_entry(
-                                dir_entry,
-                                depth + 1,
-                                false,
-                                vec![],
-                                needs_file_id,
-                                ctx.config.show_permissions,
-                            ) {
-                                Ok(mut entry) => {
-                                    entry.recursive_link = true;
-                                    Some(Node {
-                                        entry,
-                                        children: Vec::new(),
-                                    })
-                                }
-                                Err(e) => {
-                                    push_error(ctx.errors, e);
-                                    None
-                                }
-                            };
-                        }
                     }
                 }
                 let child_name = dir_entry.file_name();

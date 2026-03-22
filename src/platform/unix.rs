@@ -17,6 +17,12 @@ pub fn get_file_id(path: &Path) -> Option<FileIdInfo> {
     Some(get_file_id_from_metadata(&metadata))
 }
 
+/// Like [`get_file_id`] but follows symlinks (`std::fs::metadata`).
+pub fn get_file_id_follow(path: &Path) -> Option<FileIdInfo> {
+    let metadata = std::fs::metadata(path).ok()?;
+    Some(get_file_id_from_metadata(&metadata))
+}
+
 /// Extract file ID info from existing metadata
 pub fn get_file_id_from_metadata(metadata: &Metadata) -> FileIdInfo {
     FileIdInfo {

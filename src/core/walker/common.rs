@@ -4,7 +4,7 @@
 //! used by both `OrderedEngine` and `StreamingEngine`.
 
 use std::fs::DirEntry;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::config::Config;
 
@@ -12,6 +12,35 @@ use crate::config::Config;
 /// Protects both sequential (8 MB stack ≈ ~7 000 frames) and
 /// parallel (rayon 2 MB stack ≈ ~1 700 frames) modes.
 pub const MAX_INTERNAL_DEPTH: usize = 4096;
+
+/// Key for the visited-set used by cycle detection.
+///
+/// Prefers OS file identity (volume serial + file ID / inode) which is
+/// immune to path aliasing (junctions, `\\?\` prefix, UNC equivalents).
+/// Falls back to canonicalized (then raw) path when identity is unavailable.
+#[derive(Hash, Eq, PartialEq, Clone, Debug)]
+pub enum VisitedKey {
+    /// File identity from the OS — volume serial number and file ID (or dev + ino).
+    FileId { volume: u64, file_id: u64 },
+    /// Fallback: canonical or raw path.
+    Path(PathBuf),
+}
+
+/// Build a visited-set key for cycle detection.
+///
+/// Uses [`crate::platform::get_file_id_follow`] (which resolves symlinks /
+/// reparse points) to obtain an identity that is stable across path aliases.
+/// On failure falls back to `canonicalize`, then to the raw path.
+pub fn make_visited_key(path: &Path) -> VisitedKey {
+    if let Some(info) = crate::platform::get_file_id_follow(path) {
+        VisitedKey::FileId {
+            volume: info.volume_serial,
+            file_id: info.file_id,
+        }
+    } else {
+        VisitedKey::Path(path.canonicalize().unwrap_or_else(|_| path.to_path_buf()))
+    }
+}
 
 /// Result of filtering a directory entry.
 pub enum FilterResult {
