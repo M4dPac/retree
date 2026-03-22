@@ -82,11 +82,15 @@ impl<'a> StreamingEngine<'a> {
 
         // When --long-paths is requested, resolve relative root to absolute
         // first — the \\?\ prefix only works with absolute paths.
+        // canonicalize also normalises `.` and `..` which is critical on
+        // Windows where \\?\ disables path normalisation.
         let root_abs;
         let effective_root = if config.long_paths && !root.is_absolute() {
-            root_abs = std::env::current_dir()
-                .map(|cwd| cwd.join(root))
-                .unwrap_or_else(|_| root.to_path_buf());
+            root_abs = std::fs::canonicalize(root).unwrap_or_else(|_| {
+                std::env::current_dir()
+                    .map(|cwd| cwd.join(root))
+                    .unwrap_or_else(|_| root.to_path_buf())
+            });
             root_abs.as_path()
         } else {
             root
