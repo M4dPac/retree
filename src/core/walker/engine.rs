@@ -173,10 +173,14 @@ impl OrderedEngine {
         let mut errors = Vec::new();
         let visited = HashSet::new();
 
-        let root_device = common::compute_root_device(config, root.as_ref());
+        // Convert root to long path early so that from_path, compute_root_device,
+        // and all subsequent operations see the \\?\ prefix on Windows.
+        let long_root_buf = crate::platform::to_long_path(root.as_ref(), config.long_paths);
+        let root_path = long_root_buf.as_path();
+
+        let root_device = common::compute_root_device(config, root_path);
 
         let dir_limiter = DirReadLimiter::new(config.queue_cap.unwrap_or(64));
-        let root_path = root.as_ref();
 
         let root_node = if self.parallel {
             match &self.pool {
