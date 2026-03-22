@@ -1,6 +1,6 @@
 #![allow(unsafe_code)]
 
-use std::os::windows::ffi::OsStrExt;
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::Storage::FileSystem::{
@@ -98,12 +98,21 @@ pub fn get_junction_target(path: &Path) -> Option<PathBuf> {
             .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
             .collect();
 
-        let target = String::from_utf16_lossy(&name);
+        // Strip \??\ prefix on raw wide data to preserve non-UTF-8 (WTF-16) path components.
+        // Using OsString::from_wide instead of String::from_utf16_lossy avoids
+        // replacing unpaired surrogates with U+FFFD.
+        let stripped = if name.len() >= 4
+            && name[0] == b'\\' as u16
+            && name[1] == b'?' as u16
+            && name[2] == b'?' as u16
+            && name[3] == b'\\' as u16
+        {
+            &name[4..]
+        } else {
+            &name[..]
+        };
 
-        // Remove \??\ prefix if present
-        let target = target.strip_prefix("\\??\\").unwrap_or(&target);
-
-        Some(PathBuf::from(target))
+        Some(PathBuf::from(std::ffi::OsString::from_wide(stripped)))
     }
 }
 
