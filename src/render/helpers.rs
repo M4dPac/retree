@@ -81,6 +81,9 @@ pub fn escape_html(s: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&#39;")
+        .chars()
+        .filter(|&c| matches!(c, '\u{9}' | '\u{A}' | '\u{D}' | '\u{20}'..))
+        .collect()
 }
 
 /// Percent-encode a path for use in URL href attributes.
