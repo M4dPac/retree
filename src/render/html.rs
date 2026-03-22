@@ -34,11 +34,31 @@ impl HtmlRenderer {
         let intro = config
             .html_intro
             .as_ref()
-            .and_then(|path| fs::read_to_string(path).ok());
+            .and_then(|path| match fs::read_to_string(path) {
+                Ok(content) => Some(content),
+                Err(e) => {
+                    eprintln!(
+                        "rtree: warning: cannot read --html-intro '{}': {}",
+                        path.display(),
+                        e
+                    );
+                    None
+                }
+            });
         let outro = config
             .html_outro
             .as_ref()
-            .and_then(|path| fs::read_to_string(path).ok());
+            .and_then(|path| match fs::read_to_string(path) {
+                Ok(content) => Some(content),
+                Err(e) => {
+                    eprintln!(
+                        "rtree: warning: cannot read --html-outro '{}': {}",
+                        path.display(),
+                        e
+                    );
+                    None
+                }
+            });
 
         // Reject dangerous URL schemes in base URL
         let base_url = config.html_base.as_ref().map(|url| {
