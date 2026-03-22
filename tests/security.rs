@@ -685,3 +685,115 @@ fn traverse_reserved_names_parallel_consistent() {
         "sequential and parallel must agree on reserved-name handling"
     );
 }
+
+// ============================================================================
+// Cycle detection via file-id
+// ============================================================================
+
+/// Mutual symlink cycle: a/link→b, b/link→a
+/// Must terminate and mark at least one link recursive.
+#[cfg(unix)]
+#[test]
+fn mutual_symlink_cycle_detected() {
+    use std::os::unix::fs as unix_fs;
+
+    let dir = TempDir::new().unwrap();
+    let a = dir.path().join("a");
+    let b = dir.path().join("b");
+    std::fs::create_dir(&a).unwrap();
+    std::fs::create_dir(&b).unwrap();
+    std::fs::write(a.join("file_a.txt"), b"").unwrap();
+    std::fs::write(b.join("file_b.txt"), b"").unwrap();
+
+    // a/to_b -> ../b, b/to_a -> ../a  →  mutual cycle
+    unix_fs::symlink(&b, a.join("to_b")).unwrap();
+    unix_fs::symlink(&a, b.join("to_a")).unwrap();
+
+    let mut cmd = run_rtree_command(dir.path(), &["-l", "-a"]);
+    let assert = cmd
+        .timeout(std::time::Duration::from_secs(5))
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+    assert!(stdout.contains("file_a.txt"), "file_a.txt must appear");
+    assert!(stdout.contains("file_b.txt"), "file_b.txt must appear");
+
+    let recursive_count =
+        stdout.matches("recursive").count() + stdout.matches("рекурсивная").count();
+    assert!(
+        recursive_count >= 2,
+        "mutual cycle must mark at least 2 links recursive, got {recursive_count}\n{stdout}"
+    );
+}
+
+/// Same mutual cycle in parallel mode — must also terminate.
+#[cfg(unix)]
+#[test]
+fn mutual_symlink_cycle_parallel() {
+    use std::os::unix::fs as unix_fs;
+
+    let dir = TempDir::new().unwrap();
+    let a = dir.path().join("a");
+    let b = dir.path().join("b");
+    std::fs::create_dir(&a).unwrap();
+    std::fs::create_dir(&b).unwrap();
+
+    unix_fs::symlink(&b, a.join("to_b")).unwrap();
+    unix_fs::symlink(&a, b.join("to_a")).unwrap();
+
+    let mut cmd = run_rtree_command(dir.path(), &["--parallel", "-l", "-a"]);
+    cmd.timeout(std::time::Duration::from_secs(5))
+        .assert()
+        .success();
+}
+
+/// Same mutual cycle in streaming mode — must also terminate.
+#[cfg(unix)]
+#[test]
+fn mutual_symlink_cycle_streaming() {
+    use std::os::unix::fs as unix_fs;
+
+    let dir = TempDir::new().unwrap();
+    let a = dir.path().join("a");
+    let b = dir.path().join("b");
+    std::fs::create_dir(&a).unwrap();
+    std::fs::create_dir(&b).unwrap();
+
+    unix_fs::symlink(&b, a.join("to_b")).unwrap();
+    unix_fs::symlink(&a, b.join("to_a")).unwrap();
+
+    let mut cmd = run_rtree_command(dir.path(), &["--streaming", "-l", "-a"]);
+    cmd.timeout(std::time::Duration::from_secs(5))
+        .assert()
+        .success();
+}
+
+/// Three symlinks to the same target — only one should be traversed,
+/// others marked recursive (file-id dedup).
+#[cfg(unix)]
+#[test]
+fn triple_symlink_same_target_file_id_dedup() {
+    use std::os::unix::fs as unix_fs;
+
+    let dir = TempDir::new().unwrap();
+    let shared = dir.path().join("shared");
+    std::fs::create_dir(&shared).unwrap();
+    std::fs::write(shared.join("payload.txt"), b"data").unwrap();
+
+    for name in ["link1", "link2", "link3"] {
+        unix_fs::symlink(&shared, dir.path().join(name)).unwrap();
+    }
+
+    let stdout = run_rtree(dir.path(), &["-l", "-a"]);
+
+    let payload_count = stdout.matches("payload.txt").count();
+    let recursive_count =
+        stdout.matches("recursive").count() + stdout.matches("рекурсивная").count();
+
+    assert!(payload_count >= 1, "payload.txt must appear at least once");
+    assert!(
+        recursive_count >= 2,
+        "at least 2 of 3 symlinks must be marked recursive, got {recursive_count}\n{stdout}"
+    );
+}
