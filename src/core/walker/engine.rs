@@ -180,6 +180,15 @@ impl OrderedEngine {
 
         let root_device = common::compute_root_device(config, root_path);
 
+        if config.one_fs && root_device.is_none() {
+            errors.push(TreeError::Io(
+                root_path.to_path_buf(),
+                std::io::Error::other(
+                    "--one-fs: cannot determine root volume; cross-device check skipped",
+                ),
+            ));
+        }
+
         let dir_limiter = DirReadLimiter::new(config.queue_cap.unwrap_or(64));
 
         let root_node = if self.parallel {

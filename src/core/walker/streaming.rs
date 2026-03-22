@@ -103,6 +103,15 @@ impl<'a> StreamingEngine<'a> {
             common::compute_root_device(config, root),
         );
 
+        if config.one_fs && state.root_device.is_none() {
+            errors.push(TreeError::Io(
+                root.to_path_buf(),
+                std::io::Error::other(
+                    "--one-fs: cannot determine root volume; cross-device check skipped",
+                ),
+            ));
+        }
+
         let root_canon = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
         state.visited.insert(root_canon);
         self.emit_children(
