@@ -12,7 +12,9 @@ fn main() -> ExitCode {
     // 3. Если передан --help / -h — выводим локализованный help и выходим.
     if rtree::cli::has_help_flag() {
         let mut cmd = rtree::cli::build_localized_command(lang);
-        cmd.print_help().expect("failed to print help");
+        if cmd.print_help().is_err() {
+            return ExitCode::from(1);
+        }
         println!(); // финальный перевод строки
         return ExitCode::SUCCESS;
     }
