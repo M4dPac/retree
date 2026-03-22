@@ -79,12 +79,8 @@ pub fn compute_root_device(config: &Config, root: &Path) -> Option<u64> {
 /// On `DirEntry::file_type()` failure, returns `Exclude`.
 pub fn filter_entry(config: &Config, de: &DirEntry, parent_matched: bool) -> FilterResult {
     // Hidden files
-    if !config.show_all {
-        if let Some(name) = de.file_name().to_str() {
-            if name.starts_with('.') {
-                return FilterResult::Exclude;
-            }
-        }
+    if !config.show_all && (de.file_name().as_encoded_bytes().first() == Some(&b'.')) {
+        return FilterResult::Exclude;
     }
 
     let ft = match de.file_type() {
