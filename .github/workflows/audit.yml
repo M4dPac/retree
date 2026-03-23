@@ -27,13 +27,13 @@ jobs:
           key: audit-ubuntu
 
       - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+        run: cargo install cargo-audit@0.22.1 --locked
 
       - name: Run audit
         run: cargo audit
 
       - name: Install cargo-deny
-        run: cargo install cargo-deny --locked
+        run: cargo install cargo-deny@0.19.0 --locked
 
       - name: Run deny
         run: cargo deny check
