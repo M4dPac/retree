@@ -399,7 +399,7 @@ fn threads_zero_rejected() {
 
     assert_ne!(code, Some(0), "threads=0 must be rejected");
     assert!(
-        stderr.contains("not in 1..=4096"),
+        stderr.contains("not in 1..=256"),
         "stderr must explain the valid thread range"
     );
 }

@@ -338,7 +338,7 @@ pub struct Args {
     #[arg(
         long = "threads",
         value_name = "N",
-        value_parser = clap::value_parser!(u64).range(1..=4096),
+        value_parser = clap::value_parser!(u64).range(1..=256),
         help_heading = "Performance"
     )]
     pub threads: Option<u64>,
