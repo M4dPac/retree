@@ -258,3 +258,61 @@ fn test_max_entries_at_exact_count_no_truncation() {
     assert!(stdout.contains("two.txt"));
     assert!(stdout.contains("three.txt"));
 }
+
+// ============================================================================
+// --max-entries 0 means unlimited (no truncation)
+// ============================================================================
+
+#[test]
+fn test_max_entries_zero_means_unlimited() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::write(p.join("a.txt"), "").unwrap();
+    fs::write(p.join("b.txt"), "").unwrap();
+    fs::write(p.join("c.txt"), "").unwrap();
+
+    let output = rtree()
+        .args(CLEAN)
+        .args(["--max-entries", "0"])
+        .arg(p)
+        .assert()
+        .success();
+
+    let stderr = common::output_stderr(&output);
+    assert!(
+        !stderr.contains("truncated"),
+        "--max-entries 0 should mean unlimited, stderr: {stderr}"
+    );
+
+    let stdout = common::output_stdout(&output);
+    assert!(stdout.contains("a.txt"), "a.txt missing");
+    assert!(stdout.contains("b.txt"), "b.txt missing");
+    assert!(stdout.contains("c.txt"), "c.txt missing");
+}
+
+#[test]
+fn test_max_entries_zero_means_unlimited_streaming() {
+    let dir = tempdir().unwrap();
+    let p = dir.path();
+
+    fs::write(p.join("x.txt"), "").unwrap();
+    fs::write(p.join("y.txt"), "").unwrap();
+
+    let output = rtree()
+        .args(CLEAN)
+        .args(["--max-entries", "0", "--streaming"])
+        .arg(p)
+        .assert()
+        .success();
+
+    let stderr = common::output_stderr(&output);
+    assert!(
+        !stderr.contains("truncated"),
+        "--max-entries 0 --streaming should mean unlimited, stderr: {stderr}"
+    );
+
+    let stdout = common::output_stdout(&output);
+    assert!(stdout.contains("x.txt"), "x.txt missing");
+    assert!(stdout.contains("y.txt"), "y.txt missing");
+}
