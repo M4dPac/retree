@@ -93,7 +93,7 @@ fn parse_stream_data(data: &WIN32_FIND_STREAM_DATA) -> Option<AlternateDataStrea
 
     Some(AlternateDataStream {
         name: clean,
-        size: data.StreamSize as u64,
+        size: data.StreamSize.max(0) as u64,
     })
 }
 
