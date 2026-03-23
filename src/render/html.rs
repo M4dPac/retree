@@ -62,7 +62,12 @@ impl HtmlRenderer {
 
         // Reject dangerous URL schemes in base URL
         let base_url = config.html_base.as_ref().map(|url| {
-            let lower = url.trim().to_lowercase();
+            let lower: String = url
+                .trim()
+                .to_lowercase()
+                .chars()
+                .filter(|c| !c.is_control())
+                .collect();
             if lower.starts_with("javascript:")
                 || lower.starts_with("data:")
                 || lower.starts_with("vbscript:")
