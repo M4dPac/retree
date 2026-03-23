@@ -343,6 +343,53 @@ fn xml_escapes_ampersand_in_filenames() {
 }
 
 // ============================================================================
+// HTML title and URL escaping edge cases
+// ============================================================================
+
+#[test]
+fn html_title_with_special_chars_escaped() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("file.txt"), b"").unwrap();
+
+    let stdout = run_rtree(dir.path(), &["-H", ".", "-T", "A&B 'quoted' <tag>"]);
+
+    assert!(
+        stdout.contains("A&amp;B &#39;quoted&#39; &lt;tag&gt;"),
+        "title with & ' < > must be HTML-escaped in <title> and <h1>"
+    );
+    assert!(
+        !stdout.contains("<tag>"),
+        "raw < > must not appear unescaped in HTML title"
+    );
+}
+
+#[test]
+fn html_base_url_with_ampersand_encoded() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("file.txt"), b"").unwrap();
+
+    let stdout = run_rtree(dir.path(), &["-H", "http://example.com?a=1&b=2"]);
+
+    assert!(
+        stdout.contains("http://example.com?a=1&amp;b=2"),
+        "& in base URL must be escaped as &amp; in href attribute"
+    );
+}
+
+#[test]
+fn html_filename_with_apostrophe_escaped() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("it's here.txt"), b"").unwrap();
+
+    let stdout = run_rtree(dir.path(), &["-H", ".", "--nolinks"]);
+
+    assert!(
+        stdout.contains("it&#39;s here.txt"),
+        "apostrophe in filename must be escaped as &#39; in HTML"
+    );
+}
+
+// ============================================================================
 // CLI validation (cross-platform)
 // ============================================================================
 
