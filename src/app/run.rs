@@ -164,7 +164,9 @@ fn render_tree<W: Write>(
                 return Ok(());
             }
             Err(_) => {
-                // Streaming not implemented or failed — fall through to standard path
+                // Streaming failed — reset stats before falling through
+                // to prevent double-counting if streaming partially updated them.
+                *stats = TreeStats::default();
             }
         }
     }

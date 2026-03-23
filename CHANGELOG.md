@@ -10,10 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `--long-paths` now correctly applies the `\\?\` prefix from the root of traversal, preventing MAX_PATH errors on deeply nested trees
+- `--long-paths` now works correctly when a relative path is passed as the root argument (e.g. `rtree --long-paths .`)
 - `--one-fs` now reports an error when the volume serial of a directory cannot be determined, instead of silently descending into it
 - Junction targets with non-UTF-8 (WTF-16) path components are now resolved correctly instead of being silently corrupted
 - Cycle detection now uses OS file identity (volume serial + file ID) instead of path canonicalization, preventing missed cycles on Windows with junctions, UNC paths, and `\\?\` aliases
-- `--long-paths` now works correctly when a relative path is passed as the root argument (e.g. `rtree --long-paths .`)
+- Streaming engine failure no longer causes duplicate statistics when falling back to standard traversal
 
 ## [0.4.0] - 2026-03-19
 
