@@ -61,6 +61,20 @@ pub fn format_human_size(size: u64, si: bool) -> String {
     }
 }
 
+/// Check if character is a Unicode bidi override or zero-width character
+/// that can be used for visual spoofing of filenames.
+///
+/// Shared by text renderer (sanitize_for_terminal) and
+/// HTML/XML escapers (strip from structured output).
+pub fn is_bidi_or_zw(c: char) -> bool {
+    matches!(c,
+        '\u{200B}'..='\u{200F}' | // zero-width space, ZWNJ, ZWJ, LRM, RLM
+        '\u{202A}'..='\u{202E}' | // bidi embedding and override
+        '\u{2060}'..='\u{2069}' | // word joiner, bidi isolates
+        '\u{FEFF}'                 // BOM / zero-width no-break space
+    )
+}
+
 /// Escape special characters for XML output.
 /// Also strips control characters that are illegal in XML 1.0 (§2.2).
 pub fn escape_xml(s: &str) -> String {
@@ -70,7 +84,7 @@ pub fn escape_xml(s: &str) -> String {
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
         .chars()
-        .filter(|&c| matches!(c, '\u{9}' | '\u{A}' | '\u{D}' | '\u{20}'..))
+        .filter(|&c| matches!(c, '\u{9}' | '\u{A}' | '\u{D}' | '\u{20}'..) && !is_bidi_or_zw(c))
         .collect()
 }
 
@@ -82,7 +96,7 @@ pub fn escape_html(s: &str) -> String {
         .replace('"', "&quot;")
         .replace('\'', "&#39;")
         .chars()
-        .filter(|&c| matches!(c, '\u{9}' | '\u{A}' | '\u{D}' | '\u{20}'..))
+        .filter(|&c| matches!(c, '\u{9}' | '\u{A}' | '\u{D}' | '\u{20}'..) && !is_bidi_or_zw(c))
         .collect()
 }
 
