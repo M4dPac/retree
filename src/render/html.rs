@@ -139,7 +139,7 @@ impl HtmlRenderer {
             }
         }
 
-        let name = helpers::escape_html(entry.name_str());
+        let name = helpers::escape_html(&entry.name_str());
         let class = if entry.entry_type.is_directory() {
             "directory"
         } else if entry.entry_type.is_symlink() {

@@ -112,7 +112,7 @@ impl XmlRenderer {
 
             let entry = &child.entry;
             let indent = Self::indent(entry.depth + 1);
-            let name = helpers::escape_xml(entry.name_str());
+            let name = helpers::escape_xml(&entry.name_str());
 
             match &entry.entry_type {
                 EntryType::Directory => {
@@ -186,7 +186,7 @@ impl Renderer for XmlRenderer {
         helpers::count_stats(&result.root, stats);
         let root_entry = &result.root;
         let indent = Self::indent(root_entry.depth + 1);
-        let name = helpers::escape_xml(root_entry.name_str());
+        let name = helpers::escape_xml(&root_entry.name_str());
         write!(writer, "{}<directory name=\"{}\"", indent, name)?;
         Self::write_meta_attrs(writer, root_entry, config)?;
 

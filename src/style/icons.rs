@@ -234,13 +234,13 @@ impl IconSet {
         }
 
         // Check by exact name
-        if let Some(icon) = self.name_icons.get(name) {
+        if let Some(icon) = self.name_icons.get(name.as_ref()) {
             return icon.to_string();
         }
 
         // Check directory names
         if entry.entry_type.is_directory() {
-            if let Some(icon) = self.dir_icons.get(name) {
+            if let Some(icon) = self.dir_icons.get(name.as_ref()) {
                 return icon.to_string();
             }
             return "\u{f07b}".to_string(); // Default folder

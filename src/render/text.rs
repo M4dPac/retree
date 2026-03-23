@@ -145,7 +145,7 @@ impl TextRenderer {
                 name.push_str(&entry.path.display().to_string());
             }
         } else {
-            name.push_str(entry.name_str());
+            name.push_str(&entry.name_str());
         }
 
         if config.classify {

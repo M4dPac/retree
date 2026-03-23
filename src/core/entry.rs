@@ -200,8 +200,8 @@ impl Entry {
         }
     }
 
-    pub fn name_str(&self) -> &str {
-        self.name.to_str().unwrap_or("<invalid>")
+    pub fn name_str(&self) -> std::borrow::Cow<'_, str> {
+        self.name.to_string_lossy()
     }
 }
 
