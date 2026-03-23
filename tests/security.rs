@@ -264,6 +264,85 @@ fn bidi_chars_sanitized_with_safe_print() {
 }
 
 // ============================================================================
+// Bidi / ZWJ sanitization in HTML and XML output
+// ============================================================================
+
+#[test]
+fn html_strips_bidi_from_filenames() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("test\u{202E}gpj.exe"), b"").unwrap();
+    std::fs::write(dir.path().join("join\u{200D}er.txt"), b"").unwrap();
+
+    let stdout = run_rtree(dir.path(), &["-H", "."]);
+
+    // Bidi override and ZWJ must be stripped from HTML output
+    assert!(
+        !stdout.contains('\u{202E}'),
+        "U+202E (RLO) must be stripped from HTML output"
+    );
+    assert!(
+        !stdout.contains('\u{200D}'),
+        "U+200D (ZWJ) must be stripped from HTML output"
+    );
+    // Filenames should still be recognizable
+    assert!(
+        stdout.contains("testgpj.exe"),
+        "filename without bidi char should appear in HTML"
+    );
+    assert!(
+        stdout.contains("joiner.txt"),
+        "filename without ZWJ should appear in HTML"
+    );
+}
+
+#[test]
+fn xml_strips_bidi_from_filenames() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("test\u{202E}gpj.exe"), b"").unwrap();
+
+    let stdout = run_rtree(dir.path(), &["-X"]);
+
+    assert!(
+        !stdout.contains('\u{202E}'),
+        "U+202E (RLO) must be stripped from XML output"
+    );
+    assert!(
+        stdout.contains("testgpj.exe"),
+        "filename without bidi char should appear in XML"
+    );
+}
+
+#[test]
+fn html_escapes_ampersand_in_filenames() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("Tom & Jerry.txt"), b"").unwrap();
+
+    let stdout = run_rtree(dir.path(), &["-H", ".", "--nolinks"]);
+
+    assert!(
+        stdout.contains("Tom &amp; Jerry.txt"),
+        "& in filename must be escaped as &amp; in HTML"
+    );
+    assert!(
+        !stdout.contains("Tom & Jerry.txt"),
+        "raw & must not appear in HTML output"
+    );
+}
+
+#[test]
+fn xml_escapes_ampersand_in_filenames() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("Tom & Jerry.txt"), b"").unwrap();
+
+    let stdout = run_rtree(dir.path(), &["-X"]);
+
+    assert!(
+        stdout.contains("Tom &amp; Jerry.txt"),
+        "& in filename must be escaped as &amp; in XML"
+    );
+}
+
+// ============================================================================
 // CLI validation (cross-platform)
 // ============================================================================
 
