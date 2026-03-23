@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Junction targets with non-UTF-8 (WTF-16) path components are now resolved correctly instead of being silently corrupted
 - Cycle detection now uses OS file identity (volume serial + file ID) instead of path canonicalization, preventing missed cycles on Windows with junctions, UNC paths, and `\\?\` aliases
 - Streaming engine failure no longer causes duplicate statistics when falling back to standard traversal
-- `--html-base` URL validation now strips control characters before
-  scheme checking, preventing bypass via injected control bytes
+- `--html-base` URL validation now strips control characters before scheme checking, preventing bypass via injected control bytes
+- `--max-entries 0` is now treated as unlimited instead of immediately truncating all output
 
 ## [0.4.0] - 2026-03-19
 
