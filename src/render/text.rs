@@ -82,23 +82,13 @@ impl TextRenderer {
     fn sanitize_for_terminal(s: &str) -> String {
         s.chars()
             .map(|c| {
-                if (c.is_control() && c != '\t' && c != '\n') || Self::is_bidi_or_zw(c) {
+                if (c.is_control() && c != '\t' && c != '\n') || helpers::is_bidi_or_zw(c) {
                     '?'
                 } else {
                     c
                 }
             })
             .collect()
-    }
-
-    /// Check if character is a Unicode bidi override or zero-width character.
-    fn is_bidi_or_zw(c: char) -> bool {
-        matches!(c,
-            '\u{200B}'..='\u{200F}' | // zero-width space, ZWNJ, ZWJ, LRM, RLM
-            '\u{202A}'..='\u{202E}' | // bidi embedding and override
-            '\u{2060}'..='\u{2069}' | // word joiner, bidi isolates
-            '\u{FEFF}'                 // BOM / zero-width no-break space
-        )
     }
 
     fn format_prefix(&self, entry: &Entry, config: &Config) -> String {
