@@ -3,7 +3,7 @@
 //! Contains filtering, classification, and utility functions
 //! used by both `OrderedEngine` and `StreamingEngine`.
 
-use std::fs::DirEntry;
+use std::fs::{DirEntry, ReadDir};
 use std::path::{Path, PathBuf};
 
 use crate::config::Config;
@@ -176,6 +176,31 @@ pub fn check_one_fs(root_device: Option<u64>, path: &Path) -> OnefsCheck {
             Some(_) => OnefsCheck::DifferentDevice,
             None => OnefsCheck::Unknown,
         },
+    }
+}
+
+/// Collect directory entries with optional `--filelimit` early exit.
+///
+/// When `file_limit` is `Some(limit)`, reads at most `limit + 1` entries
+/// into memory.  If more entries exist, counts the remainder via the
+/// iterator (O(1) memory) and returns `Err(total_count)`.
+/// When `file_limit` is `None`, collects everything (existing behaviour).
+pub fn collect_with_filelimit(
+    read_dir: ReadDir,
+    file_limit: Option<usize>,
+) -> Result<Vec<DirEntry>, usize> {
+    if let Some(limit) = file_limit {
+        let mut iter = read_dir.filter_map(|e| e.ok());
+        let check_count = limit.saturating_add(1);
+        let entries: Vec<_> = iter.by_ref().take(check_count).collect();
+        if entries.len() > limit {
+            // Count remaining without storing — each DirEntry created & dropped immediately.
+            let total = entries.len() + iter.count();
+            return Err(total);
+        }
+        Ok(entries)
+    } else {
+        Ok(read_dir.filter_map(|e| e.ok()).collect())
     }
 }
 

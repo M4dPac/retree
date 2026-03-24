@@ -184,15 +184,12 @@ impl<'a> StreamingEngine<'a> {
             }
         };
 
-        let mut dir_entries: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
+        // filelimit: bounded collect — at most `limit + 1` entries in memory.
+        let mut dir_entries = match common::collect_with_filelimit(read_dir, config.file_limit) {
+            Ok(entries) => entries,
+            Err(_) => return Ok(()),
+        };
         sort_entries(&mut dir_entries, &config.sort_config);
-
-        // filelimit: skip children if directory has too many raw entries
-        if let Some(limit) = config.file_limit {
-            if dir_entries.len() > limit {
-                return Ok(());
-            }
-        }
 
         // Pre-filter to know total count (needed for is_last)
         let filtered: Vec<&fs::DirEntry> = dir_entries

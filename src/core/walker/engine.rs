@@ -349,16 +349,16 @@ fn build_node_sequential(
         }
     };
 
-    let mut dir_entries: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
-    sort_entries(&mut dir_entries, &config.sort_config);
-
-    // filelimit: skip directories with too many entries
-    if let Some(limit) = config.file_limit {
-        if dir_entries.len() > limit {
-            entry.filelimit_exceeded = Some(dir_entries.len());
+    // filelimit: bounded collect — at most `limit + 1` entries in memory.
+    let mut dir_entries: Vec<_> = match common::collect_with_filelimit(read_dir, config.file_limit)
+    {
+        Ok(entries) => entries,
+        Err(total) => {
+            entry.filelimit_exceeded = Some(total);
             return Some(common::leaf_node(entry));
         }
-    }
+    };
+    sort_entries(&mut dir_entries, &config.sort_config);
 
     let mut children = Vec::new();
 
@@ -535,19 +535,19 @@ fn build_node_parallel_inner(
         }
     };
 
-    let mut dir_entries: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
+    // filelimit: bounded collect — at most `limit + 1` entries in memory.
+    let mut dir_entries = match common::collect_with_filelimit(read_dir, ctx.config.file_limit) {
+        Ok(entries) => entries,
+        Err(total) => {
+            drop(dir_guard);
+            entry.filelimit_exceeded = Some(total);
+            return Some(common::leaf_node(entry));
+        }
+    };
     // Release the permit: directory handle consumed, entries in memory
     drop(dir_guard);
 
     sort_entries(&mut dir_entries, &ctx.config.sort_config);
-
-    // filelimit: skip directories with too many entries
-    if let Some(limit) = ctx.config.file_limit {
-        if dir_entries.len() > limit {
-            entry.filelimit_exceeded = Some(dir_entries.len());
-            return Some(common::leaf_node(entry));
-        }
-    }
 
     let children: Vec<Node> = dir_entries
         .par_iter()
