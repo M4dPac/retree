@@ -948,3 +948,100 @@ fn long_paths_relative_root_resolves() {
     );
     assert!(output.status.success(), "must exit cleanly");
 }
+
+// ============================================================================
+// Regression: 3-way chain symlink cycle
+// ============================================================================
+
+/// Chain cycle: a/to_b→b, b/to_c→c, c/to_a→a
+/// All three engines must terminate and show all files.
+#[cfg(unix)]
+#[test]
+fn chain_symlink_cycle_three_way_terminates() {
+    use std::os::unix::fs as unix_fs;
+
+    let dir = TempDir::new().unwrap();
+    let a = dir.path().join("a");
+    let b = dir.path().join("b");
+    let c = dir.path().join("c");
+    std::fs::create_dir(&a).unwrap();
+    std::fs::create_dir(&b).unwrap();
+    std::fs::create_dir(&c).unwrap();
+    std::fs::write(a.join("file_a.txt"), b"").unwrap();
+    std::fs::write(b.join("file_b.txt"), b"").unwrap();
+    std::fs::write(c.join("file_c.txt"), b"").unwrap();
+
+    unix_fs::symlink(&b, a.join("to_b")).unwrap();
+    unix_fs::symlink(&c, b.join("to_c")).unwrap();
+    unix_fs::symlink(&a, c.join("to_a")).unwrap();
+
+    for extra in [
+        &["-l", "-a"][..],
+        &["-l", "-a", "--parallel"],
+        &["-l", "-a", "--streaming"],
+    ] {
+        let mut cmd = run_rtree_command(dir.path(), extra);
+        let assert = cmd
+            .timeout(std::time::Duration::from_secs(10))
+            .assert()
+            .success();
+        let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+        assert!(
+            stdout.contains("file_a.txt"),
+            "file_a.txt missing in mode {:?}",
+            extra
+        );
+        assert!(
+            stdout.contains("file_b.txt"),
+            "file_b.txt missing in mode {:?}",
+            extra
+        );
+        assert!(
+            stdout.contains("file_c.txt"),
+            "file_c.txt missing in mode {:?}",
+            extra
+        );
+        let recursive_count =
+            stdout.matches("recursive").count() + stdout.matches("рекурсивная").count();
+        assert!(
+            recursive_count >= 1,
+            "chain cycle must mark at least 1 link recursive in {:?}\n{}",
+            extra,
+            stdout
+        );
+    }
+}
+
+// ============================================================================
+// Regression: non-UTF-8 filenames in HTML output
+// ============================================================================
+
+#[cfg(target_os = "linux")]
+#[test]
+fn non_utf8_filename_in_html_no_crash() {
+    use std::os::unix::ffi::OsStrExt;
+
+    let dir = TempDir::new().unwrap();
+    let bad_name = std::ffi::OsStr::from_bytes(b"\xff\xfebad.txt");
+    std::fs::write(dir.path().join(bad_name), b"").unwrap();
+    std::fs::write(dir.path().join("good.txt"), b"").unwrap();
+
+    let (stdout, _, code) = run_rtree_full(dir.path(), &["-H", ".", "--nolinks"]);
+
+    assert!(
+        code == Some(0) || code == Some(1),
+        "non-UTF-8 filename must not crash HTML renderer"
+    );
+    assert!(
+        stdout.contains("good.txt"),
+        "good.txt must appear in HTML output"
+    );
+    assert!(
+        stdout.contains("<html"),
+        "must produce valid HTML structure"
+    );
+    assert!(
+        stdout.contains("bad.txt"),
+        "non-UTF-8 filename must appear (lossy) in HTML"
+    );
+}
