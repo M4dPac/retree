@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use crate::cli::IconStyle;
-use crate::core::walker::{EntryType, TreeEntry};
+use crate::core::entry::{Entry as TreeEntry, EntryType};
 
 #[derive(Debug, Clone)]
 pub struct IconSet {
