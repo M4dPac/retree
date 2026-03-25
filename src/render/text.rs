@@ -417,3 +417,241 @@ fn format_posix_mode(mode: u32) -> String {
 
     s
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::entry::{EntryMetadata, WinAttributes};
+
+    // ══════════════════════════════════════════════
+    // format_posix_mode
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn posix_mode_000() {
+        assert_eq!(format_posix_mode(0o000), "---------");
+    }
+
+    #[test]
+    fn posix_mode_777() {
+        assert_eq!(format_posix_mode(0o777), "rwxrwxrwx");
+    }
+
+    #[test]
+    fn posix_mode_644() {
+        assert_eq!(format_posix_mode(0o644), "rw-r--r--");
+    }
+
+    #[test]
+    fn posix_mode_755() {
+        assert_eq!(format_posix_mode(0o755), "rwxr-xr-x");
+    }
+
+    #[test]
+    fn posix_mode_400() {
+        assert_eq!(format_posix_mode(0o400), "r--------");
+    }
+
+    #[test]
+    fn posix_mode_200() {
+        assert_eq!(format_posix_mode(0o200), "-w-------");
+    }
+
+    #[test]
+    fn posix_mode_100() {
+        assert_eq!(format_posix_mode(0o100), "--x------");
+    }
+
+    #[test]
+    fn posix_mode_070() {
+        assert_eq!(format_posix_mode(0o070), "---rwx---");
+    }
+
+    #[test]
+    fn posix_mode_007() {
+        assert_eq!(format_posix_mode(0o007), "------rwx");
+    }
+
+    #[test]
+    fn posix_mode_111() {
+        assert_eq!(format_posix_mode(0o111), "--x--x--x");
+    }
+
+    #[test]
+    fn posix_mode_222() {
+        assert_eq!(format_posix_mode(0o222), "-w--w--w-");
+    }
+
+    #[test]
+    fn posix_mode_444() {
+        assert_eq!(format_posix_mode(0o444), "r--r--r--");
+    }
+
+    #[test]
+    fn posix_mode_600() {
+        assert_eq!(format_posix_mode(0o600), "rw-------");
+    }
+
+    #[test]
+    fn posix_mode_length_always_9() {
+        for mode in [0, 0o777, 0o644, 0o100, 0o070] {
+            assert_eq!(format_posix_mode(mode).len(), 9, "mode={:o}", mode);
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    // format_permissions
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn perms_with_unix_mode_ignores_perm_mode() {
+        let meta = EntryMetadata {
+            mode: Some(0o755),
+            ..Default::default()
+        };
+        let result = format_permissions(&meta, crate::cli::PermMode::Windows);
+        assert_eq!(result, "rwxr-xr-x", "Unix mode overrides perm_mode");
+    }
+
+    #[test]
+    fn perms_posix_readonly_true() {
+        let meta = EntryMetadata {
+            mode: None,
+            attributes: WinAttributes {
+                readonly: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert_eq!(
+            format_permissions(&meta, crate::cli::PermMode::Posix),
+            "r--r--r--"
+        );
+    }
+
+    #[test]
+    fn perms_posix_readonly_false() {
+        let meta = EntryMetadata {
+            mode: None,
+            attributes: WinAttributes {
+                readonly: false,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert_eq!(
+            format_permissions(&meta, crate::cli::PermMode::Posix),
+            "rw-rw-rw-"
+        );
+    }
+
+    #[test]
+    fn perms_windows_mode_delegates_to_attrs() {
+        let meta = EntryMetadata {
+            mode: None,
+            attributes: WinAttributes::from_raw(0x1 | 0x20), // R + A
+            ..Default::default()
+        };
+        let result = format_permissions(&meta, crate::cli::PermMode::Windows);
+        assert_eq!(result, "R--A--");
+    }
+
+    #[test]
+    fn perms_posix_length_always_9() {
+        for readonly in [true, false] {
+            let meta = EntryMetadata {
+                mode: None,
+                attributes: WinAttributes {
+                    readonly,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            assert_eq!(
+                format_permissions(&meta, crate::cli::PermMode::Posix).len(),
+                9
+            );
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    // TextRenderer::sanitize_for_terminal
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn sanitize_clean_string() {
+        assert_eq!(
+            TextRenderer::sanitize_for_terminal("hello world"),
+            "hello world"
+        );
+    }
+
+    #[test]
+    fn sanitize_empty_string() {
+        assert_eq!(TextRenderer::sanitize_for_terminal(""), "");
+    }
+
+    #[test]
+    fn sanitize_null_byte() {
+        assert_eq!(TextRenderer::sanitize_for_terminal("a\x00b"), "a?b");
+    }
+
+    #[test]
+    fn sanitize_escape_char() {
+        assert_eq!(TextRenderer::sanitize_for_terminal("a\x1bb"), "a?b");
+    }
+
+    #[test]
+    fn sanitize_bell() {
+        assert_eq!(TextRenderer::sanitize_for_terminal("a\x07b"), "a?b");
+    }
+
+    #[test]
+    fn sanitize_preserves_tab() {
+        assert_eq!(TextRenderer::sanitize_for_terminal("a\tb"), "a\tb");
+    }
+
+    #[test]
+    fn sanitize_preserves_newline() {
+        assert_eq!(TextRenderer::sanitize_for_terminal("a\nb"), "a\nb");
+    }
+
+    #[test]
+    fn sanitize_bidi_rlo() {
+        assert_eq!(TextRenderer::sanitize_for_terminal("\u{202E}evil"), "?evil");
+    }
+
+    #[test]
+    fn sanitize_zwj() {
+        assert_eq!(
+            TextRenderer::sanitize_for_terminal("join\u{200D}er"),
+            "join?er"
+        );
+    }
+
+    #[test]
+    fn sanitize_bom() {
+        assert_eq!(TextRenderer::sanitize_for_terminal("\u{FEFF}file"), "?file");
+    }
+
+    #[test]
+    fn sanitize_multiple_control_chars() {
+        assert_eq!(
+            TextRenderer::sanitize_for_terminal("\x1b[31mRED\x1b[0m"),
+            "?[31mRED?[0m"
+        );
+    }
+
+    #[test]
+    fn sanitize_unicode_content_preserved() {
+        assert_eq!(TextRenderer::sanitize_for_terminal("файл.txt"), "файл.txt");
+    }
+
+    #[test]
+    fn sanitize_mixed_control_and_normal() {
+        assert_eq!(
+            TextRenderer::sanitize_for_terminal("normal\x01\x02text\x03end"),
+            "normal??text?end"
+        );
+    }
+}
