@@ -297,3 +297,447 @@ fn gather_metadata(
 
     Ok(meta)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ══════════════════════════════════════════════
+    // WinAttributes::from_raw
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn win_attrs_all_zero() {
+        let a = WinAttributes::from_raw(0);
+        assert!(!a.readonly && !a.hidden && !a.system && !a.archive);
+        assert!(!a.compressed && !a.encrypted && !a.offline);
+        assert!(!a.sparse && !a.temporary && !a.reparse);
+    }
+
+    #[test]
+    fn win_attrs_readonly() {
+        let a = WinAttributes::from_raw(0x1);
+        assert!(a.readonly);
+        assert!(!a.hidden);
+    }
+
+    #[test]
+    fn win_attrs_hidden() {
+        let a = WinAttributes::from_raw(0x2);
+        assert!(a.hidden);
+    }
+
+    #[test]
+    fn win_attrs_system() {
+        let a = WinAttributes::from_raw(0x4);
+        assert!(a.system);
+    }
+
+    #[test]
+    fn win_attrs_archive() {
+        let a = WinAttributes::from_raw(0x20);
+        assert!(a.archive);
+    }
+
+    #[test]
+    fn win_attrs_temporary() {
+        let a = WinAttributes::from_raw(0x100);
+        assert!(a.temporary);
+    }
+
+    #[test]
+    fn win_attrs_sparse() {
+        let a = WinAttributes::from_raw(0x200);
+        assert!(a.sparse);
+    }
+
+    #[test]
+    fn win_attrs_reparse() {
+        let a = WinAttributes::from_raw(0x400);
+        assert!(a.reparse);
+    }
+
+    #[test]
+    fn win_attrs_compressed() {
+        let a = WinAttributes::from_raw(0x800);
+        assert!(a.compressed);
+    }
+
+    #[test]
+    fn win_attrs_offline() {
+        let a = WinAttributes::from_raw(0x1000);
+        assert!(a.offline);
+    }
+
+    #[test]
+    fn win_attrs_encrypted() {
+        let a = WinAttributes::from_raw(0x4000);
+        assert!(a.encrypted);
+    }
+
+    #[test]
+    fn win_attrs_combined_rha() {
+        let a = WinAttributes::from_raw(0x1 | 0x2 | 0x20); // R+H+A
+        assert!(a.readonly && a.hidden && a.archive);
+        assert!(!a.system && !a.compressed && !a.encrypted);
+    }
+
+    #[test]
+    fn win_attrs_all_bits_set() {
+        let a = WinAttributes::from_raw(
+            0x1 | 0x2 | 0x4 | 0x20 | 0x100 | 0x200 | 0x400 | 0x800 | 0x1000 | 0x4000,
+        );
+        assert!(a.readonly && a.hidden && a.system && a.archive);
+        assert!(a.temporary && a.sparse && a.reparse);
+        assert!(a.compressed && a.offline && a.encrypted);
+    }
+
+    // ══════════════════════════════════════════════
+    // WinAttributes::to_string_short
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn win_attrs_short_all_clear() {
+        assert_eq!(WinAttributes::from_raw(0).to_string_short(), "------");
+    }
+
+    #[test]
+    fn win_attrs_short_all_set() {
+        let a = WinAttributes::from_raw(0x1 | 0x2 | 0x4 | 0x20 | 0x800 | 0x4000);
+        assert_eq!(a.to_string_short(), "RHSACE");
+    }
+
+    #[test]
+    fn win_attrs_short_readonly_only() {
+        assert_eq!(WinAttributes::from_raw(0x1).to_string_short(), "R-----");
+    }
+
+    #[test]
+    fn win_attrs_short_hidden_only() {
+        assert_eq!(WinAttributes::from_raw(0x2).to_string_short(), "-H----");
+    }
+
+    #[test]
+    fn win_attrs_short_system_only() {
+        assert_eq!(WinAttributes::from_raw(0x4).to_string_short(), "--S---");
+    }
+
+    #[test]
+    fn win_attrs_short_archive_only() {
+        assert_eq!(WinAttributes::from_raw(0x20).to_string_short(), "---A--");
+    }
+
+    #[test]
+    fn win_attrs_short_compressed_only() {
+        assert_eq!(WinAttributes::from_raw(0x800).to_string_short(), "----C-");
+    }
+
+    #[test]
+    fn win_attrs_short_encrypted_only() {
+        assert_eq!(WinAttributes::from_raw(0x4000).to_string_short(), "-----E");
+    }
+
+    #[test]
+    fn win_attrs_short_length() {
+        // Always 6 characters
+        for raw in [0, 0x1, 0x23, 0xFFFF] {
+            assert_eq!(WinAttributes::from_raw(raw).to_string_short().len(), 6);
+        }
+    }
+
+    #[test]
+    fn win_attrs_default_equals_zero() {
+        assert_eq!(
+            WinAttributes::default().to_string_short(),
+            WinAttributes::from_raw(0).to_string_short()
+        );
+    }
+
+    // ══════════════════════════════════════════════
+    // EntryType predicates
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn entry_type_directory() {
+        assert!(EntryType::Directory.is_directory());
+        assert!(!EntryType::Directory.is_file());
+        assert!(!EntryType::Directory.is_symlink());
+    }
+
+    #[test]
+    fn entry_type_file() {
+        assert!(EntryType::File.is_file());
+        assert!(!EntryType::File.is_directory());
+        assert!(!EntryType::File.is_symlink());
+    }
+
+    #[test]
+    fn entry_type_symlink() {
+        let s = EntryType::Symlink {
+            target: PathBuf::from("t"),
+            broken: false,
+        };
+        assert!(s.is_symlink());
+        assert!(!s.is_file());
+        assert!(!s.is_directory());
+    }
+
+    #[test]
+    fn entry_type_broken_symlink_still_symlink() {
+        let s = EntryType::Symlink {
+            target: PathBuf::from("gone"),
+            broken: true,
+        };
+        assert!(s.is_symlink());
+    }
+
+    #[test]
+    fn entry_type_junction_is_symlink() {
+        let j = EntryType::Junction {
+            target: PathBuf::from("t"),
+        };
+        assert!(j.is_symlink());
+        assert!(!j.is_directory());
+    }
+
+    #[test]
+    fn entry_type_hardlink_not_symlink() {
+        let h = EntryType::HardLink { link_count: 3 };
+        assert!(!h.is_symlink());
+        assert!(!h.is_directory());
+        assert!(!h.is_file());
+    }
+
+    #[test]
+    fn entry_type_ads_no_predicates() {
+        let a = EntryType::Ads {
+            stream_name: "s".into(),
+        };
+        assert!(!a.is_file() && !a.is_directory() && !a.is_symlink());
+    }
+
+    #[test]
+    fn entry_type_other() {
+        assert!(!EntryType::Other.is_file());
+        assert!(!EntryType::Other.is_directory());
+        assert!(!EntryType::Other.is_symlink());
+    }
+
+    // ══════════════════════════════════════════════
+    // Entry::from_ads
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn from_ads_basic() {
+        let e = Entry::from_ads(&PathBuf::from("/f.txt"), "Zone.Identifier".into(), 42, 3);
+        assert_eq!(e.name, ":Zone.Identifier");
+        assert_eq!(e.path, PathBuf::from("/f.txt"));
+        assert_eq!(e.depth, 3);
+        assert!(!e.is_last);
+        assert!(!e.recursive_link);
+        assert!(e.ancestors_last.is_empty());
+        assert!(e.filelimit_exceeded.is_none());
+        assert_eq!(e.metadata.as_ref().unwrap().size, 42);
+        match &e.entry_type {
+            EntryType::Ads { stream_name } => assert_eq!(stream_name, "Zone.Identifier"),
+            _ => panic!("expected Ads"),
+        }
+    }
+
+    #[test]
+    fn from_ads_zero_size() {
+        let e = Entry::from_ads(&PathBuf::from("x"), "empty".into(), 0, 0);
+        assert_eq!(e.metadata.as_ref().unwrap().size, 0);
+    }
+
+    #[test]
+    fn from_ads_name_str_has_colon_prefix() {
+        let e = Entry::from_ads(&PathBuf::from("x"), "data".into(), 1, 0);
+        assert_eq!(e.name_str(), ":data");
+    }
+
+    // ══════════════════════════════════════════════
+    // Entry::name_str
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn name_str_ascii() {
+        let e = Entry {
+            path: PathBuf::from("test.txt"),
+            name: OsString::from("test.txt"),
+            entry_type: EntryType::File,
+            metadata: None,
+            depth: 0,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        };
+        assert_eq!(e.name_str(), "test.txt");
+    }
+
+    #[test]
+    fn name_str_unicode() {
+        let e = Entry {
+            path: PathBuf::from("файл.txt"),
+            name: OsString::from("файл.txt"),
+            entry_type: EntryType::File,
+            metadata: None,
+            depth: 0,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        };
+        assert_eq!(e.name_str(), "файл.txt");
+    }
+
+    // ══════════════════════════════════════════════
+    // Entry::from_path (real filesystem)
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn from_path_regular_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("hello.txt");
+        std::fs::write(&f, "hello world").unwrap();
+
+        let e = Entry::from_path(&f, 1, true, vec![false], false, false).unwrap();
+        assert_eq!(e.name, "hello.txt");
+        assert_eq!(e.depth, 1);
+        assert!(e.is_last);
+        assert_eq!(e.ancestors_last, vec![false]);
+        assert!(matches!(e.entry_type, EntryType::File));
+        assert_eq!(e.metadata.as_ref().unwrap().size, 11);
+    }
+
+    #[test]
+    fn from_path_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("subdir");
+        std::fs::create_dir(&sub).unwrap();
+
+        let e = Entry::from_path(&sub, 0, false, vec![], false, false).unwrap();
+        assert_eq!(e.name, "subdir");
+        assert!(matches!(e.entry_type, EntryType::Directory));
+    }
+
+    #[test]
+    fn from_path_nonexistent_errors() {
+        let result = Entry::from_path(
+            &PathBuf::from("/no/such/path/xyz_42"),
+            0,
+            false,
+            vec![],
+            false,
+            false,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn from_path_metadata_timestamps() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("ts.txt");
+        std::fs::write(&f, "x").unwrap();
+
+        let e = Entry::from_path(&f, 0, false, vec![], false, false).unwrap();
+        let meta = e.metadata.as_ref().unwrap();
+        assert!(meta.modified.is_some());
+    }
+
+    // ══════════════════════════════════════════════
+    // Entry::from_dir_entry (real filesystem)
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn from_dir_entry_basic() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("readme.md"), "# Hi").unwrap();
+
+        let de = std::fs::read_dir(dir.path())
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap();
+
+        let e = Entry::from_dir_entry(&de, 2, false, vec![true], false, false).unwrap();
+        assert_eq!(e.name, "readme.md");
+        assert_eq!(e.depth, 2);
+        assert!(!e.is_last);
+        assert_eq!(e.ancestors_last, vec![true]);
+    }
+
+    // ══════════════════════════════════════════════
+    // EntryMetadata::default
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn metadata_default_zeroed() {
+        let m = EntryMetadata::default();
+        assert_eq!(m.size, 0);
+        assert_eq!(m.inode, 0);
+        assert_eq!(m.device, 0);
+        assert_eq!(m.nlinks, 0);
+        assert!(m.created.is_none());
+        assert!(m.modified.is_none());
+        assert!(m.accessed.is_none());
+        assert!(m.owner.is_none());
+        assert!(m.group.is_none());
+        assert!(m.permissions.is_none());
+        assert!(m.mode.is_none());
+    }
+
+    // ══════════════════════════════════════════════
+    // Symlink tests (Unix only)
+    // ══════════════════════════════════════════════
+
+    #[cfg(unix)]
+    #[test]
+    fn from_path_symlink_valid() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("target.txt");
+        let link = dir.path().join("link.txt");
+        std::fs::write(&target, "data").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let e = Entry::from_path(&link, 0, false, vec![], false, false).unwrap();
+        match &e.entry_type {
+            EntryType::Symlink { target: t, broken } => {
+                assert!(!broken);
+                assert_eq!(*t, target);
+            }
+            other => panic!("expected Symlink, got {:?}", other),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn from_path_symlink_broken() {
+        let dir = tempfile::tempdir().unwrap();
+        let link = dir.path().join("broken_link");
+        std::os::unix::fs::symlink("/no/such/target", &link).unwrap();
+
+        let e = Entry::from_path(&link, 0, false, vec![], false, false).unwrap();
+        match &e.entry_type {
+            EntryType::Symlink { broken, .. } => assert!(broken),
+            other => panic!("expected Symlink, got {:?}", other),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn from_path_relative_symlink_not_broken() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("real.txt");
+        let link = dir.path().join("rel_link");
+        std::fs::write(&target, "x").unwrap();
+        std::os::unix::fs::symlink("real.txt", &link).unwrap();
+
+        let e = Entry::from_path(&link, 0, false, vec![], false, false).unwrap();
+        match &e.entry_type {
+            EntryType::Symlink { broken, .. } => assert!(!broken),
+            other => panic!("expected Symlink, got {:?}", other),
+        }
+    }
+}
