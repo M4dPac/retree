@@ -8,7 +8,9 @@ use std::path::{Path, PathBuf};
 
 use crate::config::Config;
 use crate::core::entry::Entry;
+use crate::core::sorter::sort_entries;
 use crate::core::tree::Tree;
+use crate::error::TreeError;
 
 /// Maximum internal recursion depth to prevent stack overflow.
 /// Protects both sequential and parallel (8 MiB stack ≈ ~7 000 frames) modes.
@@ -217,4 +219,140 @@ pub fn should_prune(config: &Config, path: &Path, depth: usize, children_empty: 
         .map(|n| n.to_string_lossy())
         .unwrap_or_default();
     !config.filter.dir_matches_include(dir_name.as_ref())
+}
+
+// ──────────────────────────────────────────────
+// Directory traversal shared helpers
+// ──────────────────────────────────────────────
+
+/// Result of checking whether to descend into a directory.
+pub enum DescendCheck {
+    /// Entry should be returned as a leaf node.
+    Leaf,
+    /// Same as Leaf, but also carries an error for the caller to report.
+    LeafWithError(TreeError),
+    /// All checks passed — caller should descend.
+    Proceed,
+}
+
+/// Check junction, max_depth, and `--one-fs` conditions.
+///
+/// Call after creating the entry, before inserting into the visited set.
+pub fn check_descend(
+    entry: &Entry,
+    path: &Path,
+    depth: usize,
+    config: &Config,
+    root_device: Option<u64>,
+) -> DescendCheck {
+    if matches!(
+        entry.entry_type,
+        crate::core::entry::EntryType::Junction { .. }
+    ) && !config.show_junctions
+    {
+        return DescendCheck::Leaf;
+    }
+
+    if let Some(max) = config.max_depth {
+        if depth >= max {
+            return DescendCheck::Leaf;
+        }
+    }
+
+    match check_one_fs(root_device, path) {
+        OnefsCheck::DifferentDevice => DescendCheck::Leaf,
+        OnefsCheck::Unknown => DescendCheck::LeafWithError(TreeError::Io(
+            path.to_path_buf(),
+            std::io::Error::other("cannot determine volume for --one-fs"),
+        )),
+        OnefsCheck::Proceed => DescendCheck::Proceed,
+    }
+}
+
+/// Result of reading a directory's children.
+pub enum ReadDirResult {
+    /// Successfully read, filtered for I/O errors, and sorted.
+    Entries(Vec<DirEntry>),
+    /// `read_dir` failed.
+    ReadError(std::io::Error),
+    /// `--filelimit` exceeded (carries total entry count).
+    FilelimitExceeded(usize),
+}
+
+/// Read directory, apply `--filelimit`, and sort entries.
+///
+/// Combines `to_long_path` → `read_dir` → `collect_with_filelimit` → `sort_entries`.
+pub fn read_sorted_children(path: &Path, config: &Config) -> ReadDirResult {
+    let long_path = crate::platform::to_long_path(path, config.long_paths);
+    match std::fs::read_dir(&long_path) {
+        Err(e) => ReadDirResult::ReadError(e),
+        Ok(rd) => match collect_with_filelimit(rd, config.file_limit) {
+            Err(total) => ReadDirResult::FilelimitExceeded(total),
+            Ok(mut entries) => {
+                sort_entries(&mut entries, &config.sort_config);
+                ReadDirResult::Entries(entries)
+            }
+        },
+    }
+}
+
+/// Enumerate NTFS Alternate Data Streams for `path` and return them as
+/// child tree nodes at the given `depth`.
+///
+/// On non-Windows platforms `crate::platform::get_alternate_streams`
+/// returns an empty `Vec` — zero runtime cost, no `#[cfg]` needed here.
+pub fn collect_ads_children(path: &Path, depth: usize) -> Vec<Tree> {
+    crate::platform::get_alternate_streams(path)
+        .into_iter()
+        .map(|stream| Tree {
+            entry: Entry::from_ads(path, stream.name, stream.size, depth),
+            children: Vec::new(),
+        })
+        .collect()
+}
+
+/// Create a tree node for a file entry, with optional ADS children.
+pub fn make_file_node(
+    dir_entry: &DirEntry,
+    depth: usize,
+    needs_file_id: bool,
+    show_permissions: bool,
+    show_streams: bool,
+) -> Result<Tree, TreeError> {
+    let entry = Entry::from_dir_entry(
+        dir_entry,
+        depth,
+        false,
+        vec![],
+        needs_file_id,
+        show_permissions,
+    )?;
+    let stream_children = if show_streams {
+        collect_ads_children(&dir_entry.path(), depth + 1)
+    } else {
+        Vec::new()
+    };
+    Ok(Tree {
+        entry,
+        children: stream_children,
+    })
+}
+
+/// Create a leaf node marked as a recursive symlink.
+pub fn make_recursive_link_node(
+    dir_entry: &DirEntry,
+    depth: usize,
+    needs_file_id: bool,
+    show_permissions: bool,
+) -> Result<Tree, TreeError> {
+    let mut entry = Entry::from_dir_entry(
+        dir_entry,
+        depth,
+        false,
+        vec![],
+        needs_file_id,
+        show_permissions,
+    )?;
+    entry.recursive_link = true;
+    Ok(leaf_node(entry))
 }

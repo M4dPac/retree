@@ -2,7 +2,6 @@
 //! Deterministic structure, no duplicates, identical output in both modes.
 
 use std::collections::HashSet;
-use std::fs;
 use std::path::Path;
 use std::sync::{Condvar, Mutex};
 
@@ -11,7 +10,6 @@ use rayon::prelude::*;
 use super::common;
 use crate::config::Config;
 use crate::core::entry::Entry as TreeEntry;
-use crate::core::sorter::sort_entries;
 use crate::error::TreeError;
 
 pub use crate::core::tree::Tree as Node;
@@ -84,27 +82,6 @@ fn check_visited(visited: &Mutex<HashSet<common::VisitedKey>>, key: common::Visi
         Ok(mut v) => !v.insert(key),
         Err(poisoned) => !poisoned.into_inner().insert(key),
     }
-}
-
-//
-// ==============================
-// ADS helper
-// ==============================
-//
-
-/// Enumerate NTFS Alternate Data Streams for `path` and return them as
-/// child tree nodes at the given `depth`.
-///
-/// On non-Windows platforms `crate::platform::get_alternate_streams`
-/// returns an empty `Vec` — zero runtime cost, no `#[cfg]` needed here.
-fn collect_ads_children(path: &Path, depth: usize) -> Vec<Node> {
-    crate::platform::get_alternate_streams(path)
-        .into_iter()
-        .map(|stream| Node {
-            entry: TreeEntry::from_ads(path, stream.name, stream.size, depth),
-            children: Vec::new(),
-        })
-        .collect()
 }
 
 //
@@ -279,7 +256,6 @@ fn build_node_sequential(
     parent_matched: bool,
     root_device: Option<u64>,
 ) -> Option<Node> {
-    // Internal depth limit to prevent stack overflow
     if depth >= common::MAX_INTERNAL_DEPTH {
         errors.push(TreeError::MaxDepthExceeded(path.to_path_buf()));
         return None;
@@ -301,64 +277,33 @@ fn build_node_sequential(
         }
     };
 
-    // Junctions: show in listing but don't descend unless --show-junctions.
-    // Checked before visited-insert so non-descended junctions don't
-    // pollute the visited set (matches streaming engine behaviour).
-    if matches!(
-        entry.entry_type,
-        crate::core::entry::EntryType::Junction { .. }
-    ) && !config.show_junctions
-    {
-        return Some(common::leaf_node(entry));
-    }
-
-    if let Some(max) = config.max_depth {
-        if depth >= max {
+    match common::check_descend(&entry, path, depth, config, root_device) {
+        common::DescendCheck::Leaf => return Some(common::leaf_node(entry)),
+        common::DescendCheck::LeafWithError(e) => {
+            errors.push(e);
             return Some(common::leaf_node(entry));
         }
+        common::DescendCheck::Proceed => {}
     }
 
-    // --one-fs: skip directories on different volumes.
-    // If volume cannot be determined, conservatively don't descend.
-    match common::check_one_fs(root_device, path) {
-        common::OnefsCheck::DifferentDevice => return Some(common::leaf_node(entry)),
-        common::OnefsCheck::Unknown => {
-            errors.push(TreeError::Io(
-                path.to_path_buf(),
-                std::io::Error::other("cannot determine volume for --one-fs"),
-            ));
-            return Some(common::leaf_node(entry));
-        }
-        common::OnefsCheck::Proceed => {}
-    }
-
-    // Track visited directories for cycle detection (junctions, symlinks, mount points).
-    // Placed after early-return checks so we only mark directories we actually descend into.
+    // Track visited directories for cycle detection.
     let canon_key = common::make_visited_key(path);
     if !visited.insert(canon_key) {
         entry.recursive_link = true;
         return Some(common::leaf_node(entry));
     }
 
-    let long_path = crate::platform::to_long_path(path, config.long_paths);
-    let read_dir = match fs::read_dir(&long_path) {
-        Ok(rd) => rd,
-        Err(e) => {
+    let dir_entries = match common::read_sorted_children(path, config) {
+        common::ReadDirResult::Entries(entries) => entries,
+        common::ReadDirResult::ReadError(e) => {
             errors.push(TreeError::Io(path.to_path_buf(), e));
             return Some(common::leaf_node(entry));
         }
-    };
-
-    // filelimit: bounded collect — at most `limit + 1` entries in memory.
-    let mut dir_entries: Vec<_> = match common::collect_with_filelimit(read_dir, config.file_limit)
-    {
-        Ok(entries) => entries,
-        Err(total) => {
+        common::ReadDirResult::FilelimitExceeded(total) => {
             entry.filelimit_exceeded = Some(total);
             return Some(common::leaf_node(entry));
         }
     };
-    sort_entries(&mut dir_entries, &config.sort_config);
 
     let mut children = Vec::new();
 
@@ -377,21 +322,14 @@ fn build_node_sequential(
             if config.follow_symlinks && dir_entry.file_type().is_ok_and(|ft| ft.is_symlink()) {
                 let symlink_key = common::make_visited_key(&dir_entry.path());
                 if visited.contains(&symlink_key) {
-                    match TreeEntry::from_dir_entry(
+                    match common::make_recursive_link_node(
                         &dir_entry,
                         depth + 1,
-                        false,
-                        vec![],
                         needs_file_id,
                         config.show_permissions,
                     ) {
-                        Ok(mut entry) => {
-                            entry.recursive_link = true;
-                            children.push(common::leaf_node(entry));
-                        }
-                        Err(e) => {
-                            errors.push(e);
-                        }
+                        Ok(node) => children.push(node),
+                        Err(e) => errors.push(e),
                     }
                     continue;
                 }
@@ -413,34 +351,19 @@ fn build_node_sequential(
                 children.push(child);
             }
         } else {
-            match TreeEntry::from_dir_entry(
+            match common::make_file_node(
                 &dir_entry,
                 depth + 1,
-                false,
-                vec![],
                 needs_file_id,
                 config.show_permissions,
+                config.show_streams,
             ) {
-                Ok(entry) => {
-                    let stream_children = if config.show_streams {
-                        collect_ads_children(&dir_entry.path(), depth + 2)
-                    } else {
-                        Vec::new()
-                    };
-                    children.push(Node {
-                        entry,
-                        children: stream_children,
-                    });
-                }
-                Err(e) => {
-                    errors.push(e);
-                }
+                Ok(node) => children.push(node),
+                Err(e) => errors.push(e),
             }
         }
     }
 
-    // prune: skip empty directories (except root at depth 0)
-    // With --matchdirs, directories matching -P pattern are protected from pruning
     if common::should_prune(config, path, depth, children.is_empty()) {
         return None;
     }
@@ -460,7 +383,6 @@ fn build_node_parallel_inner(
     ctx: &ParallelCtx<'_>,
     parent_matched: bool,
 ) -> Option<Node> {
-    // Internal depth limit to prevent stack overflow
     if depth >= common::MAX_INTERNAL_DEPTH {
         push_error(ctx.errors, TreeError::MaxDepthExceeded(path.to_path_buf()));
         return None;
@@ -482,42 +404,16 @@ fn build_node_parallel_inner(
         }
     };
 
-    // Junctions: show in listing but don't descend unless --show-junctions.
-    // Checked before visited-insert so non-descended junctions don't
-    // pollute the visited set (matches streaming engine behaviour).
-    if matches!(
-        entry.entry_type,
-        crate::core::entry::EntryType::Junction { .. }
-    ) && !ctx.config.show_junctions
-    {
-        return Some(common::leaf_node(entry));
-    }
-
-    if let Some(max) = ctx.config.max_depth {
-        if depth >= max {
+    match common::check_descend(&entry, path, depth, ctx.config, ctx.root_device) {
+        common::DescendCheck::Leaf => return Some(common::leaf_node(entry)),
+        common::DescendCheck::LeafWithError(e) => {
+            push_error(ctx.errors, e);
             return Some(common::leaf_node(entry));
         }
+        common::DescendCheck::Proceed => {}
     }
 
-    // --one-fs: skip directories on different volumes.
-    // If volume cannot be determined, conservatively don't descend.
-    match common::check_one_fs(ctx.root_device, path) {
-        common::OnefsCheck::DifferentDevice => return Some(common::leaf_node(entry)),
-        common::OnefsCheck::Unknown => {
-            push_error(
-                ctx.errors,
-                TreeError::Io(
-                    path.to_path_buf(),
-                    std::io::Error::other("cannot determine volume for --one-fs"),
-                ),
-            );
-            return Some(common::leaf_node(entry));
-        }
-        common::OnefsCheck::Proceed => {}
-    }
-
-    // Track visited directories for cycle detection (junctions, symlinks, mount points).
-    // Placed after early-return checks so we only mark directories we actually descend into.
+    // Track visited directories for cycle detection.
     let canon_key = common::make_visited_key(path);
     if check_visited(ctx.visited, canon_key) {
         entry.recursive_link = true;
@@ -526,28 +422,21 @@ fn build_node_parallel_inner(
 
     // Acquire backpressure permit — limits concurrent read_dir operations.
     let dir_guard = ctx.dir_limiter.acquire();
-    let long_path = crate::platform::to_long_path(path, ctx.config.long_paths);
-    let read_dir = match fs::read_dir(&long_path) {
-        Ok(rd) => rd,
-        Err(e) => {
+    let dir_entries = match common::read_sorted_children(path, ctx.config) {
+        common::ReadDirResult::Entries(entries) => {
+            drop(dir_guard);
+            entries
+        }
+        common::ReadDirResult::ReadError(e) => {
             push_error(ctx.errors, TreeError::Io(path.to_path_buf(), e));
             return Some(common::leaf_node(entry));
         }
-    };
-
-    // filelimit: bounded collect — at most `limit + 1` entries in memory.
-    let mut dir_entries = match common::collect_with_filelimit(read_dir, ctx.config.file_limit) {
-        Ok(entries) => entries,
-        Err(total) => {
+        common::ReadDirResult::FilelimitExceeded(total) => {
             drop(dir_guard);
             entry.filelimit_exceeded = Some(total);
             return Some(common::leaf_node(entry));
         }
     };
-    // Release the permit: directory handle consumed, entries in memory
-    drop(dir_guard);
-
-    sort_entries(&mut dir_entries, &ctx.config.sort_config);
 
     let children: Vec<Node> = dir_entries
         .par_iter()
@@ -562,7 +451,7 @@ fn build_node_parallel_inner(
             };
 
             if is_dir {
-                // Check for recursive symlink when following — atomic check-and-insert
+                // Check for recursive symlink when following — atomic check
                 if ctx.config.follow_symlinks
                     && dir_entry.file_type().is_ok_and(|ft| ft.is_symlink())
                 {
@@ -572,18 +461,13 @@ fn build_node_parallel_inner(
                         Err(poisoned) => poisoned.into_inner().contains(&symlink_key),
                     };
                     if is_visited {
-                        return match TreeEntry::from_dir_entry(
+                        return match common::make_recursive_link_node(
                             dir_entry,
                             depth + 1,
-                            false,
-                            vec![],
                             needs_file_id,
                             ctx.config.show_permissions,
                         ) {
-                            Ok(mut entry) => {
-                                entry.recursive_link = true;
-                                Some(common::leaf_node(entry))
-                            }
+                            Ok(node) => Some(node),
                             Err(e) => {
                                 push_error(ctx.errors, e);
                                 None
@@ -597,25 +481,14 @@ fn build_node_parallel_inner(
                     parent_matched || ctx.config.filter.dir_matches_include(&child_name_str);
                 build_node_parallel_inner(&dir_entry.path(), depth + 1, ctx, child_parent_matched)
             } else {
-                match TreeEntry::from_dir_entry(
+                match common::make_file_node(
                     dir_entry,
                     depth + 1,
-                    false,
-                    vec![],
                     needs_file_id,
                     ctx.config.show_permissions,
+                    ctx.config.show_streams,
                 ) {
-                    Ok(entry) => {
-                        let stream_children = if ctx.config.show_streams {
-                            collect_ads_children(&dir_entry.path(), depth + 2)
-                        } else {
-                            Vec::new()
-                        };
-                        Some(Node {
-                            entry,
-                            children: stream_children,
-                        })
-                    }
+                    Ok(node) => Some(node),
                     Err(e) => {
                         push_error(ctx.errors, e);
                         None
@@ -625,8 +498,6 @@ fn build_node_parallel_inner(
         })
         .collect();
 
-    // prune: skip empty directories (except root at depth 0)
-    // With --matchdirs, directories matching -P pattern are protected from pruning
     if common::should_prune(ctx.config, path, depth, children.is_empty()) {
         return None;
     }
