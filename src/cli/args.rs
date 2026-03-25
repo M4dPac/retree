@@ -4,7 +4,7 @@ use std::path::PathBuf;
 // Для справки используем статические английские строки
 // Локализованные сообщения используются в runtime
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(name = "rtree")]
 #[command(author, version)]
 #[command(about = "List directory contents in a tree-like format")]

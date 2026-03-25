@@ -28,6 +28,8 @@ fn main() -> ExitCode {
     //    Без этого stack overflow возникает уже на ~100 уровнях вложенности.
     const STACK_SIZE: usize = 8 * 1024 * 1024;
 
+    let fallback_args = args.clone();
+
     let builder = std::thread::Builder::new()
         .name("rtree-main".into())
         .stack_size(STACK_SIZE);
@@ -38,9 +40,6 @@ fn main() -> ExitCode {
             Err(_) => ExitCode::from(1),
         },
         // Thread creation failed — run on current thread (best effort)
-        Err(_) => {
-            let args = rtree::cli::Args::parse();
-            rtree::app::run(args)
-        }
+        Err(_) => rtree::app::run(fallback_args),
     }
 }
