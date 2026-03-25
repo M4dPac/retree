@@ -356,3 +356,372 @@ pub fn make_recursive_link_node(
     entry.recursive_link = true;
     Ok(leaf_node(entry))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    // ══════════════════════════════════════════════
+    // VisitedKey — equality, hashing
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn visited_key_file_id_equal() {
+        let a = VisitedKey::FileId {
+            volume: 1,
+            file_id: 100,
+        };
+        let b = VisitedKey::FileId {
+            volume: 1,
+            file_id: 100,
+        };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn visited_key_file_id_diff_volume() {
+        let a = VisitedKey::FileId {
+            volume: 1,
+            file_id: 100,
+        };
+        let b = VisitedKey::FileId {
+            volume: 2,
+            file_id: 100,
+        };
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn visited_key_file_id_diff_id() {
+        let a = VisitedKey::FileId {
+            volume: 1,
+            file_id: 100,
+        };
+        let b = VisitedKey::FileId {
+            volume: 1,
+            file_id: 200,
+        };
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn visited_key_path_equal() {
+        let a = VisitedKey::Path(PathBuf::from("/tmp/a"));
+        let b = VisitedKey::Path(PathBuf::from("/tmp/a"));
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn visited_key_path_diff() {
+        let a = VisitedKey::Path(PathBuf::from("/tmp/a"));
+        let b = VisitedKey::Path(PathBuf::from("/tmp/b"));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn visited_key_variants_never_equal() {
+        let a = VisitedKey::FileId {
+            volume: 0,
+            file_id: 0,
+        };
+        let b = VisitedKey::Path(PathBuf::new());
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn visited_key_hashset_dedup() {
+        let mut set = HashSet::new();
+        let k = VisitedKey::FileId {
+            volume: 1,
+            file_id: 42,
+        };
+        assert!(set.insert(k.clone()));
+        assert!(!set.insert(k), "duplicate must not be inserted");
+        assert_eq!(set.len(), 1);
+    }
+
+    #[test]
+    fn visited_key_hashset_distinct() {
+        let mut set = HashSet::new();
+        set.insert(VisitedKey::FileId {
+            volume: 1,
+            file_id: 1,
+        });
+        set.insert(VisitedKey::FileId {
+            volume: 1,
+            file_id: 2,
+        });
+        set.insert(VisitedKey::Path(PathBuf::from("/x")));
+        assert_eq!(set.len(), 3);
+    }
+
+    // ══════════════════════════════════════════════
+    // make_visited_key (real filesystem)
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn make_visited_key_real_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let key = make_visited_key(dir.path());
+        match &key {
+            VisitedKey::FileId { .. } => { /* valid on Windows */ }
+            VisitedKey::Path(p) => assert!(p.exists()),
+        }
+    }
+
+    #[test]
+    fn make_visited_key_stable() {
+        let dir = tempfile::tempdir().unwrap();
+        let k1 = make_visited_key(dir.path());
+        let k2 = make_visited_key(dir.path());
+        assert_eq!(k1, k2);
+    }
+
+    #[test]
+    fn make_visited_key_nonexistent_returns_path() {
+        let key = make_visited_key(Path::new("/no/such/path/99999"));
+        assert!(matches!(key, VisitedKey::Path(_)));
+    }
+
+    #[test]
+    fn make_visited_key_different_dirs_differ() {
+        let d1 = tempfile::tempdir().unwrap();
+        let d2 = tempfile::tempdir().unwrap();
+        let k1 = make_visited_key(d1.path());
+        let k2 = make_visited_key(d2.path());
+        assert_ne!(k1, k2);
+    }
+
+    // ══════════════════════════════════════════════
+    // leaf_node
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn leaf_node_empty_children() {
+        let entry = crate::core::entry::Entry {
+            path: PathBuf::from("test"),
+            name: std::ffi::OsString::from("test"),
+            entry_type: crate::core::entry::EntryType::File,
+            metadata: None,
+            depth: 0,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        };
+        let node = leaf_node(entry);
+        assert!(node.children.is_empty());
+        assert_eq!(node.entry.name.to_string_lossy(), "test");
+    }
+
+    // ══════════════════════════════════════════════
+    // check_one_fs
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn check_one_fs_none_always_proceed() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(matches!(
+            check_one_fs(None, dir.path()),
+            OnefsCheck::Proceed
+        ));
+    }
+
+    #[test]
+    fn check_one_fs_same_device() {
+        let dir = tempfile::tempdir().unwrap();
+        if let Some(info) = crate::platform::get_file_id(dir.path()) {
+            assert!(matches!(
+                check_one_fs(Some(info.volume_serial), dir.path()),
+                OnefsCheck::Proceed
+            ));
+        }
+    }
+
+    #[test]
+    fn check_one_fs_different_device() {
+        let dir = tempfile::tempdir().unwrap();
+        if let Some(info) = crate::platform::get_file_id(dir.path()) {
+            let fake = info.volume_serial.wrapping_add(999);
+            assert!(matches!(
+                check_one_fs(Some(fake), dir.path()),
+                OnefsCheck::DifferentDevice
+            ));
+        }
+    }
+
+    #[test]
+    fn check_one_fs_nonexistent() {
+        let result = check_one_fs(Some(1), Path::new("/no/such/path/42"));
+        assert!(!matches!(result, OnefsCheck::Proceed));
+    }
+
+    // ══════════════════════════════════════════════
+    // collect_with_filelimit
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn filelimit_none_collects_all() {
+        let dir = tempfile::tempdir().unwrap();
+        for i in 0..5 {
+            std::fs::write(dir.path().join(format!("f{i}.txt")), "").unwrap();
+        }
+        let rd = std::fs::read_dir(dir.path()).unwrap();
+        let result = collect_with_filelimit(rd, None);
+        assert_eq!(result.unwrap().len(), 5);
+    }
+
+    #[test]
+    fn filelimit_within_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        for i in 0..3 {
+            std::fs::write(dir.path().join(format!("f{i}.txt")), "").unwrap();
+        }
+        let rd = std::fs::read_dir(dir.path()).unwrap();
+        let result = collect_with_filelimit(rd, Some(10));
+        assert_eq!(result.unwrap().len(), 3);
+    }
+
+    #[test]
+    fn filelimit_exact_boundary() {
+        let dir = tempfile::tempdir().unwrap();
+        for i in 0..5 {
+            std::fs::write(dir.path().join(format!("f{i}.txt")), "").unwrap();
+        }
+        let rd = std::fs::read_dir(dir.path()).unwrap();
+        assert_eq!(collect_with_filelimit(rd, Some(5)).unwrap().len(), 5);
+    }
+
+    #[test]
+    fn filelimit_exceeded_returns_total() {
+        let dir = tempfile::tempdir().unwrap();
+        for i in 0..10 {
+            std::fs::write(dir.path().join(format!("f{i}.txt")), "").unwrap();
+        }
+        let rd = std::fs::read_dir(dir.path()).unwrap();
+        assert_eq!(collect_with_filelimit(rd, Some(5)).unwrap_err(), 10);
+    }
+
+    #[test]
+    fn filelimit_exceeded_by_one() {
+        let dir = tempfile::tempdir().unwrap();
+        for i in 0..6 {
+            std::fs::write(dir.path().join(format!("f{i}.txt")), "").unwrap();
+        }
+        let rd = std::fs::read_dir(dir.path()).unwrap();
+        assert_eq!(collect_with_filelimit(rd, Some(5)).unwrap_err(), 6);
+    }
+
+    #[test]
+    fn filelimit_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let rd = std::fs::read_dir(dir.path()).unwrap();
+        assert!(collect_with_filelimit(rd, Some(5)).unwrap().is_empty());
+    }
+
+    #[test]
+    fn filelimit_one_single_file_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("only.txt"), "").unwrap();
+        let rd = std::fs::read_dir(dir.path()).unwrap();
+        assert_eq!(collect_with_filelimit(rd, Some(1)).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn filelimit_one_two_files_exceeded() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.txt"), "").unwrap();
+        std::fs::write(dir.path().join("b.txt"), "").unwrap();
+        let rd = std::fs::read_dir(dir.path()).unwrap();
+        assert_eq!(collect_with_filelimit(rd, Some(1)).unwrap_err(), 2);
+    }
+
+    // ══════════════════════════════════════════════
+    // resolve_long_root
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn resolve_long_root_disabled_passthrough() {
+        let p = PathBuf::from("/tmp/test");
+        assert_eq!(resolve_long_root(&p, false), p);
+    }
+
+    #[test]
+    fn resolve_long_root_absolute() {
+        let dir = tempfile::tempdir().unwrap();
+        let resolved = resolve_long_root(dir.path(), true);
+        if cfg!(windows) {
+            assert!(resolved.to_string_lossy().contains(r"\\?\"));
+        } else {
+            assert_eq!(resolved.as_path(), dir.path());
+        }
+    }
+
+    #[test]
+    fn resolve_long_root_relative_disabled() {
+        let p = PathBuf::from("relative/path");
+        assert_eq!(resolve_long_root(&p, false), p);
+    }
+
+    // ══════════════════════════════════════════════
+    // collect_ads_children
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn collect_ads_children_regular_file_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("plain.txt");
+        std::fs::write(&f, "data").unwrap();
+
+        let ads = collect_ads_children(&f, 1);
+        // On non-Windows or NTFS without ADS, returns empty
+        if !cfg!(windows) {
+            assert!(ads.is_empty());
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    // make_file_node (real filesystem)
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn make_file_node_basic() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("file.txt"), "content").unwrap();
+
+        let de = std::fs::read_dir(dir.path())
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap();
+
+        let node = make_file_node(&de, 1, false, false, false).unwrap();
+        assert_eq!(node.entry.name.to_string_lossy(), "file.txt");
+        assert!(node.children.is_empty()); // no ADS
+        assert!(matches!(
+            node.entry.entry_type,
+            crate::core::entry::EntryType::File
+        ));
+    }
+
+    // ══════════════════════════════════════════════
+    // make_recursive_link_node (real filesystem)
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn make_recursive_link_node_sets_flag() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("link_target.txt"), "x").unwrap();
+
+        let de = std::fs::read_dir(dir.path())
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap();
+
+        let node = make_recursive_link_node(&de, 2, false, false).unwrap();
+        assert!(node.entry.recursive_link);
+        assert!(node.children.is_empty());
+    }
+}
