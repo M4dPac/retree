@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `-P` and `-I` now accept pipe-separated OR patterns: `rtree -P "*.rs|*.toml"` matches files ending in `.rs` or `.toml` (use `\|` for a literal pipe character)
+
 ### Fixed
 
 - `--long-paths` now correctly applies the `\\?\` prefix from the root of traversal, preventing MAX_PATH errors on deeply nested trees

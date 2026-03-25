@@ -2,37 +2,41 @@ use crate::error::TreeError;
 
 #[derive(Debug, Clone)]
 pub struct GlobPattern {
-    pattern: String,
+    patterns: Vec<String>,
     ignore_case: bool,
 }
 
 impl GlobPattern {
     pub fn new(pattern: &str, ignore_case: bool) -> Result<Self, TreeError> {
-        // Validate pattern
-        let mut chars = pattern.chars().peekable();
-        let mut in_bracket = false;
+        // Split by unescaped '|' to support regex-like OR: "pat1|pat2|pat3"
+        let sub_patterns = split_pattern_by_pipe(pattern);
 
-        while let Some(c) = chars.next() {
-            match c {
-                '[' => in_bracket = true,
-                ']' => in_bracket = false,
-                '\\' => {
-                    // Escape sequence
-                    chars.next();
+        // Validate each sub-pattern
+        for sub in &sub_patterns {
+            let mut chars = sub.chars().peekable();
+            let mut in_bracket = false;
+
+            while let Some(c) = chars.next() {
+                match c {
+                    '[' => in_bracket = true,
+                    ']' => in_bracket = false,
+                    '\\' => {
+                        chars.next();
+                    }
+                    _ => {}
                 }
-                _ => {}
+            }
+
+            if in_bracket {
+                return Err(TreeError::InvalidPattern(format!(
+                    "Unclosed bracket in pattern: {}",
+                    sub
+                )));
             }
         }
 
-        if in_bracket {
-            return Err(TreeError::InvalidPattern(format!(
-                "Unclosed bracket in pattern: {}",
-                pattern
-            )));
-        }
-
         Ok(GlobPattern {
-            pattern: pattern.to_string(),
+            patterns: sub_patterns,
             ignore_case,
         })
     }
@@ -44,14 +48,48 @@ impl GlobPattern {
             name.to_string()
         };
 
-        let pattern = if self.ignore_case {
-            self.pattern.to_lowercase()
-        } else {
-            self.pattern.clone()
-        };
-
-        glob_match(&pattern, &name)
+        // OR logic: any sub-pattern matches
+        self.patterns.iter().any(|pat| {
+            let pattern = if self.ignore_case {
+                pat.to_lowercase()
+            } else {
+                pat.clone()
+            };
+            glob_match(&pattern, &name)
+        })
     }
+}
+
+/// Split pattern by unescaped '|' character
+/// Supports escape sequence: \| for literal pipe
+fn split_pattern_by_pipe(pattern: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut current = String::new();
+    let mut chars = pattern.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            if let Some(&next) = chars.peek() {
+                if next == '|' {
+                    // Escaped pipe - add literal '|'
+                    chars.next();
+                    current.push('|');
+                    continue;
+                }
+            }
+            // Regular backslash
+            current.push(c);
+        } else if c == '|' {
+            // Unescaped pipe - split point
+            result.push(current);
+            current = String::new();
+        } else {
+            current.push(c);
+        }
+    }
+
+    result.push(current);
+    result
 }
 
 /// Maximum number of matching steps to prevent ReDoS
@@ -199,5 +237,39 @@ mod tests {
         let p = GlobPattern::new("*.RS", true).unwrap();
         assert!(p.matches("main.rs"));
         assert!(p.matches("MAIN.RS"));
+    }
+
+    #[test]
+    fn test_pipe_separator() {
+        let p = GlobPattern::new("*.rs|*.toml|*.lock", false).unwrap();
+        assert!(p.matches("main.rs"));
+        assert!(p.matches("Cargo.toml"));
+        assert!(p.matches("Cargo.lock"));
+        assert!(!p.matches("readme.md"));
+    }
+
+    #[test]
+    fn test_pipe_with_glob() {
+        let p = GlobPattern::new(".git|target|test*", false).unwrap();
+        assert!(p.matches(".git"));
+        assert!(p.matches("target"));
+        assert!(p.matches("tests"));
+        assert!(p.matches("test_utils.rs"));
+        assert!(!p.matches("src"));
+    }
+
+    #[test]
+    fn test_escaped_pipe() {
+        let p = GlobPattern::new("file\\|name|*.txt", false).unwrap();
+        assert!(p.matches("file|name"));
+        assert!(p.matches("readme.txt"));
+        assert!(!p.matches("file"));
+    }
+
+    #[test]
+    fn test_single_pattern_no_pipe() {
+        let p = GlobPattern::new("*.rs", false).unwrap();
+        assert!(p.matches("main.rs"));
+        assert!(!p.matches("main.py"));
     }
 }
