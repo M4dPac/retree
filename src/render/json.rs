@@ -8,7 +8,6 @@ use crate::core::walker::{Node, TreeStats};
 use crate::core::BuildResult;
 use crate::error::TreeError;
 
-use super::context::RenderContext;
 use super::helpers;
 use super::traits::Renderer;
 
@@ -187,12 +186,10 @@ impl Renderer for JsonRenderer {
     fn render<W: Write>(
         &mut self,
         result: &BuildResult,
-        ctx: &RenderContext,
+        config: &Config,
         writer: &mut W,
         stats: &mut TreeStats,
     ) -> Result<(), TreeError> {
-        let config = ctx.config;
-
         helpers::count_stats(&result.root, stats);
 
         let root = if let Some(ref tree) = result.tree {

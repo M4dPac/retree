@@ -6,7 +6,6 @@ use crate::core::walker::{Node, TreeStats};
 use crate::core::BuildResult;
 use crate::error::TreeError;
 
-use super::context::RenderContext;
 use super::helpers;
 use super::traits::Renderer;
 
@@ -172,12 +171,10 @@ impl Renderer for XmlRenderer {
     fn render<W: Write>(
         &mut self,
         result: &BuildResult,
-        ctx: &RenderContext,
+        config: &Config,
         writer: &mut W,
         stats: &mut TreeStats,
     ) -> Result<(), TreeError> {
-        let config = ctx.config;
-
         // Header
         writeln!(writer, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")?;
         writeln!(writer, "<tree>")?;

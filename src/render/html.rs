@@ -8,7 +8,6 @@ use crate::core::BuildResult;
 use crate::error::TreeError;
 use crate::i18n::{self, format_report, get_message, MessageKey};
 
-use super::context::RenderContext;
 use super::helpers;
 use super::traits::Renderer;
 
@@ -247,12 +246,10 @@ impl Renderer for HtmlRenderer {
     fn render<W: Write>(
         &mut self,
         result: &BuildResult,
-        ctx: &RenderContext,
+        config: &Config,
         writer: &mut W,
         stats: &mut TreeStats,
     ) -> Result<(), TreeError> {
-        let config = ctx.config;
-
         self.write_header(writer)?;
 
         // Root entry

@@ -9,10 +9,8 @@ mod json;
 mod text;
 mod xml;
 
-pub mod context;
 pub mod traits;
 
-pub use context::RenderContext;
 pub use html::HtmlRenderer;
 pub use json::JsonRenderer;
 pub use text::TextRenderer;
@@ -36,24 +34,22 @@ pub fn dispatch<W: Write>(
     writer: &mut W,
     stats: &mut TreeStats,
 ) -> Result<(), TreeError> {
-    let ctx = RenderContext::new(config);
-
     match config.output_format {
         OutputFormat::Text => {
             let mut renderer = TextRenderer::new(config);
-            renderer.render(result, &ctx, writer, stats)
+            renderer.render(result, config, writer, stats)
         }
         OutputFormat::Html => {
             let mut renderer = HtmlRenderer::new(config);
-            renderer.render(result, &ctx, writer, stats)
+            renderer.render(result, config, writer, stats)
         }
         OutputFormat::Xml => {
             let mut renderer = XmlRenderer::new(config);
-            renderer.render(result, &ctx, writer, stats)
+            renderer.render(result, config, writer, stats)
         }
         OutputFormat::Json => {
             let mut renderer = JsonRenderer::new(config);
-            renderer.render(result, &ctx, writer, stats)
+            renderer.render(result, config, writer, stats)
         }
     }
 }

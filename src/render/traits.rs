@@ -2,11 +2,10 @@
 
 use std::io::Write;
 
+use crate::config::Config;
 use crate::core::walker::TreeStats;
 use crate::core::BuildResult;
 use crate::error::TreeError;
-
-use super::context::RenderContext;
 
 /// Trait for render backends implementing the Strategy pattern.
 ///
@@ -16,7 +15,7 @@ pub trait Renderer {
     fn render<W: Write>(
         &mut self,
         result: &BuildResult,
-        ctx: &RenderContext,
+        config: &Config,
         writer: &mut W,
         stats: &mut TreeStats,
     ) -> Result<(), TreeError>;

@@ -8,7 +8,6 @@ use crate::core::BuildResult;
 use crate::error::TreeError;
 use crate::i18n::{self, format_report, get_message, MessageKey};
 
-use super::context::RenderContext;
 use super::helpers;
 use super::traits::Renderer;
 
@@ -342,12 +341,10 @@ impl Renderer for TextRenderer {
     fn render<W: Write>(
         &mut self,
         result: &BuildResult,
-        ctx: &RenderContext,
+        config: &Config,
         writer: &mut W,
         stats: &mut TreeStats,
     ) -> Result<(), TreeError> {
-        let config = ctx.config;
-
         // Root entry
         self.write_entry(writer, &result.root, config)?;
         helpers::count_stats(&result.root, stats);
