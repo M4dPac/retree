@@ -5,14 +5,12 @@
 //! This reduces memory usage for large directory trees.
 
 use std::collections::HashSet;
-use std::fs;
 use std::io::Write;
 use std::path::Path;
 
 use super::common;
 use crate::config::Config;
 use crate::core::entry::{Entry, EntryType};
-use crate::core::sorter::sort_entries;
 use crate::core::walker::TreeStats;
 use crate::error::TreeError;
 use crate::i18n;
@@ -175,24 +173,17 @@ impl<'a> StreamingEngine<'a> {
             }
         }
 
-        let long_path = crate::platform::to_long_path(dir, config.long_paths);
-        let read_dir = match fs::read_dir(&long_path) {
-            Ok(rd) => rd,
-            Err(e) => {
+        let dir_entries = match common::read_sorted_children(dir, config) {
+            common::ReadDirResult::Entries(entries) => entries,
+            common::ReadDirResult::ReadError(e) => {
                 errors.push(TreeError::Io(dir.to_path_buf(), e));
                 return Ok(());
             }
+            common::ReadDirResult::FilelimitExceeded(_) => return Ok(()),
         };
-
-        // filelimit: bounded collect — at most `limit + 1` entries in memory.
-        let mut dir_entries = match common::collect_with_filelimit(read_dir, config.file_limit) {
-            Ok(entries) => entries,
-            Err(_) => return Ok(()),
-        };
-        sort_entries(&mut dir_entries, &config.sort_config);
 
         // Pre-filter to know total count (needed for is_last)
-        let filtered: Vec<&fs::DirEntry> = dir_entries
+        let filtered: Vec<_> = dir_entries
             .iter()
             .filter(
                 |de| match common::filter_entry(config, de, parent_matched) {
