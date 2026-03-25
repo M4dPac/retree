@@ -6,7 +6,6 @@
 //! 3. Future: TOML config file
 //! 4. Compiled defaults (lowest priority)
 
-pub mod env;
 mod options;
 
 pub use options::{Config, LineStyle, OutputFormat};
@@ -26,13 +25,13 @@ impl Config {
         let color_enabled = match args.effective_color() {
             ColorWhen::Always => true,
             ColorWhen::Never => false,
-            ColorWhen::Auto => env::is_tty(),
+            ColorWhen::Auto => crate::platform::is_tty(),
         };
 
         let icons_enabled = match args.effective_icons() {
             IconsWhen::Always => true,
             IconsWhen::Never => false,
-            IconsWhen::Auto => env::is_tty() && color_enabled,
+            IconsWhen::Auto => crate::platform::is_tty() && color_enabled,
         };
 
         let line_style = if args.cp437 {
@@ -130,7 +129,7 @@ impl Config {
             } else if args.safe_print {
                 true
             } else {
-                env::is_tty()
+                crate::platform::is_tty()
             },
             literal: args.literal,
             perm_mode: args.perm_mode,
