@@ -382,3 +382,182 @@ fn golden_html_report() {
         "HTML should contain file count"
     );
 }
+
+// ════════════════════════════════════════════════════════
+// TEXT — additional edge cases
+// ════════════════════════════════════════════════════════
+
+#[test]
+fn golden_text_empty_dir() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("empty");
+    fs::create_dir(&root).unwrap();
+
+    let output = common::run_rtree(&root, &["--noreport"]);
+    assert_eq!(output, "empty\n");
+}
+
+#[test]
+fn golden_text_single_file() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("single");
+    fs::create_dir(&root).unwrap();
+    fs::write(root.join("only.txt"), "").unwrap();
+
+    let output = common::run_rtree(&root, &["--noreport"]);
+    let expected = "\
+single
+└── only.txt
+";
+    assert_eq!(output, expected);
+}
+
+#[test]
+fn golden_text_pattern_include() {
+    let (_tmp, root) = make_golden();
+    let output = common::run_rtree(&root, &["-P", "*.rs", "--noreport"]);
+    // -P shows matching files, all directories are still shown
+    assert!(output.contains("lib.rs"));
+    assert!(output.contains("main.rs"));
+    assert!(!output.contains("Cargo.toml"));
+    assert!(!output.contains("readme.md"));
+    assert!(output.contains("src"), "parent dir of matching files shown");
+}
+
+#[test]
+fn golden_text_exclude() {
+    let (_tmp, root) = make_golden();
+    let output = common::run_rtree(&root, &["-I", "docs", "--noreport"]);
+    assert!(!output.contains("docs"));
+    assert!(!output.contains("readme.md"));
+    assert!(output.contains("src"));
+    assert!(output.contains("Cargo.toml"));
+}
+
+#[test]
+fn golden_text_prune_empty_dirs() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("prunetest");
+    fs::create_dir(&root).unwrap();
+    fs::create_dir(root.join("hollow")).unwrap();
+    fs::create_dir(root.join("filled")).unwrap();
+    fs::write(root.join("filled/data.txt"), "x").unwrap();
+
+    let output = common::run_rtree(&root, &["--prune", "--noreport"]);
+    assert!(!output.contains("hollow"));
+    assert!(output.contains("filled"));
+    assert!(output.contains("data.txt"));
+}
+
+#[test]
+fn golden_text_classify() {
+    let (_tmp, root) = make_golden();
+    let output = common::run_rtree(&root, &["-F", "--noreport"]);
+    assert!(output.contains("docs/"), "dirs get / suffix with -F");
+    assert!(output.contains("src/"), "dirs get / suffix with -F");
+    // Files without executable bit don't get suffix
+    assert!(
+        output.contains("Cargo.toml") && !output.contains("Cargo.toml*"),
+        "non-exec files have no suffix"
+    );
+}
+
+#[test]
+fn golden_text_report_empty() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("reportempty");
+    fs::create_dir(&root).unwrap();
+
+    let output = common::run_rtree(&root, &[]);
+    assert!(output.contains("0 directories, 0 files"));
+}
+
+#[test]
+fn golden_text_report_singular() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("singular");
+    fs::create_dir(&root).unwrap();
+    fs::create_dir(root.join("one_dir")).unwrap();
+    fs::write(root.join("one_dir/one_file.txt"), "").unwrap();
+
+    let output = common::run_rtree(&root, &[]);
+    assert!(output.contains("1 directory, 1 file"));
+}
+
+#[test]
+fn golden_text_with_report_exact() {
+    let (_tmp, root) = make_golden();
+    let output = common::run_rtree(&root, &[]);
+    let expected = "\
+golden
+├── Cargo.toml
+├── docs
+│   └── readme.md
+└── src
+    ├── lib.rs
+    └── main.rs
+
+2 directories, 4 files
+";
+    assert_eq!(output, expected);
+}
+
+// ════════════════════════════════════════════════════════
+// JSON — additional edge cases
+// ════════════════════════════════════════════════════════
+
+#[test]
+fn golden_json_empty_dir() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("jempty");
+    fs::create_dir(&root).unwrap();
+
+    let output = common::run_rtree(&root, &["-J"]);
+    let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let arr = json.as_array().unwrap();
+    assert_eq!(arr[0]["type"], "directory");
+    assert_eq!(arr[0]["name"], "jempty");
+    let report = arr.last().unwrap();
+    assert_eq!(report["directories"], 0);
+    assert_eq!(report["files"], 0);
+}
+
+#[test]
+fn golden_json_exclude() {
+    let (_tmp, root) = make_golden();
+    let output = common::run_rtree(&root, &["-J", "-I", "docs", "--noreport"]);
+    let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let names = common::collect_all_names(&json);
+    assert!(!names.contains(&"docs".to_string()));
+    assert!(!names.contains(&"readme.md".to_string()));
+    assert!(names.contains(&"src".to_string()));
+}
+
+// ════════════════════════════════════════════════════════
+// XML — additional edge cases
+// ════════════════════════════════════════════════════════
+
+#[test]
+fn golden_xml_empty_dir() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("xempty");
+    fs::create_dir(&root).unwrap();
+
+    let output = common::run_rtree(&root, &["-X"]);
+    assert!(output.contains("<?xml"));
+    assert!(output.contains("name=\"xempty\""));
+    assert!(output.contains("<directories>0</directories>"));
+    assert!(output.contains("<files>0</files>"));
+}
+
+#[test]
+fn golden_xml_escapes_special_chars() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("xmlesc");
+    fs::create_dir(&root).unwrap();
+    fs::write(root.join("Tom & Jerry.txt"), "").unwrap();
+
+    let output = common::run_rtree(&root, &["-X", "--noreport"]);
+    assert!(output.contains("Tom &amp; Jerry.txt"));
+    assert!(!output.contains("Tom & Jerry.txt"));
+}
