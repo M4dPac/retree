@@ -249,9 +249,4 @@ impl Config {
             streaming: args.streaming,
         })
     }
-
-    /// Backward-compatible alias for `build()`.
-    pub fn from_args(args: Args) -> Result<Self, TreeError> {
-        Self::build(args)
-    }
 }
