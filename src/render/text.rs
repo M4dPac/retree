@@ -2,6 +2,7 @@ use std::io::Write;
 
 use crate::config::{Config, LineStyle};
 use crate::core::entry::{Entry, EntryType};
+use crate::core::walker::EntryWriter;
 use crate::core::walker::Node;
 use crate::core::walker::TreeStats;
 use crate::core::BuildResult;
@@ -275,27 +276,6 @@ impl TextRenderer {
         }
     }
 
-    pub fn write_entry<W: Write>(
-        &self,
-        writer: &mut W,
-        entry: &Entry,
-        config: &Config,
-    ) -> Result<(), TreeError> {
-        let prefix = self.format_prefix(entry, config);
-        let info = self.format_info(entry, config);
-        let info = if config.safe_print {
-            Self::sanitize_for_terminal(&info)
-        } else {
-            info
-        };
-        let name = self.format_name(entry, config);
-        let colored_name = self.apply_color(entry, &name, config);
-
-        writeln!(writer, "{}{}{}", prefix, info, colored_name)?;
-
-        Ok(())
-    }
-
     /// Recursively render children of a tree node (depth-first).
     /// computes is_last/ancestors_last on the fly.
     fn render_children<W: Write>(
@@ -333,6 +313,29 @@ impl TextRenderer {
                 }
             }
         }
+        Ok(())
+    }
+}
+
+impl EntryWriter for TextRenderer {
+    fn write_entry(
+        &self,
+        writer: &mut dyn Write,
+        entry: &Entry,
+        config: &Config,
+    ) -> Result<(), TreeError> {
+        let prefix = self.format_prefix(entry, config);
+        let info = self.format_info(entry, config);
+        let info = if config.safe_print {
+            Self::sanitize_for_terminal(&info)
+        } else {
+            info
+        };
+        let name = self.format_name(entry, config);
+        let colored_name = self.apply_color(entry, &name, config);
+
+        writeln!(writer, "{}{}{}", prefix, info, colored_name)?;
+
         Ok(())
     }
 }

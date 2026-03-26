@@ -2,7 +2,11 @@ mod common;
 mod engine;
 pub mod streaming;
 
+use crate::config::Config;
 use crate::core::entry::{Entry, EntryType};
+use crate::error::TreeError;
+
+use std::io::Write;
 
 pub use engine::{Node, OrderedEngine, TraversalResult};
 pub use streaming::{StreamingEngine, StreamingResult};
@@ -45,4 +49,17 @@ pub fn count_stats(entry: &Entry, stats: &mut TreeStats) {
             stats.files += 1;
         }
     }
+}
+
+/// Trait for writing individual tree entries to output.
+///
+/// Decouples the streaming traversal engine from specific renderers.
+/// The only current implementor is `TextRenderer`.
+pub trait EntryWriter {
+    fn write_entry(
+        &self,
+        writer: &mut dyn Write,
+        entry: &Entry,
+        config: &Config,
+    ) -> Result<(), TreeError>;
 }

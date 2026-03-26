@@ -8,13 +8,12 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::path::Path;
 
-use super::{common, count_stats};
+use super::{common, count_stats, EntryWriter};
 use crate::config::Config;
 use crate::core::entry::{Entry, EntryType};
 use crate::core::walker::TreeStats;
 use crate::error::TreeError;
 use crate::i18n;
-use crate::render::TextRenderer;
 
 /// Result of streaming traversal.
 pub struct StreamingResult {
@@ -54,14 +53,14 @@ impl StreamState {
 /// computing is_last/ancestors_last on the fly.
 pub struct StreamingEngine<'a> {
     config: &'a Config,
-    text: TextRenderer,
+    entry_writer: &'a dyn EntryWriter,
 }
 
 impl<'a> StreamingEngine<'a> {
-    pub fn new(config: &'a Config) -> Self {
+    pub fn new(config: &'a Config, entry_writer: &'a dyn EntryWriter) -> Self {
         Self {
             config,
-            text: TextRenderer::new(config),
+            entry_writer,
         }
     }
 
@@ -94,7 +93,7 @@ impl<'a> StreamingEngine<'a> {
             needs_file_id,
             config.show_permissions,
         )?;
-        self.text.write_entry(writer, &root_entry, config)?;
+        self.entry_writer.write_entry(writer, &root_entry, config)?;
         stats.directories += 1;
 
         // DFS children with max_entries tracking
@@ -254,7 +253,7 @@ impl<'a> StreamingEngine<'a> {
                             }
                         };
 
-                    self.text.write_entry(writer, &entry, config)?;
+                    self.entry_writer.write_entry(writer, &entry, config)?;
                     count_stats(&entry, stats);
                     state.count += 1;
 
@@ -273,7 +272,7 @@ impl<'a> StreamingEngine<'a> {
                             let mut ads_ancestors = ancestors_last.to_vec();
                             ads_ancestors.push(is_last);
                             ads_entry.ancestors_last = ads_ancestors;
-                            self.text.write_entry(writer, &ads_entry, config)?;
+                            self.entry_writer.write_entry(writer, &ads_entry, config)?;
                             count_stats(&ads_entry, stats);
                             state.count += 1;
                         }

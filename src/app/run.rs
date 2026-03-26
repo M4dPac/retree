@@ -17,6 +17,7 @@ use crate::core::walker::StreamingEngine;
 use crate::core::walker::TreeStats;
 use crate::error::TreeError;
 use crate::i18n;
+use crate::render::TextRenderer;
 
 /// Main application entry point.
 pub fn run(args: Args) -> ExitCode {
@@ -145,7 +146,8 @@ fn render_tree<W: Write>(
 ) -> Result<(), TreeError> {
     // Streaming mode: text-only, traverse and render in single pass
     if config.streaming && config.output_format == OutputFormat::Text && !config.prune {
-        let engine = StreamingEngine::new(config);
+        let text_render = TextRenderer::new(config);
+        let engine = StreamingEngine::new(config, &text_render);
         match engine.traverse_and_render(path, output, stats) {
             Ok(result) => {
                 for err in &result.errors {
