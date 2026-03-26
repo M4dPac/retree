@@ -289,7 +289,7 @@ impl Config {
             threads: args.threads.map(|n| n as usize),
             queue_cap: args.queue_cap.map(|n| n as usize),
             max_entries: args.max_entries.filter(|&n| n > 0),
-            streaming: args.streaming,
+            streaming: args.streaming && output_format == OutputFormat::Text && !args.prune,
         })
     }
 }
@@ -640,7 +640,7 @@ mod tests {
         assert!(config.prune);
         assert!(config.classify);
         assert!(config.parallel);
-        assert!(config.streaming);
+        assert!(!config.streaming);
     }
 
     #[test]
@@ -678,5 +678,50 @@ mod tests {
         let config = Config::build(args).unwrap();
         assert!(!config.sort_config.dirs_first);
         assert!(config.sort_config.files_first);
+    }
+
+    #[test]
+    fn streaming_disabled_with_json_format() {
+        let mut args = default_args();
+        args.streaming = true;
+        args.json = true;
+        let config = Config::build(args).unwrap();
+        assert!(!config.streaming);
+    }
+
+    #[test]
+    fn streaming_disabled_with_xml_format() {
+        let mut args = default_args();
+        args.streaming = true;
+        args.xml = true;
+        let config = Config::build(args).unwrap();
+        assert!(!config.streaming);
+    }
+
+    #[test]
+    fn streaming_disabled_with_html_format() {
+        let mut args = default_args();
+        args.streaming = true;
+        args.html_base = Some("https://example.com".into());
+        let config = Config::build(args).unwrap();
+        assert!(!config.streaming);
+    }
+
+    #[test]
+    fn streaming_disabled_with_prune() {
+        let mut args = default_args();
+        args.streaming = true;
+        args.prune = true;
+        let config = Config::build(args).unwrap();
+        assert!(!config.streaming);
+    }
+
+    #[test]
+    fn streaming_enabled_with_text_no_prune() {
+        let mut args = default_args();
+        args.streaming = true;
+        // default format is Text, prune is false
+        let config = Config::build(args).unwrap();
+        assert!(config.streaming);
     }
 }
