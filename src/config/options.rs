@@ -4,13 +4,13 @@
 
 use std::path::PathBuf;
 
+use crate::cli::PermMode;
 use crate::cli::{Args, ColorWhen, IconsWhen};
-use crate::cli::{IconStyle, PermMode};
 use crate::core::filter::Filter;
 use crate::core::sorter::{SortConfig, SortType};
 use crate::error::TreeError;
 use crate::style::colors::ColorScheme;
-use crate::style::icons::IconSet;
+use crate::style::icons::{IconSet, IconStyle};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputFormat {

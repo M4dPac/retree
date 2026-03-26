@@ -1,4 +1,5 @@
 pub use crate::core::sorter::SortType;
+pub use crate::style::icons::IconStyle;
 use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 
@@ -377,14 +378,6 @@ pub enum IconsWhen {
     Auto,
     Always,
     Never,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
-pub enum IconStyle {
-    #[default]
-    Nerd,
-    Unicode,
-    Ascii,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]

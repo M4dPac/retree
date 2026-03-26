@@ -1,8 +1,16 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use crate::cli::IconStyle;
 use crate::core::entry::{Entry as TreeEntry, EntryType};
+use clap::ValueEnum;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub enum IconStyle {
+    #[default]
+    Nerd,
+    Unicode,
+    Ascii,
+}
 
 #[derive(Debug, Clone)]
 pub struct IconSet {
