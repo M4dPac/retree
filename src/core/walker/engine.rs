@@ -12,7 +12,7 @@ use crate::config::Config;
 use crate::core::entry::Entry;
 use crate::error::TreeError;
 
-pub use crate::core::tree::Tree;
+use crate::core::tree::Tree;
 
 //
 // ==============================
