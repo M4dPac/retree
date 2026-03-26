@@ -387,10 +387,6 @@ pub enum PermMode {
     Windows,
 }
 
-pub fn parse_args() -> Args {
-    Args::parse()
-}
-
 impl Args {
     pub fn effective_color(&self) -> ColorWhen {
         if self.no_color {
