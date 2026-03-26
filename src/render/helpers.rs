@@ -2,8 +2,8 @@
 //!
 //! Eliminates code duplication across text/xml/json/html renderers.
 
-use crate::core::entry::{Entry, EntryType};
-use crate::core::walker::TreeStats;
+use crate::core::entry::EntryType;
+pub use crate::core::walker::count_stats;
 
 const SI_UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB", "PB"];
 const IEC_UNITS: &[&str] = &["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
@@ -23,36 +23,6 @@ const HTML_REPLACEMENTS: &[(&str, &str)] = &[
     ("'", "&#39;"),
 ];
 
-/// Count an entry in the tree statistics.
-///
-/// Increments directories/files/symlinks counters as appropriate.
-/// Used by all renderers during tree traversal.
-pub fn count_stats(entry: &Entry, stats: &mut TreeStats) {
-    match &entry.entry_type {
-        EntryType::Directory => {
-            stats.directories += 1;
-        }
-        EntryType::Symlink { target, broken } => {
-            stats.symlinks += 1;
-            // GNU tree counts symlinks to directories as directories
-            let points_to_dir = !broken
-                && entry
-                    .path
-                    .parent()
-                    .map(|p| p.join(target).is_dir())
-                    .unwrap_or(false);
-
-            if points_to_dir {
-                stats.directories += 1;
-            } else {
-                stats.files += 1;
-            }
-        }
-        _ => {
-            stats.files += 1;
-        }
-    }
-}
 /// Format size in human-readable form.
 ///
 /// Uses IEC units (KiB, MiB, ...) by default,
@@ -156,6 +126,7 @@ fn escape_and_sanitize(s: &str, replacements: &[(&str, &str)]) -> String {
 mod tests {
     use super::*;
     use crate::core::entry::{Entry, EntryType};
+    use crate::core::walker::TreeStats;
     use std::ffi::OsString;
     use std::path::PathBuf;
 

@@ -8,13 +8,13 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::path::Path;
 
-use super::common;
+use super::{common, count_stats};
 use crate::config::Config;
 use crate::core::entry::{Entry, EntryType};
 use crate::core::walker::TreeStats;
 use crate::error::TreeError;
 use crate::i18n;
-use crate::render::{helpers::count_stats, TextRenderer};
+use crate::render::TextRenderer;
 
 /// Result of streaming traversal.
 pub struct StreamingResult {
