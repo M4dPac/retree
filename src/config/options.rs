@@ -154,6 +154,27 @@ impl Config {
             LineStyle::Ansi
         };
 
+        // Warn if multiple output formats are specified
+        {
+            let format_count = [args.json, args.xml, args.html_base.is_some()]
+                .iter()
+                .filter(|&&x| x)
+                .count();
+            if format_count > 1 {
+                let chosen = if args.json {
+                    "JSON"
+                } else if args.xml {
+                    "XML"
+                } else {
+                    "HTML"
+                };
+                eprintln!(
+                    "rtree: warning: multiple output formats specified, using {}",
+                    chosen
+                );
+            }
+        }
+
         let output_format = if args.json {
             OutputFormat::Json
         } else if args.xml {
@@ -614,5 +635,23 @@ mod tests {
         assert!(config.classify);
         assert!(config.parallel);
         assert!(config.streaming);
+    }
+
+    #[test]
+    fn xml_takes_priority_over_html() {
+        let mut args = default_args();
+        args.xml = true;
+        args.html_base = Some("https://example.com".into());
+        let config = Config::build(args).unwrap();
+        assert_eq!(config.output_format, OutputFormat::Xml);
+    }
+
+    #[test]
+    fn json_takes_priority_over_html() {
+        let mut args = default_args();
+        args.json = true;
+        args.html_base = Some("https://example.com".into());
+        let config = Config::build(args).unwrap();
+        assert_eq!(config.output_format, OutputFormat::Json);
     }
 }
