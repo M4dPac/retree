@@ -129,12 +129,9 @@ impl Config {
         let icons_when = if args.no_icons {
             IconsWhen::Never
         } else {
-            match args.icons.to_lowercase().as_str() {
-                "always" => IconsWhen::Always,
-                "never" => IconsWhen::Never,
-                _ => IconsWhen::Auto,
-            }
+            args.icons
         };
+
         let icons_enabled = match icons_when {
             IconsWhen::Always => true,
             IconsWhen::Never => false,
@@ -356,7 +353,7 @@ mod tests {
             xml: false,
             json: false,
             json_pretty: false,
-            icons: "auto".into(),
+            icons: IconsWhen::Auto,
             no_icons: false,
             icon_style: IconStyle::Nerd,
             show_streams: false,
@@ -455,7 +452,7 @@ mod tests {
     #[test]
     fn icons_always_enables_icons() {
         let mut args = default_args();
-        args.icons = "always".into();
+        args.icons = IconsWhen::Always;
         let config = Config::build(args).unwrap();
         assert!(config.icons_enabled);
     }
@@ -463,7 +460,7 @@ mod tests {
     #[test]
     fn icons_never_disables_icons() {
         let mut args = default_args();
-        args.icons = "never".into();
+        args.icons = IconsWhen::Never;
         let config = Config::build(args).unwrap();
         assert!(!config.icons_enabled);
     }
