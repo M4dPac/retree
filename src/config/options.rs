@@ -292,6 +292,64 @@ impl Config {
 }
 
 #[cfg(test)]
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            paths: vec![std::path::PathBuf::from(".")],
+            show_all: false,
+            dirs_only: false,
+            follow_symlinks: false,
+            full_path: false,
+            one_fs: false,
+            max_depth: None,
+            file_limit: None,
+            no_report: false,
+            filter: Filter::new(None, &[], false, false).unwrap(),
+            prune: false,
+            sort_config: SortConfig::default(),
+            no_indent: false,
+            line_style: LineStyle::Ansi,
+            color_enabled: false,
+            icons_enabled: false,
+            icon_style: IconStyle::Nerd,
+            show_size: false,
+            human_readable: false,
+            si_units: false,
+            show_date: false,
+            time_fmt: "%Y-%m-%d %H:%M".into(),
+            show_permissions: false,
+            show_owner: false,
+            show_group: false,
+            show_inodes: false,
+            show_device: false,
+            classify: false,
+            safe_print: false,
+            literal: false,
+            perm_mode: PermMode::Windows,
+            output_format: OutputFormat::Text,
+            output_file: None,
+            json_pretty: false,
+            html_base: None,
+            html_title: None,
+            html_intro: None,
+            html_outro: None,
+            no_links: false,
+            show_streams: false,
+            show_junctions: false,
+            hide_system: false,
+            long_paths: false,
+            color_scheme: ColorScheme::load(),
+            icon_set: IconSet::new(IconStyle::Nerd),
+            parallel: false,
+            threads: None,
+            queue_cap: None,
+            max_entries: None,
+            streaming: false,
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::cli::{Args, ColorWhen, PermMode};
@@ -374,8 +432,7 @@ mod tests {
 
     #[test]
     fn default_format_is_text() {
-        let config = Config::build(default_args()).unwrap();
-        assert_eq!(config.output_format, OutputFormat::Text);
+        assert_eq!(Config::default().output_format, OutputFormat::Text);
     }
 
     #[test]
@@ -411,7 +468,30 @@ mod tests {
         assert_eq!(config.output_format, OutputFormat::Json);
     }
 
+    #[test]
+    fn xml_takes_priority_over_html() {
+        let mut args = default_args();
+        args.xml = true;
+        args.html_base = Some("https://example.com".into());
+        let config = Config::build(args).unwrap();
+        assert_eq!(config.output_format, OutputFormat::Xml);
+    }
+
+    #[test]
+    fn json_takes_priority_over_html() {
+        let mut args = default_args();
+        args.json = true;
+        args.html_base = Some("https://example.com".into());
+        let config = Config::build(args).unwrap();
+        assert_eq!(config.output_format, OutputFormat::Json);
+    }
+
     // ── Color ──────────────────────────────────────────
+
+    #[test]
+    fn default_color_is_disabled() {
+        assert!(!Config::default().color_enabled);
+    }
 
     #[test]
     fn no_color_disables_color() {
@@ -468,6 +548,13 @@ mod tests {
     // ── Size ───────────────────────────────────────────
 
     #[test]
+    fn default_show_size_is_false() {
+        let config = Config::default();
+        assert!(!config.show_size);
+        assert!(!config.human_readable);
+    }
+
+    #[test]
     fn human_readable_implies_show_size() {
         let mut args = default_args();
         args.human_readable = true;
@@ -501,8 +588,7 @@ mod tests {
 
     #[test]
     fn default_sort_is_name() {
-        let config = Config::build(default_args()).unwrap();
-        assert_eq!(config.sort_config.sort_type, SortType::Name);
+        assert_eq!(Config::default().sort_config.sort_type, SortType::Name);
     }
 
     #[test]
@@ -540,7 +626,31 @@ mod tests {
         assert!(config.sort_config.reverse);
     }
 
+    #[test]
+    fn dirs_first_wins_over_files_first() {
+        let mut args = default_args();
+        args.dirs_first = true;
+        args.files_first = true;
+        let config = Config::build(args).unwrap();
+        assert!(config.sort_config.dirs_first);
+        assert!(!config.sort_config.files_first);
+    }
+
+    #[test]
+    fn files_first_alone_works() {
+        let mut args = default_args();
+        args.files_first = true;
+        let config = Config::build(args).unwrap();
+        assert!(!config.sort_config.dirs_first);
+        assert!(config.sort_config.files_first);
+    }
+
     // ── Line style ─────────────────────────────────────
+
+    #[test]
+    fn default_line_style_is_ansi() {
+        assert_eq!(Config::default().line_style, LineStyle::Ansi);
+    }
 
     #[test]
     fn cp437_sets_line_style() {
@@ -626,55 +736,26 @@ mod tests {
         args.dirs_only = true;
         args.follow_symlinks = true;
         args.full_path = true;
-        args.prune = true;
         args.classify = true;
         args.parallel = true;
-        args.streaming = true;
         let config = Config::build(args).unwrap();
         assert!(config.dirs_only);
         assert!(config.follow_symlinks);
         assert!(config.full_path);
-        assert!(config.prune);
         assert!(config.classify);
         assert!(config.parallel);
+    }
+
+    // ── Streaming ──────────────────────────────────────
+
+    #[test]
+    fn prune_disables_streaming() {
+        let mut args = default_args();
+        args.prune = true;
+        args.streaming = true;
+        let config = Config::build(args).unwrap();
+        assert!(config.prune);
         assert!(!config.streaming);
-    }
-
-    #[test]
-    fn xml_takes_priority_over_html() {
-        let mut args = default_args();
-        args.xml = true;
-        args.html_base = Some("https://example.com".into());
-        let config = Config::build(args).unwrap();
-        assert_eq!(config.output_format, OutputFormat::Xml);
-    }
-
-    #[test]
-    fn json_takes_priority_over_html() {
-        let mut args = default_args();
-        args.json = true;
-        args.html_base = Some("https://example.com".into());
-        let config = Config::build(args).unwrap();
-        assert_eq!(config.output_format, OutputFormat::Json);
-    }
-
-    #[test]
-    fn dirs_first_wins_over_files_first() {
-        let mut args = default_args();
-        args.dirs_first = true;
-        args.files_first = true;
-        let config = Config::build(args).unwrap();
-        assert!(config.sort_config.dirs_first);
-        assert!(!config.sort_config.files_first);
-    }
-
-    #[test]
-    fn files_first_alone_works() {
-        let mut args = default_args();
-        args.files_first = true;
-        let config = Config::build(args).unwrap();
-        assert!(!config.sort_config.dirs_first);
-        assert!(config.sort_config.files_first);
     }
 
     #[test]
@@ -720,5 +801,30 @@ mod tests {
         // default format is Text, prune is false
         let config = Config::build(args).unwrap();
         assert!(config.streaming);
+    }
+
+    #[test]
+    fn default_config_is_sane() {
+        let config = Config::default();
+        assert_eq!(config.output_format, OutputFormat::Text);
+        assert!(!config.color_enabled);
+        assert!(!config.parallel);
+        assert!(!config.streaming);
+        assert_eq!(config.sort_config.sort_type, SortType::Name);
+    }
+
+    #[test]
+    fn build_default_args_matches_default_config() {
+        let built = Config::build(default_args()).unwrap();
+        let default = Config::default();
+        assert_eq!(built.output_format, default.output_format);
+        assert_eq!(built.dirs_only, default.dirs_only);
+        assert_eq!(built.follow_symlinks, default.follow_symlinks);
+        assert_eq!(built.sort_config.sort_type, default.sort_config.sort_type);
+        assert_eq!(built.line_style, default.line_style);
+        assert_eq!(built.prune, default.prune);
+        assert_eq!(built.parallel, default.parallel);
+        assert_eq!(built.streaming, default.streaming);
+        assert_eq!(built.max_entries, default.max_entries);
     }
 }
