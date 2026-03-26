@@ -1,6 +1,6 @@
 mod natural;
 
-use crate::cli::SortType;
+use clap::ValueEnum;
 use std::fs::DirEntry;
 
 pub use natural::natural_cmp;
@@ -11,6 +11,16 @@ pub struct SortConfig {
     pub reverse: bool,
     pub dirs_first: bool,
     pub files_first: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum SortType {
+    Name,
+    Size,
+    Mtime,
+    Ctime,
+    Version,
+    None,
 }
 
 impl Default for SortConfig {

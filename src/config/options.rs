@@ -4,10 +4,10 @@
 
 use std::path::PathBuf;
 
-use crate::cli::{Args, ColorWhen, IconsWhen, SortType};
+use crate::cli::{Args, ColorWhen, IconsWhen};
 use crate::cli::{IconStyle, PermMode};
 use crate::core::filter::Filter;
-use crate::core::sorter::SortConfig;
+use crate::core::sorter::{SortConfig, SortType};
 use crate::error::TreeError;
 use crate::style::colors::ColorScheme;
 use crate::style::icons::IconSet;

@@ -1,3 +1,4 @@
+pub use crate::core::sorter::SortType;
 use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 
@@ -391,16 +392,6 @@ pub enum PermMode {
     Posix,
     #[default]
     Windows,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum SortType {
-    Name,
-    Size,
-    Mtime,
-    Ctime,
-    Version,
-    None,
 }
 
 pub fn parse_args() -> Args {
