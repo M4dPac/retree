@@ -9,10 +9,10 @@ use rayon::prelude::*;
 
 use super::common;
 use crate::config::Config;
-use crate::core::entry::Entry as TreeEntry;
+use crate::core::entry::Entry;
 use crate::error::TreeError;
 
-pub use crate::core::tree::Tree as Node;
+pub use crate::core::tree::Tree;
 
 //
 // ==============================
@@ -112,7 +112,7 @@ pub struct TraversalResult {
     pub errors: Vec<TreeError>,
     pub truncated: bool,
     /// Hierarchical tree for rendering
-    pub tree: Option<Node>,
+    pub tree: Option<Tree>,
 }
 
 //
@@ -255,14 +255,14 @@ fn build_node_sequential(
     visited: &mut HashSet<common::VisitedKey>,
     parent_matched: bool,
     root_device: Option<u64>,
-) -> Option<Node> {
+) -> Option<Tree> {
     if depth >= common::MAX_INTERNAL_DEPTH {
         errors.push(TreeError::MaxDepthExceeded(path.to_path_buf()));
         return None;
     }
 
     let needs_file_id = common::needs_file_id(config);
-    let mut entry = match TreeEntry::from_path(
+    let mut entry = match Entry::from_path(
         path,
         depth,
         false,
@@ -368,7 +368,7 @@ fn build_node_sequential(
         return None;
     }
 
-    Some(Node { entry, children })
+    Some(Tree { entry, children })
 }
 
 //
@@ -382,14 +382,14 @@ fn build_node_parallel_inner(
     depth: usize,
     ctx: &ParallelCtx<'_>,
     parent_matched: bool,
-) -> Option<Node> {
+) -> Option<Tree> {
     if depth >= common::MAX_INTERNAL_DEPTH {
         push_error(ctx.errors, TreeError::MaxDepthExceeded(path.to_path_buf()));
         return None;
     }
 
     let needs_file_id = common::needs_file_id(ctx.config);
-    let mut entry = match TreeEntry::from_path(
+    let mut entry = match Entry::from_path(
         path,
         depth,
         false,
@@ -438,7 +438,7 @@ fn build_node_parallel_inner(
         }
     };
 
-    let children: Vec<Node> = dir_entries
+    let children: Vec<Tree> = dir_entries
         .par_iter()
         .filter_map(|dir_entry| {
             let is_dir = match common::filter_entry(ctx.config, dir_entry, parent_matched) {
@@ -502,5 +502,5 @@ fn build_node_parallel_inner(
         return None;
     }
 
-    Some(Node { entry, children })
+    Some(Tree { entry, children })
 }

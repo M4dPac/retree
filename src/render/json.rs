@@ -4,7 +4,8 @@ use serde::Serialize;
 
 use crate::config::Config;
 use crate::core::entry::{Entry, EntryType};
-use crate::core::walker::{Node, TreeStats};
+use crate::core::tree::Tree;
+use crate::core::walker::TreeStats;
 use crate::core::BuildResult;
 use crate::error::TreeError;
 
@@ -68,7 +69,7 @@ impl JsonRenderer {
 
     /// Recursively convert a Node tree into JsonEntry with stats counting.
     fn node_to_json_entry(
-        node: &Node,
+        node: &Tree,
         config: &Config,
         stats: &mut TreeStats,
         max_entries: Option<usize>,

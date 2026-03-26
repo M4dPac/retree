@@ -8,7 +8,8 @@ use crate::error::TreeError;
 
 use std::io::Write;
 
-pub use engine::{Node, OrderedEngine, TraversalResult};
+pub use crate::core::tree::Tree;
+pub use engine::{OrderedEngine, TraversalResult};
 pub use streaming::{StreamingEngine, StreamingResult};
 
 /// Statistics gathered during tree traversal.

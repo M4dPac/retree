@@ -3,7 +3,8 @@ use std::io::Write;
 
 use crate::config::Config;
 use crate::core::entry::Entry;
-use crate::core::walker::{Node, TreeStats};
+use crate::core::tree::Tree;
+use crate::core::walker::TreeStats;
 use crate::core::BuildResult;
 use crate::error::TreeError;
 use crate::i18n::{self, format_report, get_message, MessageKey};
@@ -206,7 +207,7 @@ impl HtmlRenderer {
     /// Recursively render children of a tree node (depth-first).
     fn render_children<W: Write>(
         &self,
-        node: &Node,
+        node: &Tree,
         ancestors_last: &[bool],
         writer: &mut W,
         stats: &mut TreeStats,

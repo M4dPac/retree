@@ -2,8 +2,8 @@ use std::io::Write;
 
 use crate::config::{Config, LineStyle};
 use crate::core::entry::{Entry, EntryType};
+use crate::core::tree::Tree;
 use crate::core::walker::EntryWriter;
-use crate::core::walker::Node;
 use crate::core::walker::TreeStats;
 use crate::core::BuildResult;
 use crate::error::TreeError;
@@ -280,7 +280,7 @@ impl TextRenderer {
     /// computes is_last/ancestors_last on the fly.
     fn render_children<W: Write>(
         &self,
-        node: &Node,
+        node: &Tree,
         ancestors_last: &[bool],
         config: &Config,
         writer: &mut W,

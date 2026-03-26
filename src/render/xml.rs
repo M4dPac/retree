@@ -2,7 +2,9 @@ use std::io::Write;
 
 use crate::config::Config;
 use crate::core::entry::{Entry, EntryType};
-use crate::core::walker::{Node, TreeStats};
+use crate::core::tree::Tree;
+use crate::core::walker::TreeStats;
+
 use crate::core::BuildResult;
 use crate::error::TreeError;
 
@@ -95,7 +97,7 @@ impl XmlRenderer {
     /// Recursively render children as XML (tree-based, no pending_dir needed).
     fn render_tree_children<W: Write>(
         writer: &mut W,
-        node: &Node,
+        node: &Tree,
         config: &Config,
         stats: &mut TreeStats,
         state: &mut RenderState,

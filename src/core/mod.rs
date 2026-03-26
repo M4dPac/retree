@@ -27,7 +27,7 @@ pub struct BuildResult {
     /// Whether the output was truncated by --max-entries
     pub truncated: bool,
     /// Hierarchical tree (for future tree-based rendering)
-    pub tree: Option<walker::Node>,
+    pub tree: Option<walker::Tree>,
 }
 
 /// Build a directory tree for the given path.
