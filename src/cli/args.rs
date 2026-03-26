@@ -386,27 +386,3 @@ pub enum PermMode {
     #[default]
     Windows,
 }
-
-impl Args {
-    pub fn effective_color(&self) -> ColorWhen {
-        if self.no_color {
-            ColorWhen::Never
-        } else if self.color_always {
-            ColorWhen::Always
-        } else {
-            self.color
-        }
-    }
-
-    pub fn effective_icons(&self) -> IconsWhen {
-        if self.no_icons {
-            IconsWhen::Never
-        } else {
-            match self.icons.to_lowercase().as_str() {
-                "always" => IconsWhen::Always,
-                "never" => IconsWhen::Never,
-                _ => IconsWhen::Auto,
-            }
-        }
-    }
-}

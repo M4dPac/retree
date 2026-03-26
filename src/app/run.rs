@@ -21,13 +21,8 @@ use crate::render::TextRenderer;
 
 /// Main application entry point.
 pub fn run(args: Args) -> ExitCode {
-    // Initialize localization first
+    // Initialize localization (idempotent — safe if main.rs already called it)
     i18n::init(args.lang.as_deref());
-
-    // Platform-specific initialization
-    if args.effective_color() != crate::cli::ColorWhen::Never {
-        crate::platform::enable_ansi();
-    }
 
     // Build configuration from arguments
     let config = match Config::build(args) {
@@ -38,8 +33,17 @@ pub fn run(args: Args) -> ExitCode {
         }
     };
 
-    let exit_code = execute(config);
-    ExitCode::from(exit_code)
+    run_with_config(config)
+}
+
+/// Execute with a pre-built Config. Allows testing without clap parsing.
+pub fn run_with_config(config: Config) -> ExitCode {
+    // Platform-specific: enable ANSI escapes on Windows console
+    if config.color_enabled {
+        crate::platform::enable_ansi();
+    }
+
+    ExitCode::from(execute(config))
 }
 
 /// Execute tree traversal and rendering with the given configuration.

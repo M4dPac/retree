@@ -113,13 +113,29 @@ impl Config {
     ///
     /// Priority: CLI args > ENV > (future: TOML) > defaults
     pub fn build(args: Args) -> Result<Self, TreeError> {
-        let color_enabled = match args.effective_color() {
+        let color_when = if args.no_color {
+            ColorWhen::Never
+        } else if args.color_always {
+            ColorWhen::Always
+        } else {
+            args.color
+        };
+        let color_enabled = match color_when {
             ColorWhen::Always => true,
             ColorWhen::Never => false,
             ColorWhen::Auto => crate::platform::is_tty(),
         };
 
-        let icons_enabled = match args.effective_icons() {
+        let icons_when = if args.no_icons {
+            IconsWhen::Never
+        } else {
+            match args.icons.to_lowercase().as_str() {
+                "always" => IconsWhen::Always,
+                "never" => IconsWhen::Never,
+                _ => IconsWhen::Auto,
+            }
+        };
+        let icons_enabled = match icons_when {
             IconsWhen::Always => true,
             IconsWhen::Never => false,
             IconsWhen::Auto => crate::platform::is_tty() && color_enabled,

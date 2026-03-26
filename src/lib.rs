@@ -16,4 +16,4 @@ pub mod render;
 pub mod style;
 
 // Re-export main entry point for convenience
-pub use app::run;
+pub use app::{run, run_with_config};
