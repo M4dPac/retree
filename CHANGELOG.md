@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `-P` and `-I` now accept pipe-separated OR patterns: `rtree -P "*.rs|*.toml"` matches files ending in `.rs` or `.toml` (use `\|` for a literal pipe character)
+- Warn when multiple output formats are specified and indicate which one is used (priority: JSON > XML > HTML)
 
 ### Fixed
 

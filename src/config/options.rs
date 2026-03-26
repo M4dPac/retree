@@ -192,6 +192,12 @@ impl Config {
             args.ignore_case,
         )?;
 
+        if args.dirs_first && args.files_first {
+            eprintln!(
+                "rtree: warning: --dirsfirst and --filesfirst are mutually exclusive, using --dirsfirst"
+            );
+        }
+
         let sort_config = SortConfig {
             sort_type: args.sort.unwrap_or({
                 if args.unsorted {
@@ -208,7 +214,7 @@ impl Config {
             }),
             reverse: args.reverse,
             dirs_first: args.dirs_first,
-            files_first: args.files_first,
+            files_first: args.files_first && !args.dirs_first,
         };
 
         // Future: load TOML config and merge here
@@ -653,5 +659,24 @@ mod tests {
         args.html_base = Some("https://example.com".into());
         let config = Config::build(args).unwrap();
         assert_eq!(config.output_format, OutputFormat::Json);
+    }
+
+    #[test]
+    fn dirs_first_wins_over_files_first() {
+        let mut args = default_args();
+        args.dirs_first = true;
+        args.files_first = true;
+        let config = Config::build(args).unwrap();
+        assert!(config.sort_config.dirs_first);
+        assert!(!config.sort_config.files_first);
+    }
+
+    #[test]
+    fn files_first_alone_works() {
+        let mut args = default_args();
+        args.files_first = true;
+        let config = Config::build(args).unwrap();
+        assert!(!config.sort_config.dirs_first);
+        assert!(config.sort_config.files_first);
     }
 }
