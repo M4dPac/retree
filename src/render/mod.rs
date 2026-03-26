@@ -11,11 +11,11 @@ mod xml;
 
 pub mod traits;
 
-pub use html::HtmlRenderer;
-pub use json::JsonRenderer;
+use html::HtmlRenderer;
+use json::JsonRenderer;
 pub use text::TextRenderer;
 pub use traits::Renderer;
-pub use xml::XmlRenderer;
+use xml::XmlRenderer;
 
 use std::io::Write;
 
