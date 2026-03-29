@@ -12,11 +12,7 @@ use super::helpers;
 use super::traits::Renderer;
 use super::RenderState;
 
-pub struct TextRenderer {
-    line_style: LineStyle,
-    color_enabled: bool,
-    icons_enabled: bool,
-}
+pub struct TextRenderer;
 
 struct TreeChars {
     branch: &'static str,
@@ -51,17 +47,19 @@ const ASCII_CHARS: TreeChars = TreeChars {
     space: "    ",
 };
 
+impl Default for TextRenderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TextRenderer {
-    pub fn new(config: &Config) -> Self {
-        TextRenderer {
-            line_style: config.line_style,
-            color_enabled: config.color_enabled,
-            icons_enabled: config.icons_enabled,
-        }
+    pub fn new() -> Self {
+        TextRenderer
     }
 
-    fn get_chars(&self) -> &'static TreeChars {
-        match self.line_style {
+    fn get_chars(config: &Config) -> &'static TreeChars {
+        match config.line_style {
             LineStyle::Ansi => &ANSI_CHARS,
             LineStyle::Cp437 => &CP437_CHARS,
             LineStyle::Ascii => &ASCII_CHARS,
@@ -95,7 +93,7 @@ impl TextRenderer {
             return String::new();
         }
 
-        let chars = self.get_chars();
+        let chars = Self::get_chars(config);
         let mut prefix = String::new();
 
         for &ancestor_last in ancestors_last {
@@ -120,7 +118,7 @@ impl TextRenderer {
     fn format_name(&self, entry: &Entry, config: &Config) -> String {
         let mut name = String::new();
 
-        if self.icons_enabled {
+        if config.icons_enabled {
             let icon = config.icon_set.get_icon(entry);
             name.push_str(&icon);
             name.push(' ');
@@ -257,7 +255,7 @@ impl TextRenderer {
     }
 
     fn apply_color(&self, entry: &Entry, text: &str, config: &Config) -> String {
-        if !self.color_enabled {
+        if !config.color_enabled {
             return text.to_string();
         }
 

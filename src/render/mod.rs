@@ -84,7 +84,7 @@ pub fn dispatch<W: Write>(
 ) -> Result<(), TreeError> {
     match config.output_format {
         OutputFormat::Text => {
-            let renderer = TextRenderer::new(config);
+            let renderer = TextRenderer::new();
             renderer.render(result, config, writer, stats)
         }
         OutputFormat::Html => {

@@ -149,7 +149,7 @@ fn render_tree<W: Write>(
 ) -> Result<(), TreeError> {
     // Streaming mode: text-only, traverse and render in single pass
     if config.streaming {
-        let text_render = TextRenderer::new(config);
+        let text_render = TextRenderer::new();
         let engine = StreamingEngine::new(config, &text_render);
         match engine.traverse_and_render(path, output, stats) {
             Ok(result) => {
