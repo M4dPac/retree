@@ -91,7 +91,13 @@ impl TextRenderer {
             .collect()
     }
 
-    fn format_prefix(&self, entry: &Entry, config: &Config) -> String {
+    fn format_prefix(
+        &self,
+        depth: usize,
+        is_last: bool,
+        ancestors_last: &[bool],
+        config: &Config,
+    ) -> String {
         if config.no_indent {
             return String::new();
         }
@@ -99,16 +105,16 @@ impl TextRenderer {
         let chars = self.get_chars();
         let mut prefix = String::new();
 
-        for &is_last in &entry.ancestors_last {
-            if is_last {
+        for &ancestor_last in ancestors_last {
+            if ancestor_last {
                 prefix.push_str(chars.space);
             } else {
                 prefix.push_str(chars.vertical);
             }
         }
 
-        if entry.depth > 0 {
-            if entry.is_last {
+        if depth > 0 {
+            if is_last {
                 prefix.push_str(chars.last_branch);
             } else {
                 prefix.push_str(chars.branch);
@@ -296,12 +302,8 @@ impl TextRenderer {
 
             let is_last = i == num_children - 1;
 
-            let mut entry = child.entry.clone();
-            entry.is_last = is_last;
-            entry.ancestors_last = ancestors_last.to_vec();
-
-            self.write_entry(writer, &entry, config)?;
-            helpers::count_stats(&entry, stats);
+            self.write_entry_with_layout(writer, &child.entry, is_last, ancestors_last, config)?;
+            helpers::count_stats(&child.entry, stats);
             state.count += 1;
 
             if !child.children.is_empty() {
@@ -315,16 +317,17 @@ impl TextRenderer {
         }
         Ok(())
     }
-}
 
-impl EntryWriter for TextRenderer {
-    fn write_entry(
+    /// Write a single entry with explicit layout info (no Entry clone needed).
+    fn write_entry_with_layout(
         &self,
         writer: &mut dyn Write,
         entry: &Entry,
+        is_last: bool,
+        ancestors_last: &[bool],
         config: &Config,
     ) -> Result<(), TreeError> {
-        let prefix = self.format_prefix(entry, config);
+        let prefix = self.format_prefix(entry.depth, is_last, ancestors_last, config);
         let info = self.format_info(entry, config);
         let info = if config.safe_print {
             Self::sanitize_for_terminal(&info)
@@ -335,8 +338,18 @@ impl EntryWriter for TextRenderer {
         let colored_name = self.apply_color(entry, &name, config);
 
         writeln!(writer, "{}{}{}", prefix, info, colored_name)?;
-
         Ok(())
+    }
+}
+
+impl EntryWriter for TextRenderer {
+    fn write_entry(
+        &self,
+        writer: &mut dyn Write,
+        entry: &Entry,
+        config: &Config,
+    ) -> Result<(), TreeError> {
+        self.write_entry_with_layout(writer, entry, entry.is_last, &entry.ancestors_last, config)
     }
 }
 
@@ -349,7 +362,7 @@ impl Renderer for TextRenderer {
         stats: &mut TreeStats,
     ) -> Result<(), TreeError> {
         // Root entry
-        self.write_entry(writer, &result.root, config)?;
+        self.write_entry_with_layout(writer, &result.root, false, &[], config)?;
         helpers::count_stats(&result.root, stats);
 
         // Children from tree
