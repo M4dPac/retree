@@ -38,7 +38,7 @@ pub fn build_tree(config: &Config, path: &Path) -> Result<BuildResult, TreeError
     let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
     let needs_attrs = config.show_permissions;
 
-    let root = Entry::from_path(path, 0, true, vec![], needs_file_id, needs_attrs)?;
+    let root = Entry::from_path(path, 0, needs_file_id, needs_attrs)?;
 
     let engine = OrderedEngine::new(config);
     let traversal = engine.traverse(path, config);

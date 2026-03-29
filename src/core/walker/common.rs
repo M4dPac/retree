@@ -319,14 +319,7 @@ pub fn make_file_node(
     show_permissions: bool,
     show_streams: bool,
 ) -> Result<Tree, TreeError> {
-    let entry = Entry::from_dir_entry(
-        dir_entry,
-        depth,
-        false,
-        vec![],
-        needs_file_id,
-        show_permissions,
-    )?;
+    let entry = Entry::from_dir_entry(dir_entry, depth, needs_file_id, show_permissions)?;
     let stream_children = if show_streams {
         collect_ads_children(&dir_entry.path(), depth + 1)
     } else {
@@ -345,14 +338,7 @@ pub fn make_recursive_link_node(
     needs_file_id: bool,
     show_permissions: bool,
 ) -> Result<Tree, TreeError> {
-    let mut entry = Entry::from_dir_entry(
-        dir_entry,
-        depth,
-        false,
-        vec![],
-        needs_file_id,
-        show_permissions,
-    )?;
+    let mut entry = Entry::from_dir_entry(dir_entry, depth, needs_file_id, show_permissions)?;
     entry.recursive_link = true;
     Ok(leaf_node(entry))
 }

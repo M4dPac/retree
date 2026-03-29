@@ -114,8 +114,6 @@ impl Entry {
     pub fn from_path(
         path: &Path,
         depth: usize,
-        is_last: bool,
-        ancestors_last: Vec<bool>,
         needs_file_id: bool,
         needs_attrs: bool,
     ) -> Result<Self, TreeError> {
@@ -136,8 +134,8 @@ impl Entry {
             entry_type,
             metadata: Some(metadata),
             depth,
-            is_last,
-            ancestors_last,
+            is_last: false,
+            ancestors_last: Vec::new(),
             filelimit_exceeded: None,
             recursive_link: false,
         })
@@ -146,8 +144,6 @@ impl Entry {
     pub fn from_dir_entry(
         entry: &std::fs::DirEntry,
         depth: usize,
-        is_last: bool,
-        ancestors_last: Vec<bool>,
         needs_file_id: bool,
         needs_attrs: bool,
     ) -> Result<Self, TreeError> {
@@ -167,8 +163,8 @@ impl Entry {
             entry_type,
             metadata: Some(metadata),
             depth,
-            is_last,
-            ancestors_last,
+            is_last: false,
+            ancestors_last: Vec::new(),
             filelimit_exceeded: None,
             recursive_link: false,
         })
@@ -602,11 +598,11 @@ mod tests {
         let f = dir.path().join("hello.txt");
         std::fs::write(&f, "hello world").unwrap();
 
-        let e = Entry::from_path(&f, 1, true, vec![false], false, false).unwrap();
+        let e = Entry::from_path(&f, 1, false, false).unwrap();
         assert_eq!(e.name, "hello.txt");
         assert_eq!(e.depth, 1);
-        assert!(e.is_last);
-        assert_eq!(e.ancestors_last, vec![false]);
+        assert!(!e.is_last);
+        assert!(e.ancestors_last.is_empty());
         assert!(matches!(e.entry_type, EntryType::File));
         assert_eq!(e.metadata.as_ref().unwrap().size, 11);
     }
@@ -617,21 +613,14 @@ mod tests {
         let sub = dir.path().join("subdir");
         std::fs::create_dir(&sub).unwrap();
 
-        let e = Entry::from_path(&sub, 0, false, vec![], false, false).unwrap();
+        let e = Entry::from_path(&sub, 0, false, false).unwrap();
         assert_eq!(e.name, "subdir");
         assert!(matches!(e.entry_type, EntryType::Directory));
     }
 
     #[test]
     fn from_path_nonexistent_errors() {
-        let result = Entry::from_path(
-            &PathBuf::from("/no/such/path/xyz_42"),
-            0,
-            false,
-            vec![],
-            false,
-            false,
-        );
+        let result = Entry::from_path(&PathBuf::from("/no/such/path/xyz_42"), 0, false, false);
         assert!(result.is_err());
     }
 
@@ -641,7 +630,7 @@ mod tests {
         let f = dir.path().join("ts.txt");
         std::fs::write(&f, "x").unwrap();
 
-        let e = Entry::from_path(&f, 0, false, vec![], false, false).unwrap();
+        let e = Entry::from_path(&f, 0, false, false).unwrap();
         let meta = e.metadata.as_ref().unwrap();
         assert!(meta.modified.is_some());
     }
@@ -661,11 +650,11 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let e = Entry::from_dir_entry(&de, 2, false, vec![true], false, false).unwrap();
+        let e = Entry::from_dir_entry(&de, 2, false, false).unwrap();
         assert_eq!(e.name, "readme.md");
         assert_eq!(e.depth, 2);
         assert!(!e.is_last);
-        assert_eq!(e.ancestors_last, vec![true]);
+        assert!(e.ancestors_last.is_empty());
     }
 
     // ══════════════════════════════════════════════
@@ -701,7 +690,7 @@ mod tests {
         std::fs::write(&target, "data").unwrap();
         std::os::unix::fs::symlink(&target, &link).unwrap();
 
-        let e = Entry::from_path(&link, 0, false, vec![], false, false).unwrap();
+        let e = Entry::from_path(&link, 0, false, false).unwrap();
         match &e.entry_type {
             EntryType::Symlink { target: t, broken } => {
                 assert!(!broken);
@@ -718,7 +707,7 @@ mod tests {
         let link = dir.path().join("broken_link");
         std::os::unix::fs::symlink("/no/such/target", &link).unwrap();
 
-        let e = Entry::from_path(&link, 0, false, vec![], false, false).unwrap();
+        let e = Entry::from_path(&link, 0, false, false).unwrap();
         match &e.entry_type {
             EntryType::Symlink { broken, .. } => assert!(broken),
             other => panic!("expected Symlink, got {:?}", other),
@@ -734,7 +723,7 @@ mod tests {
         std::fs::write(&target, "x").unwrap();
         std::os::unix::fs::symlink("real.txt", &link).unwrap();
 
-        let e = Entry::from_path(&link, 0, false, vec![], false, false).unwrap();
+        let e = Entry::from_path(&link, 0, false, false).unwrap();
         match &e.entry_type {
             EntryType::Symlink { broken, .. } => assert!(!broken),
             other => panic!("expected Symlink, got {:?}", other),

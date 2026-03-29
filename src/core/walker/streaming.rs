@@ -85,14 +85,7 @@ impl<'a> StreamingEngine<'a> {
         let root = long_root_buf.as_path();
 
         // Root entry
-        let root_entry = Entry::from_path(
-            root,
-            0,
-            false,
-            vec![],
-            needs_file_id,
-            config.show_permissions,
-        )?;
+        let root_entry = Entry::from_path(root, 0, needs_file_id, config.show_permissions)?;
         self.entry_writer.write_entry(writer, &root_entry, config)?;
         stats.directories += 1;
 
@@ -206,15 +199,11 @@ impl<'a> StreamingEngine<'a> {
 
             let is_last = i == total - 1;
 
-            match Entry::from_dir_entry(
-                dir_entry,
-                depth,
-                is_last,
-                ancestors_last.to_vec(),
-                needs_file_id,
-                config.show_permissions,
-            ) {
+            match Entry::from_dir_entry(dir_entry, depth, needs_file_id, config.show_permissions) {
                 Ok(mut entry) => {
+                    entry.is_last = is_last;
+                    entry.ancestors_last = ancestors_last.to_vec();
+
                     // Determine if this entry is a traversable directory
                     let should_descend = match &entry.entry_type {
                         EntryType::Directory => true,

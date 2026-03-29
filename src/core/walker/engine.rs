@@ -262,14 +262,7 @@ fn build_node_sequential(
     }
 
     let needs_file_id = common::needs_file_id(config);
-    let mut entry = match Entry::from_path(
-        path,
-        depth,
-        false,
-        vec![],
-        needs_file_id,
-        config.show_permissions,
-    ) {
+    let mut entry = match Entry::from_path(path, depth, needs_file_id, config.show_permissions) {
         Ok(e) => e,
         Err(e) => {
             errors.push(e);
@@ -389,14 +382,8 @@ fn build_node_parallel_inner(
     }
 
     let needs_file_id = common::needs_file_id(ctx.config);
-    let mut entry = match Entry::from_path(
-        path,
-        depth,
-        false,
-        vec![],
-        needs_file_id,
-        ctx.config.show_permissions,
-    ) {
+    let mut entry = match Entry::from_path(path, depth, needs_file_id, ctx.config.show_permissions)
+    {
         Ok(e) => e,
         Err(e) => {
             push_error(ctx.errors, e);
