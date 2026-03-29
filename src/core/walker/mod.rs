@@ -8,7 +8,6 @@ use crate::error::TreeError;
 
 use std::io::Write;
 
-pub use crate::core::tree::Tree;
 pub use engine::{OrderedEngine, TraversalResult};
 pub use streaming::{StreamingEngine, StreamingResult};
 
