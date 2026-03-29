@@ -11,6 +11,7 @@ use crate::i18n::{self, format_report, get_message, MessageKey};
 
 use super::helpers;
 use super::traits::Renderer;
+use super::RenderState;
 
 pub struct TextRenderer {
     line_style: LineStyle,
@@ -25,13 +26,6 @@ struct TreeChars {
     #[allow(dead_code)]
     horizontal: &'static str,
     space: &'static str,
-}
-
-/// Mutable state for tree-based rendering (truncation tracking).
-struct RenderState {
-    max_entries: Option<usize>,
-    count: usize,
-    truncated: bool,
 }
 
 const ANSI_CHARS: TreeChars = TreeChars {

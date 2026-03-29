@@ -11,6 +11,7 @@ use crate::i18n::{self, format_report, get_message, MessageKey};
 
 use super::helpers;
 use super::traits::Renderer;
+use super::RenderState;
 
 pub struct HtmlRenderer {
     base_url: Option<String>,
@@ -18,13 +19,6 @@ pub struct HtmlRenderer {
     no_links: bool,
     intro: Option<String>,
     outro: Option<String>,
-}
-
-/// Mutable state for tree-based rendering (truncation tracking).
-struct RenderState {
-    max_entries: Option<usize>,
-    count: usize,
-    truncated: bool,
 }
 
 impl HtmlRenderer {

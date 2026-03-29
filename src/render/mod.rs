@@ -24,6 +24,15 @@ use crate::core::walker::TreeStats;
 use crate::core::BuildResult;
 use crate::error::TreeError;
 
+/// Mutable state for tree-based rendering (truncation tracking).
+///
+/// Shared across text, HTML, and XML renderers.
+pub(crate) struct RenderState {
+    pub(crate) max_entries: Option<usize>,
+    pub(crate) count: usize,
+    pub(crate) truncated: bool,
+}
+
 /// Dispatch rendering to the appropriate backend based on configuration.
 ///
 /// Creates the appropriate renderer based on `config.output_format`

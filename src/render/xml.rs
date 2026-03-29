@@ -10,15 +10,9 @@ use crate::error::TreeError;
 
 use super::helpers;
 use super::traits::Renderer;
+use super::RenderState;
 
 pub struct XmlRenderer;
-
-/// Mutable state for tree-based rendering (truncation tracking).
-struct RenderState {
-    max_entries: Option<usize>,
-    count: usize,
-    truncated: bool,
-}
 
 impl XmlRenderer {
     pub fn new(_config: &Config) -> Self {
