@@ -30,7 +30,7 @@ struct JsonEntry {
 }
 
 impl JsonRenderer {
-    pub fn new(_config: &Config) -> Self {
+    pub fn new() -> Self {
         JsonRenderer
     }
 

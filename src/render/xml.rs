@@ -15,7 +15,7 @@ use super::RenderState;
 pub struct XmlRenderer;
 
 impl XmlRenderer {
-    pub fn new(_config: &Config) -> Self {
+    pub fn new() -> Self {
         XmlRenderer
     }
 

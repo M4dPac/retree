@@ -92,11 +92,11 @@ pub fn dispatch<W: Write>(
             renderer.render(result, config, writer, stats)
         }
         OutputFormat::Xml => {
-            let renderer = XmlRenderer::new(config);
+            let renderer = XmlRenderer::new();
             renderer.render(result, config, writer, stats)
         }
         OutputFormat::Json => {
-            let renderer = JsonRenderer::new(config);
+            let renderer = JsonRenderer::new();
             renderer.render(result, config, writer, stats)
         }
     }
