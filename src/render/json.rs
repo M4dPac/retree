@@ -235,3 +235,181 @@ impl Renderer for JsonRenderer {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::entry::{Entry, EntryType};
+    use crate::core::tree::Tree;
+    use crate::core::walker::TreeStats;
+    use std::ffi::OsString;
+    use std::path::PathBuf;
+
+    fn file_entry(name: &str, depth: usize) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: OsString::from(name),
+            entry_type: EntryType::File,
+            metadata: None,
+            depth,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        }
+    }
+
+    fn dir_entry(name: &str, depth: usize) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: OsString::from(name),
+            entry_type: EntryType::Directory,
+            metadata: None,
+            depth,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        }
+    }
+
+    fn result_with(root: Entry, tree: Option<Tree>) -> BuildResult {
+        BuildResult {
+            root,
+            tree,
+            errors: vec![],
+            truncated: false,
+        }
+    }
+
+    fn render_json(result: &BuildResult, config: &Config) -> String {
+        let renderer = JsonRenderer::new();
+        let mut buf = Vec::new();
+        let mut stats = TreeStats::default();
+        renderer
+            .render(result, config, &mut buf, &mut stats)
+            .unwrap();
+        String::from_utf8(buf).unwrap()
+    }
+
+    #[test]
+    fn json_root_only_valid_json() {
+        let result = result_with(dir_entry("test_dir", 0), None);
+        let config = Config::default();
+        let output = render_json(&result, &config);
+        let parsed: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
+        let arr = parsed.as_array().unwrap();
+        assert!(!arr.is_empty());
+        assert_eq!(arr[0]["type"], "directory");
+        assert_eq!(arr[0]["name"], "test_dir");
+    }
+
+    #[test]
+    fn json_with_children_in_contents() {
+        let tree = Tree {
+            entry: dir_entry("root", 0),
+            children: vec![
+                Tree {
+                    entry: file_entry("a.txt", 1),
+                    children: vec![],
+                },
+                Tree {
+                    entry: file_entry("b.txt", 1),
+                    children: vec![],
+                },
+            ],
+        };
+        let result = result_with(dir_entry("root", 0), Some(tree));
+        let config = Config::default();
+        let output = render_json(&result, &config);
+        let parsed: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
+        let contents = parsed[0]["contents"].as_array().unwrap();
+        assert_eq!(contents.len(), 2);
+        assert_eq!(contents[0]["name"], "a.txt");
+        assert_eq!(contents[1]["name"], "b.txt");
+    }
+
+    #[test]
+    fn json_no_report_omits_report_object() {
+        let result = result_with(dir_entry("root", 0), None);
+        let config = Config {
+            no_report: true,
+            ..Default::default()
+        };
+        let output = render_json(&result, &config);
+        let parsed: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
+        let arr = parsed.as_array().unwrap();
+        assert_eq!(arr.len(), 1, "no report object when no_report=true");
+    }
+
+    #[test]
+    fn json_report_present_by_default() {
+        let result = result_with(dir_entry("root", 0), None);
+        let config = Config::default();
+        let output = render_json(&result, &config);
+        let parsed: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
+        let arr = parsed.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[1]["type"], "report");
+    }
+
+    #[test]
+    fn json_dirs_only_report_omits_files() {
+        let result = result_with(dir_entry("root", 0), None);
+        let config = Config {
+            dirs_only: true,
+            ..Default::default()
+        };
+        let output = render_json(&result, &config);
+        let parsed: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
+        let report = &parsed.as_array().unwrap()[1];
+        assert!(
+            report.get("files").is_none(),
+            "dirs_only report has no files key"
+        );
+    }
+
+    #[test]
+    fn json_max_entries_truncates() {
+        let tree = Tree {
+            entry: dir_entry("root", 0),
+            children: vec![
+                Tree {
+                    entry: file_entry("a", 1),
+                    children: vec![],
+                },
+                Tree {
+                    entry: file_entry("b", 1),
+                    children: vec![],
+                },
+                Tree {
+                    entry: file_entry("c", 1),
+                    children: vec![],
+                },
+            ],
+        };
+        let result = result_with(dir_entry("root", 0), Some(tree));
+        let config = Config {
+            max_entries: Some(2),
+            ..Default::default()
+        };
+        let output = render_json(&result, &config);
+        let parsed: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
+        let contents = parsed[0]["contents"].as_array().unwrap();
+        assert_eq!(contents.len(), 2);
+    }
+
+    #[test]
+    fn json_pretty_format() {
+        let result = result_with(dir_entry("root", 0), None);
+        let config = Config {
+            json_pretty: true,
+            ..Default::default()
+        };
+        let output = render_json(&result, &config);
+        // Pretty format has indented lines
+        assert!(output.contains("  "), "pretty format should be indented");
+        // Still valid JSON
+        let _: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
+    }
+}
