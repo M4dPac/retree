@@ -13,7 +13,7 @@ use crate::error::TreeError;
 /// begin → write root → write entries → finalize (with stats report).
 pub trait Renderer {
     fn render<W: Write>(
-        &mut self,
+        &self,
         result: &BuildResult,
         config: &Config,
         writer: &mut W,

@@ -165,7 +165,7 @@ impl XmlRenderer {
 
 impl Renderer for XmlRenderer {
     fn render<W: Write>(
-        &mut self,
+        &self,
         result: &BuildResult,
         config: &Config,
         writer: &mut W,

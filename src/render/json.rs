@@ -185,7 +185,7 @@ impl JsonRenderer {
 
 impl Renderer for JsonRenderer {
     fn render<W: Write>(
-        &mut self,
+        &self,
         result: &BuildResult,
         config: &Config,
         writer: &mut W,

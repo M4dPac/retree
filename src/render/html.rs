@@ -206,7 +206,7 @@ impl HtmlRenderer {
 
 impl Renderer for HtmlRenderer {
     fn render<W: Write>(
-        &mut self,
+        &self,
         result: &BuildResult,
         config: &Config,
         writer: &mut W,
@@ -225,14 +225,13 @@ impl Renderer for HtmlRenderer {
                 count: 0,
                 truncated: false,
             };
-            let this = &*self;
             super::walk_tree(
                 tree,
                 &[],
                 stats,
                 &mut state,
                 &mut |entry, is_last, ancestors| {
-                    this.write_entry_with_layout(writer, entry, is_last, ancestors)
+                    self.write_entry_with_layout(writer, entry, is_last, ancestors)
                 },
             )?;
         }
