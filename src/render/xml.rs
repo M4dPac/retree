@@ -208,3 +208,162 @@ impl Renderer for XmlRenderer {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::entry::{Entry, EntryType};
+    use crate::core::tree::Tree;
+    use crate::core::walker::TreeStats;
+    use std::ffi::OsString;
+    use std::path::PathBuf;
+
+    fn file_entry(name: &str, depth: usize) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: OsString::from(name),
+            entry_type: EntryType::File,
+            metadata: None,
+            depth,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        }
+    }
+
+    fn dir_entry(name: &str, depth: usize) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: OsString::from(name),
+            entry_type: EntryType::Directory,
+            metadata: None,
+            depth,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        }
+    }
+
+    fn result_with(root: Entry, tree: Option<Tree>) -> BuildResult {
+        BuildResult {
+            root,
+            tree,
+            errors: vec![],
+            truncated: false,
+        }
+    }
+
+    fn render_xml(result: &BuildResult, config: &Config) -> String {
+        let renderer = XmlRenderer::new();
+        let mut buf = Vec::new();
+        let mut stats = TreeStats::default();
+        renderer
+            .render(result, config, &mut buf, &mut stats)
+            .unwrap();
+        String::from_utf8(buf).unwrap()
+    }
+
+    #[test]
+    fn xml_header_and_root() {
+        let result = result_with(dir_entry("mydir", 0), None);
+        let config = Config::default();
+        let output = render_xml(&result, &config);
+        assert!(output.starts_with("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
+        assert!(output.contains("<tree>"));
+        assert!(output.contains("<directory name=\"mydir\""));
+        assert!(output.contains("</tree>"));
+    }
+
+    #[test]
+    fn xml_file_child() {
+        let tree = Tree {
+            entry: dir_entry("root", 0),
+            children: vec![Tree {
+                entry: file_entry("hello.txt", 1),
+                children: vec![],
+            }],
+        };
+        let result = result_with(dir_entry("root", 0), Some(tree));
+        let config = Config::default();
+        let output = render_xml(&result, &config);
+        assert!(output.contains("<file name=\"hello.txt\""));
+    }
+
+    #[test]
+    fn xml_symlink_child() {
+        let link = Entry {
+            path: PathBuf::from("mylink"),
+            name: OsString::from("mylink"),
+            entry_type: EntryType::Symlink {
+                target: PathBuf::from("/target"),
+                broken: false,
+            },
+            metadata: None,
+            depth: 1,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        };
+        let tree = Tree {
+            entry: dir_entry("root", 0),
+            children: vec![Tree {
+                entry: link,
+                children: vec![],
+            }],
+        };
+        let result = result_with(dir_entry("root", 0), Some(tree));
+        let config = Config::default();
+        let output = render_xml(&result, &config);
+        assert!(output.contains("<link name=\"mylink\""));
+        assert!(output.contains("target=\"/target\""));
+    }
+
+    #[test]
+    fn xml_no_report() {
+        let result = result_with(dir_entry("root", 0), None);
+        let config = Config {
+            no_report: true,
+            ..Default::default()
+        };
+        let output = render_xml(&result, &config);
+        assert!(!output.contains("<report>"));
+    }
+
+    #[test]
+    fn xml_report_present() {
+        let result = result_with(dir_entry("root", 0), None);
+        let config = Config::default();
+        let output = render_xml(&result, &config);
+        assert!(output.contains("<report>"));
+        assert!(output.contains("<directories>"));
+    }
+
+    #[test]
+    fn xml_escapes_special_chars() {
+        let entry = Entry {
+            path: PathBuf::from("a&b<c"),
+            name: OsString::from("a&b<c"),
+            entry_type: EntryType::File,
+            metadata: None,
+            depth: 1,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        };
+        let tree = Tree {
+            entry: dir_entry("root", 0),
+            children: vec![Tree {
+                entry,
+                children: vec![],
+            }],
+        };
+        let result = result_with(dir_entry("root", 0), Some(tree));
+        let config = Config::default();
+        let output = render_xml(&result, &config);
+        assert!(output.contains("a&amp;b&lt;c"));
+    }
+}
