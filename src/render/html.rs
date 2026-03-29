@@ -126,10 +126,16 @@ impl HtmlRenderer {
         Ok(())
     }
 
-    fn write_entry<W: Write>(&self, writer: &mut W, entry: &Entry) -> Result<(), TreeError> {
+    fn write_entry_with_layout<W: Write>(
+        &self,
+        writer: &mut W,
+        entry: &Entry,
+        is_last: bool,
+        ancestors_last: &[bool],
+    ) -> Result<(), TreeError> {
         let mut prefix = String::new();
-        for &is_last in &entry.ancestors_last {
-            if is_last {
+        for &ancestor_last in ancestors_last {
+            if ancestor_last {
                 prefix.push_str("    ");
             } else {
                 prefix.push_str("│   ");
@@ -137,7 +143,7 @@ impl HtmlRenderer {
         }
 
         if entry.depth > 0 {
-            if entry.is_last {
+            if is_last {
                 prefix.push_str("└── ");
             } else {
                 prefix.push_str("├── ");
@@ -222,12 +228,8 @@ impl HtmlRenderer {
 
             let is_last = i == num_children - 1;
 
-            let mut entry = child.entry.clone();
-            entry.is_last = is_last;
-            entry.ancestors_last = ancestors_last.to_vec();
-
-            self.write_entry(writer, &entry)?;
-            helpers::count_stats(&entry, stats);
+            self.write_entry_with_layout(writer, &child.entry, is_last, ancestors_last)?;
+            helpers::count_stats(&child.entry, stats);
             state.count += 1;
 
             if !child.children.is_empty() {
@@ -254,7 +256,7 @@ impl Renderer for HtmlRenderer {
         self.write_header(writer)?;
 
         // Root entry
-        self.write_entry(writer, &result.root)?;
+        self.write_entry_with_layout(writer, &result.root, false, &[])?;
         helpers::count_stats(&result.root, stats);
 
         // Children from tree
