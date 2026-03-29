@@ -23,7 +23,10 @@ impl Tree {
         Self { entry, children }
     }
 
-    /// Flatten tree into depth-first ordered list of entries
+    /// Flatten tree into depth-first ordered list of entries.
+    ///
+    /// Used only in tests — all renderers traverse `Tree` recursively.
+    #[cfg(test)]
     pub fn flatten(&self) -> Vec<Entry> {
         let mut result = Vec::new();
         flatten_recursive(self, &[], &mut result);
@@ -36,6 +39,7 @@ impl Tree {
     }
 }
 
+#[cfg(test)]
 fn flatten_recursive(node: &Tree, ancestors_last: &[bool], output: &mut Vec<Entry>) {
     let num_children = node.children.len();
     for (i, child) in node.children.iter().enumerate() {
