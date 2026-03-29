@@ -131,18 +131,7 @@ impl XmlRenderer {
                     Self::write_meta_attrs(writer, entry, config)?;
                     writeln!(writer, "></file>")?;
                 }
-                EntryType::Symlink { target, .. } => {
-                    write!(
-                        writer,
-                        "{}<link name=\"{}\" target=\"{}\"",
-                        indent,
-                        name,
-                        helpers::escape_xml(&target.display().to_string())
-                    )?;
-                    Self::write_meta_attrs(writer, entry, config)?;
-                    writeln!(writer, "></link>")?;
-                }
-                EntryType::Junction { target } => {
+                EntryType::Symlink { target, .. } | EntryType::Junction { target } => {
                     write!(
                         writer,
                         "{}<link name=\"{}\" target=\"{}\"",
