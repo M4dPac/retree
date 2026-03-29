@@ -43,6 +43,9 @@ impl JsonRenderer {
 
         let time = if config.show_date {
             entry.metadata.as_ref().and_then(|m| m.modified).map(|t| {
+                // JSON uses UTC with fixed ISO-8601 format for machine-readability.
+                // config.time_fmt is intentionally not used here — JSON timestamps
+                // should be consistently parseable regardless of user locale.
                 use chrono::{DateTime, Utc};
                 let dt: DateTime<Utc> = t.into();
                 dt.format("%Y-%m-%dT%H:%M:%S").to_string()

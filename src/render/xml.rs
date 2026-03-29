@@ -46,6 +46,7 @@ impl XmlRenderer {
             // Date: -D flag
             if config.show_date {
                 if let Some(modified) = meta.modified {
+                    // XML uses UTC for machine-readable, timezone-unambiguous timestamps.
                     use chrono::{DateTime, Utc};
                     let dt: DateTime<Utc> = modified.into();
                     write!(

@@ -206,6 +206,8 @@ impl TextRenderer {
 
             if config.show_date {
                 if let Some(modified) = meta.modified {
+                    // Text output uses local time — matches user's terminal context.
+                    // Machine-readable formats (XML, JSON) use UTC instead.
                     use chrono::{DateTime, Local};
                     let dt: DateTime<Local> = modified.into();
                     let formatted = dt.format(&config.time_fmt).to_string();
