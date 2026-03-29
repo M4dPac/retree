@@ -2,7 +2,6 @@ use std::io::Write;
 
 use crate::config::{Config, LineStyle};
 use crate::core::entry::{Entry, EntryType};
-use crate::core::tree::Tree;
 use crate::core::walker::EntryWriter;
 use crate::core::walker::TreeStats;
 use crate::core::BuildResult;
@@ -276,42 +275,6 @@ impl TextRenderer {
         }
     }
 
-    /// Recursively render children of a tree node (depth-first).
-    /// computes is_last/ancestors_last on the fly.
-    fn render_children<W: Write>(
-        &self,
-        node: &Tree,
-        ancestors_last: &[bool],
-        config: &Config,
-        writer: &mut W,
-        stats: &mut TreeStats,
-        state: &mut RenderState,
-    ) -> Result<(), TreeError> {
-        let num_children = node.children.len();
-        for (i, child) in node.children.iter().enumerate() {
-            if state.max_entries.is_some_and(|max| state.count >= max) {
-                state.truncated = true;
-                return Ok(());
-            }
-
-            let is_last = i == num_children - 1;
-
-            self.write_entry_with_layout(writer, &child.entry, is_last, ancestors_last, config)?;
-            helpers::count_stats(&child.entry, stats);
-            state.count += 1;
-
-            if !child.children.is_empty() {
-                let mut new_ancestors = ancestors_last.to_vec();
-                new_ancestors.push(is_last);
-                self.render_children(child, &new_ancestors, config, writer, stats, state)?;
-                if state.truncated {
-                    return Ok(());
-                }
-            }
-        }
-        Ok(())
-    }
-
     /// Write a single entry with explicit layout info (no Entry clone needed).
     fn write_entry_with_layout(
         &self,
@@ -366,7 +329,16 @@ impl Renderer for TextRenderer {
                 count: 0,
                 truncated: false,
             };
-            self.render_children(tree, &[], config, writer, stats, &mut state)?;
+            let this = &*self;
+            super::walk_tree(
+                tree,
+                &[],
+                stats,
+                &mut state,
+                &mut |entry, is_last, ancestors| {
+                    this.write_entry_with_layout(writer, entry, is_last, ancestors, config)
+                },
+            )?;
         }
 
         // Report

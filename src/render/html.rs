@@ -3,7 +3,6 @@ use std::io::Write;
 
 use crate::config::Config;
 use crate::core::entry::Entry;
-use crate::core::tree::Tree;
 use crate::core::walker::TreeStats;
 use crate::core::BuildResult;
 use crate::error::TreeError;
@@ -203,40 +202,6 @@ impl HtmlRenderer {
 
         Ok(())
     }
-
-    /// Recursively render children of a tree node (depth-first).
-    fn render_children<W: Write>(
-        &self,
-        node: &Tree,
-        ancestors_last: &[bool],
-        writer: &mut W,
-        stats: &mut TreeStats,
-        state: &mut RenderState,
-    ) -> Result<(), TreeError> {
-        let num_children = node.children.len();
-        for (i, child) in node.children.iter().enumerate() {
-            if state.max_entries.is_some_and(|max| state.count >= max) {
-                state.truncated = true;
-                return Ok(());
-            }
-
-            let is_last = i == num_children - 1;
-
-            self.write_entry_with_layout(writer, &child.entry, is_last, ancestors_last)?;
-            helpers::count_stats(&child.entry, stats);
-            state.count += 1;
-
-            if !child.children.is_empty() {
-                let mut new_ancestors = ancestors_last.to_vec();
-                new_ancestors.push(is_last);
-                self.render_children(child, &new_ancestors, writer, stats, state)?;
-                if state.truncated {
-                    return Ok(());
-                }
-            }
-        }
-        Ok(())
-    }
 }
 
 impl Renderer for HtmlRenderer {
@@ -260,7 +225,16 @@ impl Renderer for HtmlRenderer {
                 count: 0,
                 truncated: false,
             };
-            self.render_children(tree, &[], writer, stats, &mut state)?;
+            let this = &*self;
+            super::walk_tree(
+                tree,
+                &[],
+                stats,
+                &mut state,
+                &mut |entry, is_last, ancestors| {
+                    this.write_entry_with_layout(writer, entry, is_last, ancestors)
+                },
+            )?;
         }
 
         self.write_footer(writer, stats, config)?;
