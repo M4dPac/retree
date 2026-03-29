@@ -241,3 +241,158 @@ impl Renderer for HtmlRenderer {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::entry::{Entry, EntryType};
+    use crate::core::tree::Tree;
+    use crate::core::walker::TreeStats;
+    use std::ffi::OsString;
+    use std::path::PathBuf;
+
+    fn file_entry(name: &str, depth: usize) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: OsString::from(name),
+            entry_type: EntryType::File,
+            metadata: None,
+            depth,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        }
+    }
+
+    fn dir_entry(name: &str, depth: usize) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: OsString::from(name),
+            entry_type: EntryType::Directory,
+            metadata: None,
+            depth,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        }
+    }
+
+    fn result_with(root: Entry, tree: Option<Tree>) -> BuildResult {
+        BuildResult {
+            root,
+            tree,
+            errors: vec![],
+            truncated: false,
+        }
+    }
+
+    fn render_html(result: &BuildResult, config: &Config) -> String {
+        let renderer = HtmlRenderer::new(config);
+        let mut buf = Vec::new();
+        let mut stats = TreeStats::default();
+        renderer
+            .render(result, config, &mut buf, &mut stats)
+            .unwrap();
+        String::from_utf8(buf).unwrap()
+    }
+
+    #[test]
+    fn html_basic_structure() {
+        let result = result_with(dir_entry("root", 0), None);
+        let config = Config::default();
+        let output = render_html(&result, &config);
+        assert!(output.contains("<!DOCTYPE html>"));
+        assert!(output.contains("<html>"));
+        assert!(output.contains("<head>"));
+        assert!(output.contains("</head>"));
+        assert!(output.contains("<body>"));
+        assert!(output.contains("</body>"));
+        assert!(output.contains("</html>"));
+    }
+
+    #[test]
+    fn html_root_entry_linked() {
+        let result = result_with(dir_entry("mydir", 0), None);
+        let config = Config::default();
+        let output = render_html(&result, &config);
+        assert!(output.contains("class=\"directory\""));
+        assert!(output.contains("mydir"));
+    }
+
+    #[test]
+    fn html_no_links_uses_span() {
+        let tree = Tree {
+            entry: dir_entry("root", 0),
+            children: vec![Tree {
+                entry: file_entry("f.txt", 1),
+                children: vec![],
+            }],
+        };
+        let result = result_with(dir_entry("root", 0), Some(tree));
+        let config = Config {
+            no_links: true,
+            ..Default::default()
+        };
+        let output = render_html(&result, &config);
+        assert!(output.contains("<span class=\"file\">f.txt</span>"));
+        assert!(!output.contains("<a href="));
+    }
+
+    #[test]
+    fn html_with_links_uses_anchor() {
+        let tree = Tree {
+            entry: dir_entry("root", 0),
+            children: vec![Tree {
+                entry: file_entry("f.txt", 1),
+                children: vec![],
+            }],
+        };
+        let result = result_with(dir_entry("root", 0), Some(tree));
+        let config = Config::default();
+        let output = render_html(&result, &config);
+        assert!(output.contains("<a href="));
+        assert!(output.contains("f.txt</a>"));
+    }
+
+    #[test]
+    fn html_escapes_special_chars_in_name() {
+        let entry = Entry {
+            path: PathBuf::from("a&b<c"),
+            name: OsString::from("a&b<c"),
+            entry_type: EntryType::File,
+            metadata: None,
+            depth: 1,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        };
+        let tree = Tree {
+            entry: dir_entry("root", 0),
+            children: vec![Tree {
+                entry,
+                children: vec![],
+            }],
+        };
+        let result = result_with(dir_entry("root", 0), Some(tree));
+        let config = Config {
+            no_links: true,
+            ..Default::default()
+        };
+        let output = render_html(&result, &config);
+        assert!(output.contains("a&amp;b&lt;c"));
+    }
+
+    #[test]
+    fn html_no_report() {
+        let result = result_with(dir_entry("root", 0), None);
+        let config = Config {
+            no_report: true,
+            ..Default::default()
+        };
+        let output = render_html(&result, &config);
+        assert!(!output.contains("<p>"));
+    }
+}
