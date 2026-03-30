@@ -347,4 +347,61 @@ mod tests {
         let output = render_html(&result, &config);
         assert!(!output.contains("<p>"));
     }
+
+    // ══════════════════════════════════════════════
+    // sanitize_base_url
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn url_normal_https() {
+        assert_eq!(
+            sanitize_base_url("https://example.com"),
+            "https://example.com"
+        );
+    }
+
+    #[test]
+    fn url_relative_path() {
+        assert_eq!(sanitize_base_url("./docs"), "./docs");
+    }
+
+    #[test]
+    fn url_file_scheme_allowed() {
+        assert_eq!(sanitize_base_url("file:///home"), "file:///home");
+    }
+
+    #[test]
+    fn url_javascript_blocked() {
+        assert_eq!(sanitize_base_url("javascript:alert(1)"), ".");
+    }
+
+    #[test]
+    fn url_data_blocked() {
+        assert_eq!(sanitize_base_url("data:text/html,<h1>X</h1>"), ".");
+    }
+
+    #[test]
+    fn url_vbscript_blocked() {
+        assert_eq!(sanitize_base_url("vbscript:MsgBox"), ".");
+    }
+
+    #[test]
+    fn url_case_insensitive_blocked() {
+        assert_eq!(sanitize_base_url("JavaScript:alert(1)"), ".");
+        assert_eq!(sanitize_base_url("DATA:text/html,..."), ".");
+    }
+
+    #[test]
+    fn url_control_chars_stripped_before_check() {
+        assert_eq!(sanitize_base_url("java\x00script:foo"), ".");
+    }
+
+    #[test]
+    fn url_whitespace_trimmed() {
+        assert_eq!(
+            sanitize_base_url("  https://example.com  "),
+            "  https://example.com  "
+        );
+        // trimming is only for scheme check, original value preserved
+    }
 }
