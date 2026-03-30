@@ -305,4 +305,48 @@ mod tests {
         assert_eq!(report_errors(&errors), 0);
     }
 
+    // ══════════════════════════════════════════════
+    // from_io mapping
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn from_io_permission_denied_maps_to_access_denied() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
+        let err = TreeError::from_io(PathBuf::from("/secret"), io_err);
+        assert!(matches!(err, TreeError::AccessDenied(_)));
+        assert!(err.to_string().contains("/secret"));
+    }
+
+    #[test]
+    fn from_io_not_found_stays_as_io() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "gone");
+        let err = TreeError::from_io(PathBuf::from("/missing"), io_err);
+        assert!(matches!(err, TreeError::Io(_, _)));
+    }
+
+    #[test]
+    fn from_io_other_stays_as_io() {
+        let io_err = std::io::Error::other("something else");
+        let err = TreeError::from_io(PathBuf::from("/x"), io_err);
+        assert!(matches!(err, TreeError::Io(_, _)));
+    }
+
+    #[test]
+    fn from_io_access_denied_is_hard_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
+        let err = TreeError::from_io(PathBuf::from("/x"), io_err);
+        assert!(err.is_hard_error());
+    }
+
+    #[test]
+    fn is_path_too_long_detection() {
+        // Synthetic OS error with platform-specific code
+        #[cfg(windows)]
+        let io_err = std::io::Error::from_raw_os_error(206);
+        #[cfg(not(windows))]
+        let io_err = std::io::Error::from_raw_os_error(36);
+
+        let err = TreeError::from_io(PathBuf::from("/very/long/path"), io_err);
+        assert!(matches!(err, TreeError::PathTooLong(_)));
+    }
 }
