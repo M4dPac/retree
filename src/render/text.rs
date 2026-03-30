@@ -48,6 +48,14 @@ impl Default for TextRenderer {
     }
 }
 
+/// Push a value wrapped in brackets: `[value]  `
+/// Used by format_info for all metadata fields.
+fn push_bracketed(out: &mut String, content: &str) {
+    out.push_str("  [");
+    out.push_str(content);
+    out.push_str("]  ");
+}
+
 impl TextRenderer {
     pub fn new() -> Self {
         TextRenderer
@@ -149,15 +157,11 @@ impl TextRenderer {
                 name.push_str(&target.display().to_string());
                 if *broken {
                     let broken_msg = get_message(i18n::current(), MessageKey::BrokenLink);
-                    name.push_str(" [");
-                    name.push_str(broken_msg);
-                    name.push(']');
+                    push_bracketed(&mut name, broken_msg);
                 }
                 if entry.recursive_link {
                     let recursive_msg = get_message(i18n::current(), MessageKey::RecursiveLink);
-                    name.push_str("  [");
-                    name.push_str(recursive_msg);
-                    name.push(']');
+                    push_bracketed(&mut name, recursive_msg);
                 }
             }
             EntryType::Junction { target } => {
@@ -171,9 +175,7 @@ impl TextRenderer {
         if let Some(count) = entry.filelimit_exceeded {
             let msg = get_message(i18n::current(), MessageKey::ExceedsFileLimit);
             let formatted = msg.replace("{}", &count.to_string());
-            name.push_str("  [");
-            name.push_str(&formatted);
-            name.push(']');
+            push_bracketed(&mut name, &formatted);
         }
 
         // Apply safe_print sanitization to entire formatted name
@@ -194,9 +196,7 @@ impl TextRenderer {
                 } else {
                     format!("{:>10}", meta.size)
                 };
-                info.push('[');
-                info.push_str(&size_str);
-                info.push_str("]  ");
+                push_bracketed(&mut info, &size_str);
             }
 
             if config.show_date {
@@ -205,45 +205,31 @@ impl TextRenderer {
                     // Machine-readable formats (XML, JSON) use UTC instead.
                     use chrono::{DateTime, Local};
                     let dt: DateTime<Local> = modified.into();
-                    let formatted = dt.format(&config.time_fmt).to_string();
-                    info.push('[');
-                    info.push_str(&formatted);
-                    info.push_str("]  ");
+                    push_bracketed(&mut info, &dt.format(&config.time_fmt).to_string());
                 }
             }
 
             if config.show_permissions {
-                let perm_str = format_permissions(meta, config.perm_mode);
-                info.push('[');
-                info.push_str(&perm_str);
-                info.push_str("]  ");
+                push_bracketed(&mut info, &format_permissions(meta, config.perm_mode));
             }
 
             if config.show_inodes {
-                use std::fmt::Write;
-                let _ = write!(info, "[{:>10}]  ", meta.inode);
+                push_bracketed(&mut info, &format!("{:>10}", meta.inode));
             }
 
             if config.show_device {
-                use std::fmt::Write;
-                let _ = write!(info, "[{:>8x}]  ", meta.device);
+                push_bracketed(&mut info, &format!("{:>8x}", meta.device));
             }
 
             if config.show_owner {
                 if let Some(ref owner) = meta.owner {
-                    // GNU tree format: [username] with 8-char width padding
-                    info.push('[');
-                    info.push_str(&format!("{:<8}", owner));
-                    info.push_str("]  ");
+                    push_bracketed(&mut info, &format!("{:<8}", owner));
                 }
             }
 
             if config.show_group {
                 if let Some(ref group) = meta.group {
-                    // GNU tree format: [groupname] with 8-char width padding
-                    info.push('[');
-                    info.push_str(&format!("{:<8}", group));
-                    info.push_str("]  ");
+                    push_bracketed(&mut info, &format!("{:<8}", group));
                 }
             }
         }
