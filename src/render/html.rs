@@ -20,6 +20,42 @@ pub struct HtmlRenderer {
     outro: Option<String>,
 }
 
+/// Validate and sanitize a base URL for HTML output.
+/// Blocks dangerous schemes (javascript:, data:, vbscript:) to prevent XSS.
+fn sanitize_base_url(url: &str) -> String {
+    let lower: String = url
+        .trim()
+        .to_lowercase()
+        .chars()
+        .filter(|c| !c.is_control())
+        .collect();
+    if lower.starts_with("javascript:")
+        || lower.starts_with("data:")
+        || lower.starts_with("vbscript:")
+    {
+        eprintln!("rtree: warning: unsafe URL scheme in -H ignored, using '.'");
+        ".".to_string()
+    } else {
+        url.to_string()
+    }
+}
+
+/// Load an optional HTML fragment file, logging a warning on failure.
+fn load_optional_file(path: &std::path::Path, flag_name: &str) -> Option<String> {
+    match fs::read_to_string(path) {
+        Ok(content) => Some(content),
+        Err(e) => {
+            eprintln!(
+                "rtree: warning: cannot read {} '{}': {}",
+                flag_name,
+                path.display(),
+                e
+            );
+            None
+        }
+    }
+}
+
 impl HtmlRenderer {
     pub fn new(config: &Config) -> Self {
         let default_title = get_message(i18n::current(), MessageKey::HtmlTitle);
@@ -27,50 +63,13 @@ impl HtmlRenderer {
         let intro = config
             .html_intro
             .as_ref()
-            .and_then(|path| match fs::read_to_string(path) {
-                Ok(content) => Some(content),
-                Err(e) => {
-                    eprintln!(
-                        "rtree: warning: cannot read --html-intro '{}': {}",
-                        path.display(),
-                        e
-                    );
-                    None
-                }
-            });
+            .and_then(|path| load_optional_file(path, "--html-intro"));
         let outro = config
             .html_outro
             .as_ref()
-            .and_then(|path| match fs::read_to_string(path) {
-                Ok(content) => Some(content),
-                Err(e) => {
-                    eprintln!(
-                        "rtree: warning: cannot read --html-outro '{}': {}",
-                        path.display(),
-                        e
-                    );
-                    None
-                }
-            });
+            .and_then(|path| load_optional_file(path, "--html-outro"));
 
-        // Reject dangerous URL schemes in base URL
-        let base_url = config.html_base.as_ref().map(|url| {
-            let lower: String = url
-                .trim()
-                .to_lowercase()
-                .chars()
-                .filter(|c| !c.is_control())
-                .collect();
-            if lower.starts_with("javascript:")
-                || lower.starts_with("data:")
-                || lower.starts_with("vbscript:")
-            {
-                eprintln!("rtree: warning: unsafe URL scheme in -H ignored, using '.'");
-                ".".to_string()
-            } else {
-                url.clone()
-            }
-        });
+        let base_url = config.html_base.as_ref().map(|url| sanitize_base_url(url));
 
         HtmlRenderer {
             base_url,
@@ -245,7 +244,6 @@ impl Renderer for HtmlRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::entry::{Entry, EntryType};
     use crate::core::tree::Tree;
     use crate::core::walker::TreeStats;
     use crate::render::test_util::*;
