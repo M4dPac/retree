@@ -5,8 +5,6 @@ use crate::i18n::{self, get_message, MessageKey};
 
 #[derive(Error, Debug)]
 pub enum TreeError {
-    /// Reserved for enhanced permission-error mapping.
-    #[allow(dead_code)]
     #[error("{}", fmt_path(MessageKey::ErrAccessDenied, .0))]
     AccessDenied(PathBuf),
 
@@ -27,8 +25,6 @@ pub enum TreeError {
     #[error("{}", fmt_path_io(MessageKey::ErrSymlinkError, .0, .1))]
     SymlinkError(PathBuf, std::io::Error),
 
-    /// Reserved for long-path validation.
-    #[allow(dead_code)]
     #[error("{}", fmt_path(MessageKey::ErrPathTooLong, .0))]
     PathTooLong(PathBuf),
 
@@ -85,6 +81,30 @@ impl TreeError {
     /// as a hard error for exit-code purposes.
     pub fn is_hard_error(&self) -> bool {
         !matches!(self, TreeError::ReservedName(_))
+    }
+
+    /// Map an `io::Error` with path context to the most specific variant.
+    ///
+    /// - `PermissionDenied` → [`AccessDenied`](TreeError::AccessDenied) (localized message)
+    /// - OS "path too long"  → [`PathTooLong`](TreeError::PathTooLong) (localized message)
+    /// - everything else     → [`Io`](TreeError::Io) (original OS message preserved)
+    pub fn from_io(path: PathBuf, err: std::io::Error) -> Self {
+        match err.kind() {
+            std::io::ErrorKind::PermissionDenied => TreeError::AccessDenied(path),
+            _ if Self::is_path_too_long(&err) => TreeError::PathTooLong(path),
+            _ => TreeError::Io(path, err),
+        }
+    }
+
+    /// Detect OS-specific "path too long" / "name too long" errors.
+    fn is_path_too_long(err: &std::io::Error) -> bool {
+        match err.raw_os_error() {
+            #[cfg(windows)]
+            Some(206) => true, // ERROR_FILENAME_EXCED_RANGE
+            #[cfg(not(windows))]
+            Some(36) => true, // ENAMETOOLONG
+            _ => false,
+        }
     }
 }
 
@@ -284,4 +304,5 @@ mod tests {
         ];
         assert_eq!(report_errors(&errors), 0);
     }
+
 }
