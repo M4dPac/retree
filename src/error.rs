@@ -80,7 +80,7 @@ impl TreeError {
     /// `ReservedName` is an informational warning — it does not count
     /// as a hard error for exit-code purposes.
     pub fn is_hard_error(&self) -> bool {
-        !matches!(self, TreeError::ReservedName(_))
+        !matches!(self, TreeError::ReservedName(_) | TreeError::SymlinkLoop(_))
     }
 
     /// Map an `io::Error` with path context to the most specific variant.
@@ -348,5 +348,21 @@ mod tests {
 
         let err = TreeError::from_io(PathBuf::from("/very/long/path"), io_err);
         assert!(matches!(err, TreeError::PathTooLong(_)));
+    }
+
+    #[test]
+    fn symlink_loop_is_not_hard_error() {
+        let err = TreeError::SymlinkLoop(PathBuf::from("/loop/link"));
+        assert!(!err.is_hard_error());
+    }
+
+    #[test]
+    fn report_errors_symlink_loop_not_counted() {
+        let errors = vec![
+            TreeError::SymlinkLoop(PathBuf::from("/a")),
+            TreeError::Io(PathBuf::from("/b"), std::io::Error::other("x")),
+            TreeError::ReservedName(PathBuf::from("CON")),
+        ];
+        assert_eq!(report_errors(&errors), 1); // only Io
     }
 }

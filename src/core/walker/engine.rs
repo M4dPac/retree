@@ -315,6 +315,7 @@ fn build_node_sequential(
             if config.follow_symlinks && dir_entry.file_type().is_ok_and(|ft| ft.is_symlink()) {
                 let symlink_key = common::make_visited_key(&dir_entry.path());
                 if visited.contains(&symlink_key) {
+                    errors.push(TreeError::SymlinkLoop(dir_entry.path()));
                     match common::make_recursive_link_node(
                         &dir_entry,
                         depth + 1,
@@ -448,6 +449,7 @@ fn build_node_parallel_inner(
                         Err(poisoned) => poisoned.into_inner().contains(&symlink_key),
                     };
                     if is_visited {
+                        push_error(ctx.errors, TreeError::SymlinkLoop(dir_entry.path()));
                         return match common::make_recursive_link_node(
                             dir_entry,
                             depth + 1,

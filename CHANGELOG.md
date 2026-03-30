@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured error reporting with hard-error classification and centralized diagnostics
 - OS-aware mapping of io::Error to AccessDenied and PathTooLong variants for clearer diagnostics
 - More specific filesystem error mapping during traversal (AccessDenied, PathTooLong)
+- Explicit SymlinkLoop diagnostics when recursive symlinks are detected
 
 ### Fixed
 
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Streaming engine failure no longer causes duplicate statistics when falling back to standard traversal
 - `--html-base` URL validation now strips control characters before scheme checking, preventing bypass via injected control bytes
 - `--max-entries 0` is now treated as unlimited instead of immediately truncating all output
+- Symlink loops no longer count as hard errors affecting exit code
 
 ## [0.4.0] - 2026-03-19
 
