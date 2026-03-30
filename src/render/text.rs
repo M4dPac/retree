@@ -633,4 +633,216 @@ mod tests {
             "normal??text?end"
         );
     }
+
+    // ══════════════════════════════════════════════
+    // TreeChars constants — byte values
+    // ══════════════════════════════════════════════
+
+    // ANSI: UTF-8 box-drawing characters
+    #[test]
+    fn ansi_chars_are_valid_utf8() {
+        assert!(std::str::from_utf8(ANSI_CHARS.branch).is_ok());
+        assert!(std::str::from_utf8(ANSI_CHARS.vertical).is_ok());
+        assert!(std::str::from_utf8(ANSI_CHARS.last_branch).is_ok());
+    }
+
+    #[test]
+    fn ansi_chars_correct_symbols() {
+        assert_eq!(std::str::from_utf8(ANSI_CHARS.branch).unwrap(), "├── ");
+        assert_eq!(std::str::from_utf8(ANSI_CHARS.vertical).unwrap(), "│   ");
+        assert_eq!(std::str::from_utf8(ANSI_CHARS.last_branch).unwrap(), "└── ");
+    }
+
+    // CP437: single-byte DOS values — NOT valid UTF-8
+    #[test]
+    fn cp437_branch_is_not_utf8() {
+        // 0xC3 0xC4 0xC4 is not a valid UTF-8 sequence
+        assert!(std::str::from_utf8(CP437_CHARS.branch).is_err());
+    }
+
+    #[test]
+    fn cp437_chars_correct_bytes() {
+        assert_eq!(CP437_CHARS.branch[0], 0xC3); // ├
+        assert_eq!(CP437_CHARS.branch[1], 0xC4); // ─
+        assert_eq!(CP437_CHARS.branch[2], 0xC4); // ─
+        assert_eq!(CP437_CHARS.vertical[0], 0xB3); // │
+        assert_eq!(CP437_CHARS.last_branch[0], 0xC0); // └
+    }
+
+    #[test]
+    fn cp437_space_is_ascii() {
+        // Space padding must be plain ASCII in every mode
+        assert_eq!(CP437_CHARS.space, b"    ");
+    }
+
+    // ASCII: only printable ASCII characters
+    #[test]
+    fn ascii_chars_are_valid_utf8() {
+        assert!(std::str::from_utf8(ASCII_CHARS.branch).is_ok());
+        assert!(std::str::from_utf8(ASCII_CHARS.vertical).is_ok());
+        assert!(std::str::from_utf8(ASCII_CHARS.last_branch).is_ok());
+    }
+
+    #[test]
+    fn ascii_chars_correct_symbols() {
+        assert_eq!(std::str::from_utf8(ASCII_CHARS.branch).unwrap(), "|-- ");
+        assert_eq!(std::str::from_utf8(ASCII_CHARS.vertical).unwrap(), "|   ");
+        assert_eq!(
+            std::str::from_utf8(ASCII_CHARS.last_branch).unwrap(),
+            "`-- "
+        );
+    }
+
+    // All three sets must have equal branch/vertical/last_branch widths
+    // to keep tree columns aligned correctly
+    #[test]
+    fn all_chars_have_equal_branch_widths() {
+        // Column width must be equal for correct tree alignment.
+        // Byte length is irrelevant — UTF-8 box-drawing chars are multi-byte.
+        fn col_width(bytes: &[u8]) -> usize {
+            match std::str::from_utf8(bytes) {
+                Ok(s) => s.chars().count(),
+                // CP437 is not valid UTF-8 — count raw bytes directly,
+                // each CP437 byte is exactly one terminal column
+                Err(_) => bytes.len(),
+            }
+        }
+
+        for chars in [&ANSI_CHARS, &CP437_CHARS, &ASCII_CHARS] {
+            let w = col_width(chars.branch);
+            assert_eq!(
+                col_width(chars.last_branch),
+                w,
+                "last_branch column width must equal branch"
+            );
+            assert_eq!(
+                col_width(chars.vertical),
+                w,
+                "vertical column width must equal branch"
+            );
+            assert_eq!(
+                col_width(chars.space),
+                w,
+                "space column width must equal branch"
+            );
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    // write_prefix
+    // ══════════════════════════════════════════════
+
+    fn write_prefix_to_vec(
+        depth: usize,
+        is_last: bool,
+        ancestors_last: &[bool],
+        line_style: LineStyle,
+        no_indent: bool,
+    ) -> Vec<u8> {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            line_style,
+            no_indent,
+            ..Config::default()
+        };
+        let mut buf = Vec::new();
+        renderer
+            .write_prefix(&mut buf, depth, is_last, ancestors_last, &config)
+            .unwrap();
+        buf
+    }
+
+    #[test]
+    fn prefix_no_indent_produces_empty() {
+        let out = write_prefix_to_vec(2, false, &[false, false], LineStyle::Ansi, true);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn prefix_depth_zero_produces_empty() {
+        // Root entry — no prefix should be written
+        let out = write_prefix_to_vec(0, false, &[], LineStyle::Ansi, false);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn prefix_depth1_not_last_ansi() {
+        let out = write_prefix_to_vec(1, false, &[], LineStyle::Ansi, false);
+        assert_eq!(out, ANSI_CHARS.branch);
+    }
+
+    #[test]
+    fn prefix_depth1_is_last_ansi() {
+        let out = write_prefix_to_vec(1, true, &[], LineStyle::Ansi, false);
+        assert_eq!(out, ANSI_CHARS.last_branch);
+    }
+
+    #[test]
+    fn prefix_depth1_not_last_ascii() {
+        let out = write_prefix_to_vec(1, false, &[], LineStyle::Ascii, false);
+        assert_eq!(out, ASCII_CHARS.branch);
+    }
+
+    #[test]
+    fn prefix_depth1_not_last_cp437() {
+        let out = write_prefix_to_vec(1, false, &[], LineStyle::Cp437, false);
+        assert_eq!(out, CP437_CHARS.branch);
+    }
+
+    #[test]
+    fn prefix_ancestor_not_last_adds_vertical() {
+        // ancestors_last = [false] → ancestor is not last → draw vertical bar
+        let out = write_prefix_to_vec(2, false, &[false], LineStyle::Ansi, false);
+        let mut expected = Vec::new();
+        expected.extend_from_slice(ANSI_CHARS.vertical); // from ancestor
+        expected.extend_from_slice(ANSI_CHARS.branch); // current entry
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn prefix_ancestor_is_last_adds_space() {
+        // ancestors_last = [true] → ancestor is last → space instead of vertical
+        let out = write_prefix_to_vec(2, false, &[true], LineStyle::Ansi, false);
+        let mut expected = Vec::new();
+        expected.extend_from_slice(ANSI_CHARS.space); // from ancestor
+        expected.extend_from_slice(ANSI_CHARS.branch); // current entry
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn prefix_deep_nesting_correct_order() {
+        // Depth 3: ancestors [false, true] → vertical, space, then branch
+        let out = write_prefix_to_vec(3, false, &[false, true], LineStyle::Ansi, false);
+        let mut expected = Vec::new();
+        expected.extend_from_slice(ANSI_CHARS.vertical); // ancestor 1 (not last)
+        expected.extend_from_slice(ANSI_CHARS.space); // ancestor 2 (last)
+        expected.extend_from_slice(ANSI_CHARS.branch); // current entry
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn prefix_cp437_ancestor_uses_cp437_vertical() {
+        let out = write_prefix_to_vec(2, false, &[false], LineStyle::Cp437, false);
+        let mut expected = Vec::new();
+        expected.extend_from_slice(CP437_CHARS.vertical);
+        expected.extend_from_slice(CP437_CHARS.branch);
+        assert_eq!(out, expected);
+        // Verify this is NOT the UTF-8 vertical bar
+        assert_ne!(&out[..CP437_CHARS.vertical.len()], ANSI_CHARS.vertical);
+    }
+
+    #[test]
+    fn prefix_ascii_and_ansi_differ() {
+        let ansi = write_prefix_to_vec(1, false, &[], LineStyle::Ansi, false);
+        let ascii = write_prefix_to_vec(1, false, &[], LineStyle::Ascii, false);
+        assert_ne!(ansi, ascii);
+    }
+
+    #[test]
+    fn prefix_cp437_and_ansi_differ() {
+        // Regression guard: CP437 and ANSI constants must not be identical
+        let ansi = write_prefix_to_vec(1, false, &[], LineStyle::Ansi, false);
+        let cp437 = write_prefix_to_vec(1, false, &[], LineStyle::Cp437, false);
+        assert_ne!(ansi, cp437);
+    }
 }
