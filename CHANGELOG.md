@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Warn when multiple output formats are specified and indicate which one is used (priority: JSON > XML > HTML)
 - Structured error reporting with hard-error classification and centralized diagnostics
 - OS-aware mapping of io::Error to AccessDenied and PathTooLong variants for clearer diagnostics
+- More specific filesystem error mapping during traversal (AccessDenied, PathTooLong)
 
 ### Fixed
 

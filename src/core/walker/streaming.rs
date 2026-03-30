@@ -168,7 +168,7 @@ impl<'a> StreamingEngine<'a> {
         let dir_entries = match common::read_sorted_children(dir, config) {
             common::ReadDirResult::Entries(entries) => entries,
             common::ReadDirResult::ReadError(e) => {
-                errors.push(TreeError::Io(dir.to_path_buf(), e));
+                errors.push(TreeError::from_io(dir.to_path_buf(), e));
                 return Ok(());
             }
             common::ReadDirResult::FilelimitExceeded(_) => return Ok(()),

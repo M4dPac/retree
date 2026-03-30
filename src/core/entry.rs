@@ -122,8 +122,8 @@ impl Entry {
             .map(|n| n.to_owned())
             .unwrap_or_else(|| path.as_os_str().to_owned());
 
-        let symlink_meta =
-            std::fs::symlink_metadata(path).map_err(|e| TreeError::Io(path.to_path_buf(), e))?;
+        let symlink_meta = std::fs::symlink_metadata(path)
+            .map_err(|e| TreeError::from_io(path.to_path_buf(), e))?;
 
         let entry_type = determine_entry_type(path, &symlink_meta, needs_file_id)?;
         let metadata = gather_metadata(path, &symlink_meta, needs_file_id, needs_attrs)?;
@@ -152,7 +152,7 @@ impl Entry {
 
         let symlink_meta = entry
             .metadata()
-            .map_err(|e| TreeError::Io(path.clone(), e))?;
+            .map_err(|e| TreeError::from_io(path.clone(), e))?;
 
         let entry_type = determine_entry_type(&path, &symlink_meta, needs_file_id)?;
         let metadata = gather_metadata(&path, &symlink_meta, needs_file_id, needs_attrs)?;

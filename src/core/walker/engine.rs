@@ -289,7 +289,7 @@ fn build_node_sequential(
     let dir_entries = match common::read_sorted_children(path, config) {
         common::ReadDirResult::Entries(entries) => entries,
         common::ReadDirResult::ReadError(e) => {
-            errors.push(TreeError::Io(path.to_path_buf(), e));
+            errors.push(TreeError::from_io(path.to_path_buf(), e));
             return Some(common::leaf_node(entry));
         }
         common::ReadDirResult::FilelimitExceeded(total) => {
@@ -415,7 +415,7 @@ fn build_node_parallel_inner(
             entries
         }
         common::ReadDirResult::ReadError(e) => {
-            push_error(ctx.errors, TreeError::Io(path.to_path_buf(), e));
+            push_error(ctx.errors, TreeError::from_io(path.to_path_buf(), e));
             return Some(common::leaf_node(entry));
         }
         common::ReadDirResult::FilelimitExceeded(total) => {
