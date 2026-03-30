@@ -15,36 +15,31 @@ use super::RenderState;
 pub struct TextRenderer;
 
 struct TreeChars {
-    branch: &'static str,
-    vertical: &'static str,
-    last_branch: &'static str,
-    #[allow(dead_code)]
-    horizontal: &'static str,
-    space: &'static str,
+    branch: &'static [u8],
+    vertical: &'static [u8],
+    last_branch: &'static [u8],
+    space: &'static [u8],
 }
 
 const ANSI_CHARS: TreeChars = TreeChars {
-    branch: "├── ",
-    vertical: "│   ",
-    last_branch: "└── ",
-    horizontal: "─",
-    space: "    ",
+    branch: "├── ".as_bytes(),
+    vertical: "│   ".as_bytes(),
+    last_branch: "└── ".as_bytes(),
+    space: "    ".as_bytes(),
 };
 
 const CP437_CHARS: TreeChars = TreeChars {
-    branch: "├── ",
-    vertical: "│   ",
-    last_branch: "└── ",
-    horizontal: "─",
-    space: "    ",
+    branch: b"\xc3\xc4\xc4 ",
+    vertical: b"\xb3   ",
+    last_branch: b"\xc0\xc4\xc4 ",
+    space: b"    ",
 };
 
 const ASCII_CHARS: TreeChars = TreeChars {
-    branch: "|-- ",
-    vertical: "|   ",
-    last_branch: "`-- ",
-    horizontal: "-",
-    space: "    ",
+    branch: b"|-- ",
+    vertical: b"|   ",
+    last_branch: b"`-- ",
+    space: b"    ",
 };
 
 impl Default for TextRenderer {
@@ -82,37 +77,37 @@ impl TextRenderer {
             .collect()
     }
 
-    fn format_prefix(
+    fn write_prefix(
         &self,
+        writer: &mut dyn Write,
         depth: usize,
         is_last: bool,
         ancestors_last: &[bool],
         config: &Config,
-    ) -> String {
+    ) -> Result<(), TreeError> {
         if config.no_indent {
-            return String::new();
+            return Ok(());
         }
 
         let chars = Self::get_chars(config);
-        let mut prefix = String::new();
 
         for &ancestor_last in ancestors_last {
             if ancestor_last {
-                prefix.push_str(chars.space);
+                writer.write_all(chars.space)?;
             } else {
-                prefix.push_str(chars.vertical);
+                writer.write_all(chars.vertical)?;
             }
         }
 
         if depth > 0 {
             if is_last {
-                prefix.push_str(chars.last_branch);
+                writer.write_all(chars.last_branch)?;
             } else {
-                prefix.push_str(chars.branch);
+                writer.write_all(chars.branch)?;
             }
         }
 
-        prefix
+        Ok(())
     }
 
     fn format_name(&self, entry: &Entry, config: &Config) -> String {
@@ -284,7 +279,9 @@ impl TextRenderer {
         ancestors_last: &[bool],
         config: &Config,
     ) -> Result<(), TreeError> {
-        let prefix = self.format_prefix(entry.depth, is_last, ancestors_last, config);
+        // write prefix directly as byte
+        self.write_prefix(writer, entry.depth, is_last, ancestors_last, config)?;
+
         let info = self.format_info(entry, config);
         let info = if config.safe_print {
             Self::sanitize_for_terminal(&info)
@@ -294,7 +291,8 @@ impl TextRenderer {
         let name = self.format_name(entry, config);
         let colored_name = self.apply_color(entry, &name, config);
 
-        writeln!(writer, "{}{}{}", prefix, info, colored_name)?;
+        write!(writer, "{}{}", info, colored_name)?;
+        writeln!(writer)?;
         Ok(())
     }
 }
