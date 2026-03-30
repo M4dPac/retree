@@ -225,4 +225,63 @@ mod tests {
         let debug = format!("{:?}", err);
         assert!(!debug.is_empty());
     }
+
+    // ══════════════════════════════════════════════
+    // is_hard_error
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn reserved_name_is_not_hard_error() {
+        let err = TreeError::ReservedName(PathBuf::from("CON"));
+        assert!(!err.is_hard_error());
+    }
+
+    #[test]
+    fn io_error_is_hard_error() {
+        let err = TreeError::Io(PathBuf::from("/x"), std::io::Error::other("fail"));
+        assert!(err.is_hard_error());
+    }
+
+    #[test]
+    fn not_found_is_hard_error() {
+        assert!(TreeError::NotFound(PathBuf::from("/x")).is_hard_error());
+    }
+
+    #[test]
+    fn generic_is_hard_error() {
+        assert!(TreeError::Generic("boom".into()).is_hard_error());
+    }
+
+    #[test]
+    fn max_depth_is_hard_error() {
+        assert!(TreeError::MaxDepthExceeded(PathBuf::from("/deep")).is_hard_error());
+    }
+
+    // ══════════════════════════════════════════════
+    // report_errors
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn report_errors_empty() {
+        assert_eq!(report_errors(&[]), 0);
+    }
+
+    #[test]
+    fn report_errors_counts_hard_only() {
+        let errors = vec![
+            TreeError::Io(PathBuf::from("/a"), std::io::Error::other("x")),
+            TreeError::ReservedName(PathBuf::from("CON")),
+            TreeError::NotFound(PathBuf::from("/b")),
+        ];
+        assert_eq!(report_errors(&errors), 2);
+    }
+
+    #[test]
+    fn report_errors_all_reserved() {
+        let errors = vec![
+            TreeError::ReservedName(PathBuf::from("CON")),
+            TreeError::ReservedName(PathBuf::from("NUL")),
+        ];
+        assert_eq!(report_errors(&errors), 0);
+    }
 }
