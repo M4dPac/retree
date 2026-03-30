@@ -40,3 +40,38 @@ pub fn to_long_path(path: &Path) -> PathBuf {
     result.extend_from_slice(&wide);
     PathBuf::from(OsString::from_wide(&result))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn regular_absolute_path() {
+        let result = to_long_path(Path::new(r"C:\Users\test"));
+        assert_eq!(result, PathBuf::from(r"\\?\C:\Users\test"));
+    }
+
+    #[test]
+    fn already_extended() {
+        let input = Path::new(r"\\?\C:\Users\test");
+        assert_eq!(to_long_path(input), input);
+    }
+
+    #[test]
+    fn device_path_unchanged() {
+        let input = Path::new(r"\\.\PhysicalDrive0");
+        assert_eq!(to_long_path(input), input);
+    }
+
+    #[test]
+    fn unc_path() {
+        let result = to_long_path(Path::new(r"\\server\share\dir"));
+        assert_eq!(result, PathBuf::from(r"\\?\UNC\server\share\dir"));
+    }
+
+    #[test]
+    fn drive_root() {
+        let result = to_long_path(Path::new(r"D:\"));
+        assert_eq!(result, PathBuf::from(r"\\?\D:\"));
+    }
+}
