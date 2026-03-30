@@ -7,18 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-30
+
 ### Added
 
 - `-P` and `-I` now accept pipe-separated OR patterns: `rtree -P "*.rs|*.toml"` matches files ending in `.rs` or `.toml` (use `\|` for a literal pipe character)
 - Warn when multiple output formats are specified and indicate which one is used (priority: JSON > XML > HTML)
 - Structured error reporting with hard-error classification and centralized diagnostics
-- OS-aware mapping of io::Error to AccessDenied and PathTooLong variants for clearer diagnostics
-- More specific filesystem error mapping during traversal (AccessDenied, PathTooLong)
-- Explicit SymlinkLoop diagnostics when recursive symlinks are detected
+- OS-aware mapping of `io::Error` to `AccessDenied` and `PathTooLong` variants for clearer diagnostics
+- More specific filesystem error mapping during traversal (`AccessDenied`, `PathTooLong`)
+- Explicit `SymlinkLoop` diagnostics when recursive symlinks are detected
 
 ### Fixed
 
-- `--long-paths` now correctly applies the `\\?\` prefix from the root of traversal, preventing MAX_PATH errors on deeply nested trees
+- `--long-paths` now correctly applies the `\\?\` prefix from the root of traversal, preventing `MAX_PATH` errors on deeply nested trees
 - `--long-paths` now works correctly when a relative path is passed as the root argument (e.g. `rtree --long-paths .`)
 - `--one-fs` now reports an error when the volume serial of a directory cannot be determined, instead of silently descending into it
 - Junction targets with non-UTF-8 (WTF-16) path components are now resolved correctly instead of being silently corrupted
