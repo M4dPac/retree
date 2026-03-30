@@ -4,8 +4,9 @@ use thiserror::Error;
 use crate::i18n::{self, get_message, MessageKey};
 
 #[derive(Error, Debug)]
-#[allow(dead_code)]
 pub enum TreeError {
+    /// Reserved for enhanced permission-error mapping.
+    #[allow(dead_code)]
     #[error("{}", fmt_path(MessageKey::ErrAccessDenied, .0))]
     AccessDenied(PathBuf),
 
@@ -18,15 +19,21 @@ pub enum TreeError {
     #[error("{}", fmt_path(MessageKey::ErrNotDirectory, .0))]
     NotDirectory(PathBuf),
 
+    /// Reserved for future symlink-loop detection.
+    #[allow(dead_code)]
     #[error("{}", fmt_path(MessageKey::ErrSymlinkLoop, .0))]
     SymlinkLoop(PathBuf),
 
     #[error("{}", fmt_path_io(MessageKey::ErrSymlinkError, .0, .1))]
     SymlinkError(PathBuf, std::io::Error),
 
+    /// Reserved for long-path validation.
+    #[allow(dead_code)]
     #[error("{}", fmt_path(MessageKey::ErrPathTooLong, .0))]
     PathTooLong(PathBuf),
 
+    /// Reserved for filename encoding validation.
+    #[allow(dead_code)]
     #[error("{}", fmt_path(MessageKey::ErrInvalidName, .0))]
     InvalidName(PathBuf),
 
@@ -39,6 +46,8 @@ pub enum TreeError {
     #[error("{}", fmt_str(MessageKey::ErrInvalidPattern, .0))]
     InvalidPattern(String),
 
+    /// Reserved for configuration validation errors.
+    #[allow(dead_code)]
     #[error("{}", fmt_str(MessageKey::ErrConfig, .0))]
     Config(String),
 
@@ -67,6 +76,38 @@ impl From<std::io::Error> for TreeError {
     fn from(err: std::io::Error) -> Self {
         TreeError::Generic(err.to_string())
     }
+}
+
+impl TreeError {
+    /// Whether this error should affect the process exit code.
+    ///
+    /// `ReservedName` is an informational warning — it does not count
+    /// as a hard error for exit-code purposes.
+    pub fn is_hard_error(&self) -> bool {
+        !matches!(self, TreeError::ReservedName(_))
+    }
+}
+
+// ═══════════════════════════════════════
+// Diagnostic output helpers
+// ═══════════════════════════════════════
+
+/// Print a diagnostic error to stderr: `rtree: <message>`.
+pub fn diag_error(msg: impl std::fmt::Display) {
+    eprintln!("rtree: {}", msg);
+}
+
+/// Print a diagnostic warning to stderr: `rtree: warning: <message>`.
+pub fn diag_warn(msg: impl std::fmt::Display) {
+    eprintln!("rtree: warning: {}", msg);
+}
+
+/// Report traversal errors to stderr. Returns count of hard errors.
+pub fn report_errors(errors: &[TreeError]) -> u64 {
+    for err in errors {
+        diag_error(err);
+    }
+    errors.iter().filter(|e| e.is_hard_error()).count() as u64
 }
 
 #[cfg(test)]
