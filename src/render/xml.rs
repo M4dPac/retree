@@ -315,7 +315,7 @@ mod tests {
             "root",
             0,
             vec![Tree {
-                entry: named_file_entry("a&b<c", 1),
+                entry: file_entry("a&b<c", 1),
                 children: vec![],
             }],
         );

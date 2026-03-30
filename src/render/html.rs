@@ -318,7 +318,7 @@ mod tests {
 
     #[test]
     fn html_escapes_special_chars_in_name() {
-        let entry = named_file_entry("a&b<c", 1);
+        let entry = file_entry("a&b<c", 1);
 
         let tree = dir(
             "root",
