@@ -388,6 +388,8 @@ mod tests {
     use super::*;
     use crate::core::entry::{EntryMetadata, WinAttributes};
     use crate::render::test_util::*;
+    use std::ffi::OsString;
+    use std::path::PathBuf;
 
     // ══════════════════════════════════════════════
     // format_posix_mode
@@ -475,8 +477,10 @@ mod tests {
             mode: Some(0o755),
             ..Default::default()
         };
-        let result = format_permissions(&meta, crate::cli::PermMode::Windows);
-        assert_eq!(result, "rwxr-xr-x", "Unix mode overrides perm_mode");
+        assert_eq!(
+            format_permissions(&meta, crate::cli::PermMode::Windows),
+            "rwxr-xr-x"
+        );
     }
 
     #[test]
@@ -518,8 +522,10 @@ mod tests {
             attributes: WinAttributes::from_raw(0x1 | 0x20), // R + A
             ..Default::default()
         };
-        let result = format_permissions(&meta, crate::cli::PermMode::Windows);
-        assert_eq!(result, "R--A--");
+        assert_eq!(
+            format_permissions(&meta, crate::cli::PermMode::Windows),
+            "R--A--"
+        );
     }
 
     #[test]
@@ -541,7 +547,7 @@ mod tests {
     }
 
     // ══════════════════════════════════════════════
-    // TextRenderer::sanitize_for_terminal
+    // sanitize_for_terminal
     // ══════════════════════════════════════════════
 
     #[test]
@@ -625,7 +631,6 @@ mod tests {
     // TreeChars constants — byte values
     // ══════════════════════════════════════════════
 
-    // ANSI: UTF-8 box-drawing characters
     #[test]
     fn ansi_chars_are_valid_utf8() {
         assert!(std::str::from_utf8(ANSI_CHARS.branch).is_ok());
@@ -640,7 +645,6 @@ mod tests {
         assert_eq!(std::str::from_utf8(ANSI_CHARS.last_branch).unwrap(), "└── ");
     }
 
-    // CP437: single-byte DOS values — NOT valid UTF-8
     #[test]
     fn cp437_branch_is_not_utf8() {
         // 0xC3 0xC4 0xC4 is not a valid UTF-8 sequence
@@ -658,11 +662,9 @@ mod tests {
 
     #[test]
     fn cp437_space_is_ascii() {
-        // Space padding must be plain ASCII in every mode
         assert_eq!(CP437_CHARS.space, b"    ");
     }
 
-    // ASCII: only printable ASCII characters
     #[test]
     fn ascii_chars_are_valid_utf8() {
         assert!(std::str::from_utf8(ASCII_CHARS.branch).is_ok());
@@ -680,38 +682,28 @@ mod tests {
         );
     }
 
-    // All three sets must have equal branch/vertical/last_branch widths
-    // to keep tree columns aligned correctly
     #[test]
     fn all_chars_have_equal_branch_widths() {
-        // Column width must be equal for correct tree alignment.
-        // Byte length is irrelevant — UTF-8 box-drawing chars are multi-byte.
         fn col_width(bytes: &[u8]) -> usize {
             match std::str::from_utf8(bytes) {
                 Ok(s) => s.chars().count(),
-                // CP437 is not valid UTF-8 — count raw bytes directly,
-                // each CP437 byte is exactly one terminal column
+                // CP437 is not valid UTF-8 — each byte is exactly one terminal column
                 Err(_) => bytes.len(),
             }
         }
-
         for chars in [&ANSI_CHARS, &CP437_CHARS, &ASCII_CHARS] {
             let w = col_width(chars.branch);
             assert_eq!(
                 col_width(chars.last_branch),
                 w,
-                "last_branch column width must equal branch"
+                "last_branch width must equal branch"
             );
             assert_eq!(
                 col_width(chars.vertical),
                 w,
-                "vertical column width must equal branch"
+                "vertical width must equal branch"
             );
-            assert_eq!(
-                col_width(chars.space),
-                w,
-                "space column width must equal branch"
-            );
+            assert_eq!(col_width(chars.space), w, "space width must equal branch");
         }
     }
 
@@ -719,117 +711,131 @@ mod tests {
     // write_prefix
     // ══════════════════════════════════════════════
 
-    fn write_prefix_to_vec(
+    fn prefix_bytes(
         depth: usize,
         is_last: bool,
         ancestors_last: &[bool],
-        line_style: LineStyle,
-        no_indent: bool,
+        config: &Config,
     ) -> Vec<u8> {
         let renderer = TextRenderer::new();
-        let config = Config {
-            line_style,
-            no_indent,
-            ..Config::default()
-        };
         let mut buf = Vec::new();
         renderer
-            .write_prefix(&mut buf, depth, is_last, ancestors_last, &config)
+            .write_prefix(&mut buf, depth, is_last, ancestors_last, config)
             .unwrap();
         buf
     }
 
-    #[test]
-    fn prefix_no_indent_produces_empty() {
-        let out = write_prefix_to_vec(2, false, &[false, false], LineStyle::Ansi, true);
-        assert!(out.is_empty());
+    fn prefix_str(depth: usize, is_last: bool, ancestors_last: &[bool], config: &Config) -> String {
+        String::from_utf8(prefix_bytes(depth, is_last, ancestors_last, config)).unwrap()
     }
 
     #[test]
-    fn prefix_depth_zero_produces_empty() {
-        // Root entry — no prefix should be written
-        let out = write_prefix_to_vec(0, false, &[], LineStyle::Ansi, false);
-        assert!(out.is_empty());
+    fn prefix_root_depth_zero() {
+        assert_eq!(prefix_str(0, false, &[], &Config::default()), "");
     }
 
     #[test]
-    fn prefix_depth1_not_last_ansi() {
-        let out = write_prefix_to_vec(1, false, &[], LineStyle::Ansi, false);
-        assert_eq!(out, ANSI_CHARS.branch);
+    fn prefix_depth_one_not_last() {
+        assert_eq!(prefix_str(1, false, &[], &Config::default()), "├── ");
     }
 
     #[test]
-    fn prefix_depth1_is_last_ansi() {
-        let out = write_prefix_to_vec(1, true, &[], LineStyle::Ansi, false);
-        assert_eq!(out, ANSI_CHARS.last_branch);
+    fn prefix_depth_one_is_last() {
+        assert_eq!(prefix_str(1, true, &[], &Config::default()), "└── ");
     }
 
     #[test]
-    fn prefix_depth1_not_last_ascii() {
-        let out = write_prefix_to_vec(1, false, &[], LineStyle::Ascii, false);
-        assert_eq!(out, ASCII_CHARS.branch);
+    fn prefix_depth_two_ancestor_not_last() {
+        assert_eq!(
+            prefix_str(2, false, &[false], &Config::default()),
+            "│   ├── "
+        );
     }
 
     #[test]
-    fn prefix_depth1_not_last_cp437() {
-        let out = write_prefix_to_vec(1, false, &[], LineStyle::Cp437, false);
-        assert_eq!(out, CP437_CHARS.branch);
+    fn prefix_depth_two_ancestor_is_last() {
+        assert_eq!(prefix_str(2, true, &[true], &Config::default()), "    └── ");
     }
 
     #[test]
-    fn prefix_ancestor_not_last_adds_vertical() {
-        // ancestors_last = [false] → ancestor is not last → draw vertical bar
-        let out = write_prefix_to_vec(2, false, &[false], LineStyle::Ansi, false);
+    fn prefix_deep_mixed_ancestors() {
+        assert_eq!(
+            prefix_str(4, true, &[false, true, false], &Config::default()),
+            "│       │   └── "
+        );
+    }
+
+    #[test]
+    fn prefix_no_indent_writes_nothing() {
+        let config = Config {
+            no_indent: true,
+            ..Config::default()
+        };
+        assert_eq!(prefix_bytes(3, false, &[false, true], &config).len(), 0);
+    }
+
+    #[test]
+    fn prefix_ascii_branch() {
+        let config = Config {
+            line_style: LineStyle::Ascii,
+            ..Config::default()
+        };
+        assert_eq!(prefix_str(1, false, &[], &config), "|-- ");
+        assert_eq!(prefix_str(1, true, &[], &config), "`-- ");
+    }
+
+    #[test]
+    fn prefix_ascii_vertical_ancestor() {
+        let config = Config {
+            line_style: LineStyle::Ascii,
+            ..Config::default()
+        };
+        assert_eq!(prefix_str(2, true, &[false], &config), "|   `-- ");
+    }
+
+    #[test]
+    fn prefix_cp437_raw_bytes() {
+        let config = Config {
+            line_style: LineStyle::Cp437,
+            ..Config::default()
+        };
+        assert_eq!(prefix_bytes(1, false, &[], &config), b"\xc3\xc4\xc4 ");
+        assert_eq!(prefix_bytes(1, true, &[], &config), b"\xc0\xc4\xc4 ");
+    }
+
+    #[test]
+    fn prefix_cp437_vertical_ancestor() {
+        let config = Config {
+            line_style: LineStyle::Cp437,
+            ..Config::default()
+        };
+        let result = prefix_bytes(2, true, &[false], &config);
         let mut expected = Vec::new();
-        expected.extend_from_slice(ANSI_CHARS.vertical); // from ancestor
-        expected.extend_from_slice(ANSI_CHARS.branch); // current entry
-        assert_eq!(out, expected);
+        expected.extend_from_slice(b"\xb3   ");
+        expected.extend_from_slice(b"\xc0\xc4\xc4 ");
+        assert_eq!(result, expected);
     }
 
     #[test]
-    fn prefix_ancestor_is_last_adds_space() {
-        // ancestors_last = [true] → ancestor is last → space instead of vertical
-        let out = write_prefix_to_vec(2, false, &[true], LineStyle::Ansi, false);
-        let mut expected = Vec::new();
-        expected.extend_from_slice(ANSI_CHARS.space); // from ancestor
-        expected.extend_from_slice(ANSI_CHARS.branch); // current entry
-        assert_eq!(out, expected);
-    }
-
-    #[test]
-    fn prefix_deep_nesting_correct_order() {
-        // Depth 3: ancestors [false, true] → vertical, space, then branch
-        let out = write_prefix_to_vec(3, false, &[false, true], LineStyle::Ansi, false);
-        let mut expected = Vec::new();
-        expected.extend_from_slice(ANSI_CHARS.vertical); // ancestor 1 (not last)
-        expected.extend_from_slice(ANSI_CHARS.space); // ancestor 2 (last)
-        expected.extend_from_slice(ANSI_CHARS.branch); // current entry
-        assert_eq!(out, expected);
-    }
-
-    #[test]
-    fn prefix_cp437_ancestor_uses_cp437_vertical() {
-        let out = write_prefix_to_vec(2, false, &[false], LineStyle::Cp437, false);
-        let mut expected = Vec::new();
-        expected.extend_from_slice(CP437_CHARS.vertical);
-        expected.extend_from_slice(CP437_CHARS.branch);
-        assert_eq!(out, expected);
-        // Verify this is NOT the UTF-8 vertical bar
-        assert_ne!(&out[..CP437_CHARS.vertical.len()], ANSI_CHARS.vertical);
-    }
-
-    #[test]
-    fn prefix_ascii_and_ansi_differ() {
-        let ansi = write_prefix_to_vec(1, false, &[], LineStyle::Ansi, false);
-        let ascii = write_prefix_to_vec(1, false, &[], LineStyle::Ascii, false);
-        assert_ne!(ansi, ascii);
-    }
-
-    #[test]
-    fn prefix_cp437_and_ansi_differ() {
-        // Regression guard: CP437 and ANSI constants must not be identical
-        let ansi = write_prefix_to_vec(1, false, &[], LineStyle::Ansi, false);
-        let cp437 = write_prefix_to_vec(1, false, &[], LineStyle::Cp437, false);
+    fn prefix_cp437_differs_from_ansi() {
+        let ansi = prefix_bytes(
+            1,
+            false,
+            &[],
+            &Config {
+                line_style: LineStyle::Ansi,
+                ..Config::default()
+            },
+        );
+        let cp437 = prefix_bytes(
+            1,
+            false,
+            &[],
+            &Config {
+                line_style: LineStyle::Cp437,
+                ..Config::default()
+            },
+        );
         assert_ne!(ansi, cp437);
     }
 
@@ -840,21 +846,19 @@ mod tests {
     #[test]
     fn info_empty_without_metadata() {
         let renderer = TextRenderer::new();
-        let config = Config::default();
         let entry = file_entry("test.txt", 0);
-        assert_eq!(renderer.format_info(&entry, &config), "");
+        assert_eq!(renderer.format_info(&entry, &Config::default()), "");
     }
 
     #[test]
     fn info_empty_when_no_show_flags() {
         let renderer = TextRenderer::new();
-        let config = Config::default();
         let mut entry = file_entry("test.txt", 0);
         entry.metadata = Some(EntryMetadata {
             size: 1000,
             ..Default::default()
         });
-        assert_eq!(renderer.format_info(&entry, &config), "");
+        assert_eq!(renderer.format_info(&entry, &Config::default()), "");
     }
 
     #[test]
@@ -862,15 +866,14 @@ mod tests {
         let renderer = TextRenderer::new();
         let config = Config {
             show_size: true,
-            ..Default::default()
+            ..Config::default()
         };
         let mut entry = file_entry("test.txt", 0);
         entry.metadata = Some(EntryMetadata {
             size: 12345,
             ..Default::default()
         });
-        let info = renderer.format_info(&entry, &config);
-        assert_eq!(info, "  [     12345]  ");
+        assert_eq!(renderer.format_info(&entry, &config), "  [     12345]  ");
     }
 
     #[test]
@@ -879,15 +882,14 @@ mod tests {
         let config = Config {
             show_size: true,
             human_readable: true,
-            ..Default::default()
+            ..Config::default()
         };
         let mut entry = file_entry("test.txt", 0);
         entry.metadata = Some(EntryMetadata {
             size: 1536,
             ..Default::default()
         });
-        let info = renderer.format_info(&entry, &config);
-        assert_eq!(info, "  [1.5KiB]  ");
+        assert_eq!(renderer.format_info(&entry, &config), "  [1.5KiB]  ");
     }
 
     #[test]
@@ -897,15 +899,14 @@ mod tests {
             show_size: true,
             human_readable: true,
             si_units: true,
-            ..Default::default()
+            ..Config::default()
         };
         let mut entry = file_entry("test.txt", 0);
         entry.metadata = Some(EntryMetadata {
             size: 1500,
             ..Default::default()
         });
-        let info = renderer.format_info(&entry, &config);
-        assert_eq!(info, "  [1.5KB]  ");
+        assert_eq!(renderer.format_info(&entry, &config), "  [1.5KB]  ");
     }
 
     #[test]
@@ -913,15 +914,14 @@ mod tests {
         let renderer = TextRenderer::new();
         let config = Config {
             show_inodes: true,
-            ..Default::default()
+            ..Config::default()
         };
         let mut entry = file_entry("test.txt", 0);
         entry.metadata = Some(EntryMetadata {
             inode: 42,
             ..Default::default()
         });
-        let info = renderer.format_info(&entry, &config);
-        assert_eq!(info, "  [        42]  ");
+        assert_eq!(renderer.format_info(&entry, &config), "  [        42]  ");
     }
 
     #[test]
@@ -929,15 +929,14 @@ mod tests {
         let renderer = TextRenderer::new();
         let config = Config {
             show_device: true,
-            ..Default::default()
+            ..Config::default()
         };
         let mut entry = file_entry("test.txt", 0);
         entry.metadata = Some(EntryMetadata {
             device: 0xff,
             ..Default::default()
         });
-        let info = renderer.format_info(&entry, &config);
-        assert_eq!(info, "  [      ff]  ");
+        assert_eq!(renderer.format_info(&entry, &config), "  [      ff]  ");
     }
 
     #[test]
@@ -945,15 +944,14 @@ mod tests {
         let renderer = TextRenderer::new();
         let config = Config {
             show_owner: true,
-            ..Default::default()
+            ..Config::default()
         };
         let mut entry = file_entry("test.txt", 0);
         entry.metadata = Some(EntryMetadata {
             owner: Some("alice".into()),
             ..Default::default()
         });
-        let info = renderer.format_info(&entry, &config);
-        assert_eq!(info, "  [alice   ]  ");
+        assert_eq!(renderer.format_info(&entry, &config), "  [alice   ]  ");
     }
 
     #[test]
@@ -961,15 +959,14 @@ mod tests {
         let renderer = TextRenderer::new();
         let config = Config {
             show_group: true,
-            ..Default::default()
+            ..Config::default()
         };
         let mut entry = file_entry("test.txt", 0);
         entry.metadata = Some(EntryMetadata {
             group: Some("staff".into()),
             ..Default::default()
         });
-        let info = renderer.format_info(&entry, &config);
-        assert_eq!(info, "  [staff   ]  ");
+        assert_eq!(renderer.format_info(&entry, &config), "  [staff   ]  ");
     }
 
     #[test]
@@ -978,7 +975,7 @@ mod tests {
         let config = Config {
             show_size: true,
             show_inodes: true,
-            ..Default::default()
+            ..Config::default()
         };
         let mut entry = file_entry("test.txt", 0);
         entry.metadata = Some(EntryMetadata {
@@ -987,10 +984,130 @@ mod tests {
             ..Default::default()
         });
         let info = renderer.format_info(&entry, &config);
-        // Size comes before inodes
+        // Size comes before inodes in format_info
         let size_pos = info.find("999").unwrap();
         let inode_pos = info.find("7").unwrap();
         assert!(size_pos < inode_pos, "size should appear before inode");
         assert_eq!(info.matches('[').count(), 2);
+    }
+
+    // ══════════════════════════════════════════════
+    // format_name
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn name_simple_file() {
+        let renderer = TextRenderer::new();
+        assert_eq!(
+            renderer.format_name(&file_entry("hello.txt", 1), &Config::default()),
+            "hello.txt"
+        );
+    }
+
+    #[test]
+    fn name_directory() {
+        let renderer = TextRenderer::new();
+        assert_eq!(
+            renderer.format_name(&dir_entry("src", 1), &Config::default()),
+            "src"
+        );
+    }
+
+    #[test]
+    fn name_full_path() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            full_path: true,
+            ..Config::default()
+        };
+        let mut entry = file_entry("src/test.rs", 1);
+        entry.path = PathBuf::from("src/test.rs");
+        let name = renderer.format_name(&entry, &config);
+        assert!(name.contains("src") && name.contains("test.rs"));
+    }
+
+    #[test]
+    fn name_classify_directory_appends_slash() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            classify: true,
+            ..Config::default()
+        };
+        assert_eq!(
+            renderer.format_name(&dir_entry("mydir", 1), &config),
+            "mydir/"
+        );
+    }
+
+    #[test]
+    fn name_symlink_shows_target() {
+        let renderer = TextRenderer::new();
+        let entry = symlink_entry("link", 1, "/target/path", false);
+        let name = renderer.format_name(&entry, &Config::default());
+        assert!(name.contains("->") && name.contains("/target/path"));
+    }
+
+    #[test]
+    fn name_broken_symlink_annotation() {
+        let renderer = TextRenderer::new();
+        let entry = symlink_entry("broken", 1, "/gone", true);
+        let name = renderer.format_name(&entry, &Config::default());
+        assert!(name.contains("->") && name.contains('['));
+    }
+
+    #[test]
+    fn name_recursive_link_annotation() {
+        let renderer = TextRenderer::new();
+        let mut entry = symlink_entry("loop", 1, "/loop", false);
+        entry.recursive_link = true;
+        let name = renderer.format_name(&entry, &Config::default());
+        assert!(name.contains('['));
+    }
+
+    #[test]
+    fn name_junction_shows_target() {
+        let renderer = TextRenderer::new();
+        let mut entry = dir_entry("junc", 1);
+        entry.entry_type = EntryType::Junction {
+            target: PathBuf::from("C:\\target"),
+        };
+        let name = renderer.format_name(&entry, &Config::default());
+        assert!(name.contains("=>") && name.contains("C:\\target"));
+    }
+
+    #[test]
+    fn name_filelimit_exceeded() {
+        let renderer = TextRenderer::new();
+        let mut entry = dir_entry("big", 1);
+        entry.filelimit_exceeded = Some(5000);
+        let name = renderer.format_name(&entry, &Config::default());
+        assert!(name.contains('[') && name.contains("5000"));
+    }
+
+    #[test]
+    fn name_safe_print_sanitizes() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            safe_print: true,
+            ..Config::default()
+        };
+        let mut entry = file_entry("clean", 1);
+        entry.name = OsString::from("evil\x1bname");
+        entry.path = PathBuf::from("evil\x1bname");
+        let name = renderer.format_name(&entry, &config);
+        assert!(name.contains('?') && !name.contains('\x1b'));
+    }
+
+    #[test]
+    fn name_no_safe_print_preserves_control() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            safe_print: false,
+            ..Config::default()
+        };
+        let mut entry = file_entry("raw", 1);
+        entry.name = OsString::from("file\x07bell");
+        entry.path = PathBuf::from("file\x07bell");
+        assert!(renderer.format_name(&entry, &config).contains('\x07'));
     }
 }
