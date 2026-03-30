@@ -9,11 +9,7 @@ use windows_sys::Win32::Storage::FileSystem::{
     INVALID_FILE_ATTRIBUTES, OPEN_EXISTING,
 };
 
-pub struct FileIdInfo {
-    pub file_id: u64,
-    pub volume_serial: u64,
-    pub number_of_links: u32,
-}
+use crate::platform::FileIdInfo;
 
 pub fn get_file_id(path: &Path) -> Result<FileIdInfo, std::io::Error> {
     let wide_path: Vec<u16> = path

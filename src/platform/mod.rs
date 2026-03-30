@@ -65,13 +65,7 @@ pub fn get_junction_target(path: &Path) -> Option<PathBuf> {
 pub fn get_file_id(path: &Path) -> Option<FileIdInfo> {
     #[cfg(windows)]
     {
-        windows::attributes::get_file_id(path)
-            .ok()
-            .map(|info| FileIdInfo {
-                file_id: info.file_id,
-                volume_serial: info.volume_serial,
-                number_of_links: info.number_of_links,
-            })
+        windows::attributes::get_file_id(path).ok()
     }
     #[cfg(not(windows))]
     {
