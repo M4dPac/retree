@@ -103,47 +103,70 @@ pub fn dispatch<W: Write>(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+pub(crate) mod test_util {
     use crate::core::entry::{Entry, EntryType};
     use crate::core::tree::Tree;
-    use crate::core::walker::TreeStats;
+    use crate::core::BuildResult;
     use std::ffi::OsString;
     use std::path::PathBuf;
 
-    fn leaf(name: &str, depth: usize) -> Tree {
+    pub fn file_entry(name: &str, depth: usize) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: OsString::from(name),
+            entry_type: EntryType::File,
+            metadata: None,
+            depth,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        }
+    }
+
+    pub fn dir_entry(name: &str, depth: usize) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: OsString::from(name),
+            entry_type: EntryType::Directory,
+            metadata: None,
+            depth,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        }
+    }
+
+    pub fn leaf(name: &str, depth: usize) -> Tree {
         Tree {
-            entry: Entry {
-                path: PathBuf::from(name),
-                name: OsString::from(name),
-                entry_type: EntryType::File,
-                metadata: None,
-                depth,
-                is_last: false,
-                ancestors_last: vec![],
-                filelimit_exceeded: None,
-                recursive_link: false,
-            },
+            entry: file_entry(name, depth),
             children: vec![],
         }
     }
 
-    fn dir(name: &str, depth: usize, children: Vec<Tree>) -> Tree {
+    pub fn dir(name: &str, depth: usize, children: Vec<Tree>) -> Tree {
         Tree {
-            entry: Entry {
-                path: PathBuf::from(name),
-                name: OsString::from(name),
-                entry_type: EntryType::Directory,
-                metadata: None,
-                depth,
-                is_last: false,
-                ancestors_last: vec![],
-                filelimit_exceeded: None,
-                recursive_link: false,
-            },
+            entry: dir_entry(name, depth),
             children,
         }
     }
+
+    pub fn result_with(root: Entry, tree: Option<Tree>) -> BuildResult {
+        BuildResult {
+            root,
+            tree,
+            errors: vec![],
+            truncated: false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::walker::TreeStats;
+    use crate::render::test_util::*;
 
     #[test]
     fn walk_empty_children() {
