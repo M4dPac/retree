@@ -83,22 +83,10 @@ pub fn dispatch<W: Write>(
     stats: &mut TreeStats,
 ) -> Result<(), TreeError> {
     match config.output_format {
-        OutputFormat::Text => {
-            let renderer = TextRenderer::new();
-            renderer.render(result, config, writer, stats)
-        }
-        OutputFormat::Html => {
-            let renderer = HtmlRenderer::new(config);
-            renderer.render(result, config, writer, stats)
-        }
-        OutputFormat::Xml => {
-            let renderer = XmlRenderer::new();
-            renderer.render(result, config, writer, stats)
-        }
-        OutputFormat::Json => {
-            let renderer = JsonRenderer::new();
-            renderer.render(result, config, writer, stats)
-        }
+        OutputFormat::Text => TextRenderer::new().render(result, config, writer, stats),
+        OutputFormat::Html => HtmlRenderer::new(config).render(result, config, writer, stats),
+        OutputFormat::Xml => XmlRenderer::new().render(result, config, writer, stats),
+        OutputFormat::Json => JsonRenderer::new().render(result, config, writer, stats),
     }
 }
 
