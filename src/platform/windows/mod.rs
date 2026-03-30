@@ -6,6 +6,7 @@
 pub mod attributes;
 pub mod console;
 pub mod locale;
+pub mod paths;
 pub mod permissions;
 pub mod reparse;
 pub mod streams;

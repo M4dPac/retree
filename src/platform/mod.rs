@@ -163,36 +163,8 @@ pub fn get_file_mode(path: &Path) -> Option<u32> {
 pub fn to_long_path(path: &Path, use_long_paths: bool) -> PathBuf {
     #[cfg(windows)]
     {
-        use std::ffi::OsString;
-        use std::os::windows::ffi::{OsStrExt, OsStringExt};
-
         if use_long_paths && path.is_absolute() {
-            let wide: Vec<u16> = path.as_os_str().encode_wide().collect();
-
-            // Already extended-length or device path — return as-is
-            // \\?\ = [5C 5C 3F 5C], \\.\ = [5C 5C 2E 5C]
-            if wide.len() >= 4
-                && wide[0] == b'\\' as u16
-                && wide[1] == b'\\' as u16
-                && (wide[2] == b'?' as u16 || wide[2] == b'.' as u16)
-                && wide[3] == b'\\' as u16
-            {
-                return path.to_path_buf();
-            }
-
-            // UNC path: \\server\share → \\?\UNC\server\share
-            if wide.len() >= 2 && wide[0] == b'\\' as u16 && wide[1] == b'\\' as u16 {
-                let prefix: Vec<u16> = "\\\\?\\UNC\\".encode_utf16().collect();
-                let mut result = prefix;
-                result.extend_from_slice(&wide[2..]); // skip leading \\
-                return PathBuf::from(OsString::from_wide(&result));
-            }
-
-            // Regular absolute path: C:\... → \\?\C:\...
-            let prefix: Vec<u16> = "\\\\?\\".encode_utf16().collect();
-            let mut result = prefix;
-            result.extend_from_slice(&wide);
-            return PathBuf::from(OsString::from_wide(&result));
+            return windows::paths::to_long_path(path);
         }
         path.to_path_buf()
     }
