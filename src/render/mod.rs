@@ -376,4 +376,108 @@ mod tests {
         });
         assert!(result.is_err());
     }
+
+    // ══════════════════════════════════════════════
+    // dispatch
+    // ══════════════════════════════════════════════
+
+    fn run_dispatch(config: Config) -> String {
+        let root = dir_entry(".", 0);
+        let result = result_with(root, None);
+        let mut buf = Vec::new();
+        let mut stats = TreeStats::default();
+        dispatch(&result, &config, &mut buf, &mut stats).unwrap();
+        String::from_utf8(buf).unwrap()
+    }
+
+    #[test]
+    fn dispatch_text_format_produces_output() {
+        let config = Config {
+            output_format: OutputFormat::Text,
+            no_report: true,
+            ..Config::default()
+        };
+        let out = run_dispatch(config);
+        assert!(out.contains('.'));
+    }
+
+    #[test]
+    fn dispatch_json_format_produces_valid_json() {
+        let config = Config {
+            output_format: OutputFormat::Json,
+            ..Config::default()
+        };
+        let out = run_dispatch(config);
+        // Must start with '[' or '{' — valid JSON structure
+        let trimmed = out.trim();
+        assert!(
+            trimmed.starts_with('[') || trimmed.starts_with('{'),
+            "expected JSON, got: {trimmed}"
+        );
+    }
+
+    #[test]
+    fn dispatch_xml_format_produces_valid_xml() {
+        let config = Config {
+            output_format: OutputFormat::Xml,
+            ..Config::default()
+        };
+        let out = run_dispatch(config);
+        assert!(out.contains("<?xml"), "expected XML declaration");
+        assert!(out.contains("<tree"), "expected <tree> root element");
+    }
+
+    #[test]
+    fn dispatch_html_format_produces_valid_html() {
+        let config = Config {
+            output_format: OutputFormat::Html,
+            html_base: Some("https://example.com".into()),
+            ..Config::default()
+        };
+        let out = run_dispatch(config);
+        assert!(
+            out.contains("<!DOCTYPE html") || out.contains("<html"),
+            "expected HTML document"
+        );
+    }
+
+    #[test]
+    fn dispatch_all_formats_succeed_without_panic() {
+        // Smoke test: every OutputFormat variant must complete without error
+        for format in [OutputFormat::Text, OutputFormat::Json, OutputFormat::Xml] {
+            let config = Config {
+                output_format: format,
+                ..Config::default()
+            };
+            let root = dir_entry(".", 0);
+            let result = result_with(root, None);
+            let mut buf = Vec::new();
+            let mut stats = TreeStats::default();
+            assert!(
+                dispatch(&result, &config, &mut buf, &mut stats).is_ok(),
+                "dispatch failed for format {format:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn dispatch_text_with_children_counts_stats() {
+        let root = dir_entry(".", 0);
+        let tree = dir(
+            ".",
+            0,
+            vec![leaf("a.txt", 1), dir("sub", 1, vec![leaf("b.txt", 2)])],
+        );
+        let result = result_with(root, Some(tree));
+        let config = Config {
+            output_format: OutputFormat::Text,
+            no_report: true,
+            ..Config::default()
+        };
+        let mut buf = Vec::new();
+        let mut stats = TreeStats::default();
+        dispatch(&result, &config, &mut buf, &mut stats).unwrap();
+        assert_eq!(stats.files, 2);
+        assert_eq!(stats.directories, 2);
+    }
 }
