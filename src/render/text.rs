@@ -387,6 +387,7 @@ fn format_posix_mode(mode: u32) -> String {
 mod tests {
     use super::*;
     use crate::core::entry::{EntryMetadata, WinAttributes};
+    use crate::render::test_util::*;
 
     // ══════════════════════════════════════════════
     // format_posix_mode
@@ -830,5 +831,166 @@ mod tests {
         let ansi = write_prefix_to_vec(1, false, &[], LineStyle::Ansi, false);
         let cp437 = write_prefix_to_vec(1, false, &[], LineStyle::Cp437, false);
         assert_ne!(ansi, cp437);
+    }
+
+    // ══════════════════════════════════════════════
+    // format_info
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn info_empty_without_metadata() {
+        let renderer = TextRenderer::new();
+        let config = Config::default();
+        let entry = file_entry("test.txt", 0);
+        assert_eq!(renderer.format_info(&entry, &config), "");
+    }
+
+    #[test]
+    fn info_empty_when_no_show_flags() {
+        let renderer = TextRenderer::new();
+        let config = Config::default();
+        let mut entry = file_entry("test.txt", 0);
+        entry.metadata = Some(EntryMetadata {
+            size: 1000,
+            ..Default::default()
+        });
+        assert_eq!(renderer.format_info(&entry, &config), "");
+    }
+
+    #[test]
+    fn info_size_raw_right_aligned() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            show_size: true,
+            ..Default::default()
+        };
+        let mut entry = file_entry("test.txt", 0);
+        entry.metadata = Some(EntryMetadata {
+            size: 12345,
+            ..Default::default()
+        });
+        let info = renderer.format_info(&entry, &config);
+        assert_eq!(info, "  [     12345]  ");
+    }
+
+    #[test]
+    fn info_size_human_readable() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            show_size: true,
+            human_readable: true,
+            ..Default::default()
+        };
+        let mut entry = file_entry("test.txt", 0);
+        entry.metadata = Some(EntryMetadata {
+            size: 1536,
+            ..Default::default()
+        });
+        let info = renderer.format_info(&entry, &config);
+        assert_eq!(info, "  [1.5KiB]  ");
+    }
+
+    #[test]
+    fn info_size_human_si() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            show_size: true,
+            human_readable: true,
+            si_units: true,
+            ..Default::default()
+        };
+        let mut entry = file_entry("test.txt", 0);
+        entry.metadata = Some(EntryMetadata {
+            size: 1500,
+            ..Default::default()
+        });
+        let info = renderer.format_info(&entry, &config);
+        assert_eq!(info, "  [1.5KB]  ");
+    }
+
+    #[test]
+    fn info_inode() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            show_inodes: true,
+            ..Default::default()
+        };
+        let mut entry = file_entry("test.txt", 0);
+        entry.metadata = Some(EntryMetadata {
+            inode: 42,
+            ..Default::default()
+        });
+        let info = renderer.format_info(&entry, &config);
+        assert_eq!(info, "  [        42]  ");
+    }
+
+    #[test]
+    fn info_device_hex() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            show_device: true,
+            ..Default::default()
+        };
+        let mut entry = file_entry("test.txt", 0);
+        entry.metadata = Some(EntryMetadata {
+            device: 0xff,
+            ..Default::default()
+        });
+        let info = renderer.format_info(&entry, &config);
+        assert_eq!(info, "  [      ff]  ");
+    }
+
+    #[test]
+    fn info_owner() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            show_owner: true,
+            ..Default::default()
+        };
+        let mut entry = file_entry("test.txt", 0);
+        entry.metadata = Some(EntryMetadata {
+            owner: Some("alice".into()),
+            ..Default::default()
+        });
+        let info = renderer.format_info(&entry, &config);
+        assert_eq!(info, "  [alice   ]  ");
+    }
+
+    #[test]
+    fn info_group() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            show_group: true,
+            ..Default::default()
+        };
+        let mut entry = file_entry("test.txt", 0);
+        entry.metadata = Some(EntryMetadata {
+            group: Some("staff".into()),
+            ..Default::default()
+        });
+        let info = renderer.format_info(&entry, &config);
+        assert_eq!(info, "  [staff   ]  ");
+    }
+
+    #[test]
+    fn info_multiple_fields_ordered() {
+        let renderer = TextRenderer::new();
+        let config = Config {
+            show_size: true,
+            show_inodes: true,
+            ..Default::default()
+        };
+        let mut entry = file_entry("test.txt", 0);
+        entry.metadata = Some(EntryMetadata {
+            size: 999,
+            inode: 7,
+            ..Default::default()
+        });
+        let info = renderer.format_info(&entry, &config);
+        // Size comes before inodes
+        let size_pos = info.find("999").unwrap();
+        let inode_pos = info.find("7").unwrap();
+        assert!(size_pos < inode_pos, "size should appear before inode");
+        assert_eq!(info.matches('[').count(), 2);
     }
 }
