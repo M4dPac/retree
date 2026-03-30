@@ -239,48 +239,9 @@ impl Renderer for JsonRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::entry::{Entry, EntryType};
     use crate::core::tree::Tree;
     use crate::core::walker::TreeStats;
-    use std::ffi::OsString;
-    use std::path::PathBuf;
-
-    fn file_entry(name: &str, depth: usize) -> Entry {
-        Entry {
-            path: PathBuf::from(name),
-            name: OsString::from(name),
-            entry_type: EntryType::File,
-            metadata: None,
-            depth,
-            is_last: false,
-            ancestors_last: vec![],
-            filelimit_exceeded: None,
-            recursive_link: false,
-        }
-    }
-
-    fn dir_entry(name: &str, depth: usize) -> Entry {
-        Entry {
-            path: PathBuf::from(name),
-            name: OsString::from(name),
-            entry_type: EntryType::Directory,
-            metadata: None,
-            depth,
-            is_last: false,
-            ancestors_last: vec![],
-            filelimit_exceeded: None,
-            recursive_link: false,
-        }
-    }
-
-    fn result_with(root: Entry, tree: Option<Tree>) -> BuildResult {
-        BuildResult {
-            root,
-            tree,
-            errors: vec![],
-            truncated: false,
-        }
-    }
+    use crate::render::test_util::*;
 
     fn render_json(result: &BuildResult, config: &Config) -> String {
         let renderer = JsonRenderer::new();

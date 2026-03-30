@@ -211,49 +211,11 @@ impl Renderer for XmlRenderer {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
-    use crate::core::entry::{Entry, EntryType};
     use crate::core::tree::Tree;
     use crate::core::walker::TreeStats;
-    use std::ffi::OsString;
-    use std::path::PathBuf;
-
-    fn file_entry(name: &str, depth: usize) -> Entry {
-        Entry {
-            path: PathBuf::from(name),
-            name: OsString::from(name),
-            entry_type: EntryType::File,
-            metadata: None,
-            depth,
-            is_last: false,
-            ancestors_last: vec![],
-            filelimit_exceeded: None,
-            recursive_link: false,
-        }
-    }
-
-    fn dir_entry(name: &str, depth: usize) -> Entry {
-        Entry {
-            path: PathBuf::from(name),
-            name: OsString::from(name),
-            entry_type: EntryType::Directory,
-            metadata: None,
-            depth,
-            is_last: false,
-            ancestors_last: vec![],
-            filelimit_exceeded: None,
-            recursive_link: false,
-        }
-    }
-
-    fn result_with(root: Entry, tree: Option<Tree>) -> BuildResult {
-        BuildResult {
-            root,
-            tree,
-            errors: vec![],
-            truncated: false,
-        }
-    }
+    use crate::render::test_util::*;
 
     fn render_xml(result: &BuildResult, config: &Config) -> String {
         let renderer = XmlRenderer::new();
@@ -293,27 +255,16 @@ mod tests {
 
     #[test]
     fn xml_symlink_child() {
-        let link = Entry {
-            path: PathBuf::from("mylink"),
-            name: OsString::from("mylink"),
-            entry_type: EntryType::Symlink {
-                target: PathBuf::from("/target"),
-                broken: false,
-            },
-            metadata: None,
-            depth: 1,
-            is_last: false,
-            ancestors_last: vec![],
-            filelimit_exceeded: None,
-            recursive_link: false,
-        };
-        let tree = Tree {
-            entry: dir_entry("root", 0),
-            children: vec![Tree {
+        let link = symlink_entry("mylink", 1, "/target", false);
+        let tree = dir(
+            "root",
+            0,
+            vec![Tree {
                 entry: link,
                 children: vec![],
             }],
-        };
+        );
+
         let result = result_with(dir_entry("root", 0), Some(tree));
         let config = Config::default();
         let output = render_xml(&result, &config);
@@ -342,25 +293,32 @@ mod tests {
     }
 
     #[test]
-    fn xml_escapes_special_chars() {
-        let entry = Entry {
-            path: PathBuf::from("a&b<c"),
-            name: OsString::from("a&b<c"),
-            entry_type: EntryType::File,
-            metadata: None,
-            depth: 1,
-            is_last: false,
-            ancestors_last: vec![],
-            filelimit_exceeded: None,
-            recursive_link: false,
-        };
-        let tree = Tree {
-            entry: dir_entry("root", 0),
-            children: vec![Tree {
-                entry,
+    fn xml_symlink_broken() {
+        let tree = dir(
+            "root",
+            0,
+            vec![Tree {
+                entry: symlink_entry("dead_link", 1, "/missing", true),
                 children: vec![],
             }],
-        };
+        );
+        let result = result_with(dir_entry("root", 0), Some(tree));
+        let config = Config::default();
+        let output = render_xml(&result, &config);
+        assert!(output.contains("<link name=\"dead_link\""));
+        assert!(output.contains("target=\"/missing\""));
+    }
+
+    #[test]
+    fn xml_escapes_special_chars() {
+        let tree = dir(
+            "root",
+            0,
+            vec![Tree {
+                entry: named_file_entry("a&b<c", 1),
+                children: vec![],
+            }],
+        );
         let result = result_with(dir_entry("root", 0), Some(tree));
         let config = Config::default();
         let output = render_xml(&result, &config);

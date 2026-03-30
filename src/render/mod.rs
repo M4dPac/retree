@@ -138,6 +138,37 @@ pub(crate) mod test_util {
         }
     }
 
+    pub fn symlink_entry(name: &str, depth: usize, target: &str, broken: bool) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: OsString::from(name),
+            entry_type: EntryType::Symlink {
+                target: PathBuf::from(target),
+                broken,
+            },
+            metadata: None,
+            depth,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        }
+    }
+
+    pub fn named_file_entry(name: &str, depth: usize) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: OsString::from(name),
+            entry_type: EntryType::File,
+            metadata: None,
+            depth,
+            is_last: false,
+            ancestors_last: vec![],
+            filelimit_exceeded: None,
+            recursive_link: false,
+        }
+    }
+
     pub fn leaf(name: &str, depth: usize) -> Tree {
         Tree {
             entry: file_entry(name, depth),
