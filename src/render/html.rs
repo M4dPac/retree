@@ -5,7 +5,7 @@ use crate::config::Config;
 use crate::core::entry::Entry;
 use crate::core::walker::TreeStats;
 use crate::core::BuildResult;
-use crate::error::TreeError;
+use crate::error::{diag_warn, TreeError};
 use crate::i18n::{self, format_report, get_message, MessageKey};
 
 use super::helpers;
@@ -33,7 +33,7 @@ fn sanitize_base_url(url: &str) -> String {
         || lower.starts_with("data:")
         || lower.starts_with("vbscript:")
     {
-        eprintln!("rtree: warning: unsafe URL scheme in -H ignored, using '.'");
+        diag_warn("unsafe URL scheme in -H ignored, using '.'");
         ".".to_string()
     } else {
         url.to_string()
@@ -45,12 +45,12 @@ fn load_optional_file(path: &std::path::Path, flag_name: &str) -> Option<String>
     match fs::read_to_string(path) {
         Ok(content) => Some(content),
         Err(e) => {
-            eprintln!(
+            diag_warn(format_args!(
                 "rtree: warning: cannot read {} '{}': {}",
                 flag_name,
                 path.display(),
                 e
-            );
+            ));
             None
         }
     }

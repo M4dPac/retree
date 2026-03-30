@@ -14,7 +14,7 @@ use crate::cli::Args;
 use crate::config::Config;
 use crate::core::walker::StreamingEngine;
 use crate::core::walker::TreeStats;
-use crate::error::TreeError;
+use crate::error::{diag_error, diag_warn, report_errors, TreeError};
 use crate::i18n;
 use crate::render::TextRenderer;
 
@@ -27,7 +27,7 @@ pub fn run(args: Args) -> ExitCode {
     let config = match Config::build(args) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("rtree: {}", e);
+            diag_error(&e);
             return ExitCode::from(2);
         }
     };
@@ -60,11 +60,11 @@ fn execute(config: Config) -> u8 {
         match std::fs::File::create(output_path) {
             Ok(file) => Box::new(file),
             Err(e) => {
-                eprintln!(
-                    "rtree: failed to create output file '{}': {}",
+                diag_error(format_args!(
+                    "failed to create output file '{}': {}",
                     output_path.display(),
                     e
-                );
+                ));
                 return 1;
             }
         }
@@ -76,7 +76,7 @@ fn execute(config: Config) -> u8 {
 
     // Ensure output is flushed before exit
     if let Err(e) = output.flush() {
-        eprintln!("rtree: error writing output: {}", e);
+        diag_error(format_args!("error writing output: {}", e));
         return 1;
     }
 
@@ -104,13 +104,13 @@ fn process_paths<W: Write>(
     for (idx, path) in paths.iter().enumerate() {
         if !path.exists() {
             let err = TreeError::NotFound(path.clone());
-            eprintln!("rtree: {}", err);
+            diag_error(&err);
             return Err(err);
         }
 
         if !path.is_dir() {
             let err = TreeError::NotDirectory(path.clone());
-            eprintln!("rtree: {}", err);
+            diag_error(&err);
             return Err(err);
         }
 
@@ -122,8 +122,8 @@ fn process_paths<W: Write>(
 
         let result = render_tree(config, path, output, &mut stats);
 
-        if let Err(ref e) = result {
-            eprintln!("rtree: {}", e);
+        if let Err(ref err) = result {
+            diag_error(err);
         }
 
         total_stats.directories += stats.directories;
@@ -153,18 +153,12 @@ fn render_tree<W: Write>(
         let engine = StreamingEngine::new(config, &text_render);
         match engine.traverse_and_render(path, output, stats) {
             Ok(result) => {
-                for err in &result.errors {
-                    eprintln!("rtree: {}", err);
-                }
-                let hard_errors = result
-                    .errors
-                    .iter()
-                    .filter(|e| !matches!(e, TreeError::ReservedName(_)))
-                    .count();
-                stats.errors += hard_errors as u64;
+                stats.errors += report_errors(&result.errors);
                 if result.truncated {
-                    let max = config.max_entries.unwrap_or(0);
-                    eprintln!("rtree: output truncated at {} entries (--max-entries)", max);
+                    diag_warn(format_args!(
+                        "output truncated at {} entries (--max-entries)",
+                        config.max_entries.unwrap_or(0)
+                    ));
                 }
                 return Ok(());
             }
@@ -180,31 +174,23 @@ fn render_tree<W: Write>(
     let result = match crate::core::build_tree(config, path) {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("rtree: {}", e);
+            diag_error(&e);
             stats.errors += 1;
             return Err(e);
         }
     };
 
-    // Report traversal errors/warnings to stderr
-    for err in &result.errors {
-        eprintln!("rtree: {}", err);
-    }
-    // ReservedName is an informational warning, not a hard error — don't affect exit code
-    let hard_errors = result
-        .errors
-        .iter()
-        .filter(|e| !matches!(e, TreeError::ReservedName(_)))
-        .count();
-    stats.errors += hard_errors as u64;
+    stats.errors += report_errors(&result.errors);
 
     // Dispatch to appropriate render backend
     let dispatch_result = crate::render::dispatch(&result, config, output, stats);
 
     // Notify user if output was truncated by --max-entries
     if result.truncated {
-        let max = config.max_entries.unwrap_or(0);
-        eprintln!("rtree: output truncated at {} entries (--max-entries)", max);
+        diag_warn(format_args!(
+            "output truncated at {} entries (--max-entries)",
+            config.max_entries.unwrap_or(0)
+        ));
     }
 
     dispatch_result

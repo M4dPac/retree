@@ -8,7 +8,7 @@ use crate::cli::PermMode;
 use crate::cli::{Args, ColorWhen, IconsWhen};
 use crate::core::filter::Filter;
 use crate::core::sorter::{SortConfig, SortType};
-use crate::error::TreeError;
+use crate::error::{diag_warn, TreeError};
 use crate::style::colors::ColorScheme;
 use crate::style::icons::{IconSet, IconStyle};
 
@@ -165,10 +165,10 @@ impl Config {
                 } else {
                     "HTML"
                 };
-                eprintln!(
-                    "rtree: warning: multiple output formats specified, using {}",
+                diag_warn(format_args!(
+                    "multiple output formats specified, using {}",
                     chosen
-                );
+                ));
             }
         }
 
@@ -190,9 +190,7 @@ impl Config {
         )?;
 
         if args.dirs_first && args.files_first {
-            eprintln!(
-                "rtree: warning: --dirsfirst and --filesfirst are mutually exclusive, using --dirsfirst"
-            );
+            diag_warn("--dirsfirst and --filesfirst are mutually exclusive, using --dirsfirst");
         }
 
         let sort_config = SortConfig {
