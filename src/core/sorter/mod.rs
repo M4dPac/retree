@@ -48,25 +48,25 @@ fn name_cmp_locale(a: &std::ffi::OsStr, b: &std::ffi::OsStr) -> std::cmp::Orderi
     let a_str = a.to_string_lossy();
     let b_str = b.to_string_lossy();
 
-    // Level 1: compare only alphanumeric chars, case-insensitive
-    let a_alnum: String = a_str
+    // Level 1: compare only alphanumeric chars, case-insensitive.
+    // Iterator::cmp avoids collecting into intermediate Strings —
+    // eliminates 2–4 heap allocations per comparison.
+    a_str
         .chars()
         .filter(|c| c.is_alphanumeric())
         .flat_map(|c| c.to_lowercase())
-        .collect();
-    let b_alnum: String = b_str
-        .chars()
-        .filter(|c| c.is_alphanumeric())
-        .flat_map(|c| c.to_lowercase())
-        .collect();
-
-    a_alnum
-        .cmp(&b_alnum)
+        .cmp(
+            b_str
+                .chars()
+                .filter(|c| c.is_alphanumeric())
+                .flat_map(|c| c.to_lowercase()),
+        )
         // Level 2: case-insensitive with punctuation
         .then_with(|| {
-            let a_lower = a_str.to_lowercase();
-            let b_lower = b_str.to_lowercase();
-            a_lower.cmp(&b_lower)
+            a_str
+                .chars()
+                .flat_map(|c| c.to_lowercase())
+                .cmp(b_str.chars().flat_map(|c| c.to_lowercase()))
         })
         // Level 3: case-sensitive tie-break
         .then_with(|| a_str.cmp(&b_str))
