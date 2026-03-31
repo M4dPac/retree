@@ -111,9 +111,9 @@ pub fn sort_entries(entries: &mut [DirEntry], config: &SortConfig) {
                 name_cmp_locale(&a_name, &b_name)
             }
             SortType::Version => {
-                let a_name = a.file_name().to_string_lossy().to_string();
-                let b_name = b.file_name().to_string_lossy().to_string();
-                natural_cmp(&a_name, &b_name)
+                let a_name = a.file_name();
+                let b_name = b.file_name();
+                natural_cmp(&a_name.to_string_lossy(), &b_name.to_string_lossy())
             }
             SortType::Size => {
                 let a_size = a.metadata().map(|m| m.len()).unwrap_or(0);
