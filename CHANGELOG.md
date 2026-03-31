@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reuse traversal engine across multiple input paths to avoid recreating the rayon thread pool per path
 - Reduce heap allocations in locale-aware name sorting by using iterator-based comparison
 - Reduce allocations in version sorting by removing redundant String conversions
+- Preallocate children vector in sequential tree builder to reduce reallocations
 
 ### Fixed
 

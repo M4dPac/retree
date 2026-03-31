@@ -289,7 +289,7 @@ fn build_node_sequential(
         }
     };
 
-    let mut children = Vec::new();
+    let mut children = Vec::with_capacity(dir_entries.len());
 
     for dir_entry in dir_entries {
         let is_dir = match common::filter_entry(config, &dir_entry, parent_matched) {
