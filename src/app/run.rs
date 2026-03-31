@@ -12,8 +12,7 @@ use std::process::ExitCode;
 
 use crate::cli::Args;
 use crate::config::Config;
-use crate::core::walker::StreamingEngine;
-use crate::core::walker::TreeStats;
+use crate::core::walker::{OrderedEngine, StreamingEngine, TreeStats};
 use crate::error::{diag_error, diag_warn, report_errors, TreeError};
 use crate::i18n;
 use crate::render::TextRenderer;
@@ -101,6 +100,9 @@ fn process_paths<W: Write>(
     output: &mut W,
     total_stats: &mut TreeStats,
 ) -> Result<(), TreeError> {
+    // Create engine once — reuses rayon thread pool across all paths.
+    let engine = OrderedEngine::new(config);
+
     for (idx, path) in paths.iter().enumerate() {
         if !path.exists() {
             let err = TreeError::NotFound(path.clone());
@@ -120,7 +122,7 @@ fn process_paths<W: Write>(
 
         let mut stats = TreeStats::default();
 
-        let result = render_tree(config, path, output, &mut stats);
+        let result = render_tree(&engine, config, path, output, &mut stats);
 
         if let Err(ref err) = result {
             diag_error(err);
@@ -142,6 +144,7 @@ fn process_paths<W: Write>(
 
 /// Build tree and dispatch to renderer.
 fn render_tree<W: Write>(
+    engine: &OrderedEngine,
     config: &Config,
     path: &std::path::Path,
     output: &mut W,
@@ -171,7 +174,7 @@ fn render_tree<W: Write>(
     }
 
     // Build the tree using core domain logic
-    let result = match crate::core::build_tree(config, path) {
+    let result = match crate::core::build_tree(engine, config, path) {
         Ok(r) => r,
         Err(e) => {
             diag_error(&e);

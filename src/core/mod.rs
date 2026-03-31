@@ -32,15 +32,24 @@ pub struct BuildResult {
 
 /// Build a directory tree for the given path.
 ///
-/// Uses `OrderedEngine` for both sequential and parallel modes.
-/// `--max-entries` is handled by truncating during tree flattening.
-pub fn build_tree(config: &Config, path: &Path) -> Result<BuildResult, TreeError> {
+/// Accepts a pre-built `OrderedEngine` to allow reuse across multiple
+/// paths (avoids recreating the rayon thread pool per path).
+///
+/// **Note:** the root `Entry` is created twice — once here (for `BuildResult.root`,
+/// used by all renderers) and once inside `engine.traverse()` (as `tree.entry`,
+/// used only for tree structure).  This is intentional: `root` must be available
+/// even when `tree` is `None` (traversal failed after root was validated).
+/// The extra `stat()` call is negligible (~1 µs).
+pub fn build_tree(
+    engine: &OrderedEngine,
+    config: &Config,
+    path: &Path,
+) -> Result<BuildResult, TreeError> {
     let needs_file_id = config.one_fs || config.show_inodes || config.show_device;
     let needs_attrs = config.show_permissions;
 
     let root = Entry::from_path(path, 0, needs_file_id, needs_attrs)?;
 
-    let engine = OrderedEngine::new(config);
     let traversal = engine.traverse(path, config);
 
     Ok(BuildResult {

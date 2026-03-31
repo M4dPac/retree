@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- Reuse traversal engine across multiple input paths to avoid recreating the rayon thread pool per path
+
 ### Fixed
 
 - prevent traversal stalls by releasing directory limiter guard correctly
