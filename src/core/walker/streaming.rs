@@ -21,23 +21,33 @@ pub struct StreamingResult {
     pub truncated: bool,
 }
 
-/// Mutable traversal state for max_entries tracking.
+/// Mutable traversal state shared across the recursive DFS walk.
+///
+/// Collects invariants (`needs_file_id`) and per-level state (`ancestors`)
+/// to avoid threading them through every recursive call.
 struct StreamState {
     count: usize,
     max_entries: Option<usize>,
     truncated: bool,
     visited: HashSet<common::VisitedKey>,
     root_device: Option<u64>,
+    /// Whether `Entry` constructors should fetch OS file identity.
+    needs_file_id: bool,
+    /// Stack of `is_last` flags for ancestor levels.
+    /// Push on descend, pop on return — avoids per-directory Vec allocation.
+    ancestors: Vec<bool>,
 }
 
 impl StreamState {
-    fn new(max_entries: Option<usize>, root_device: Option<u64>) -> Self {
+    fn new(max_entries: Option<usize>, root_device: Option<u64>, needs_file_id: bool) -> Self {
         Self {
             count: 0,
             max_entries,
             truncated: false,
             visited: HashSet::new(),
             root_device,
+            needs_file_id,
+            ancestors: Vec::new(),
         }
     }
 
@@ -93,6 +103,7 @@ impl<'a> StreamingEngine<'a> {
         let mut state = StreamState::new(
             config.max_entries,
             common::compute_root_device(config, root),
+            needs_file_id,
         );
 
         if config.one_fs && state.root_device.is_none() {
@@ -105,17 +116,7 @@ impl<'a> StreamingEngine<'a> {
         }
 
         state.visited.insert(common::make_visited_key(root));
-        self.emit_children(
-            root,
-            1,
-            &[],
-            false,
-            writer,
-            stats,
-            &mut errors,
-            needs_file_id,
-            &mut state,
-        )?;
+        self.emit_children(root, 1, false, writer, stats, &mut errors, &mut state)?;
 
         // Report
         if !config.no_report {
@@ -141,12 +142,10 @@ impl<'a> StreamingEngine<'a> {
         &self,
         dir: &Path,
         depth: usize,
-        ancestors_last: &[bool],
         parent_matched: bool,
         writer: &mut W,
         stats: &mut TreeStats,
         errors: &mut Vec<TreeError>,
-        needs_file_id: bool,
         state: &mut StreamState,
     ) -> Result<(), TreeError> {
         let config = self.config;
@@ -199,12 +198,16 @@ impl<'a> StreamingEngine<'a> {
 
             let is_last = i == total - 1;
 
-            match Entry::from_dir_entry(dir_entry, depth, needs_file_id, config.show_permissions) {
+            match Entry::from_dir_entry(
+                dir_entry,
+                depth,
+                state.needs_file_id,
+                config.show_permissions,
+            ) {
                 Ok(mut entry) => {
                     entry.is_last = is_last;
-                    entry.ancestors_last = ancestors_last.to_vec();
+                    entry.ancestors_last = state.ancestors.clone();
 
-                    // Determine if this entry is a traversable directory
                     let should_descend = match &entry.entry_type {
                         EntryType::Directory => true,
                         EntryType::Symlink { broken: false, .. } if config.follow_symlinks => {
@@ -214,7 +217,6 @@ impl<'a> StreamingEngine<'a> {
                         _ => false,
                     };
 
-                    // Cycle detection: check visited before writing
                     let descend = if should_descend {
                         let visit_key = common::make_visited_key(&entry.path);
                         if state.visited.insert(visit_key) {
@@ -227,8 +229,6 @@ impl<'a> StreamingEngine<'a> {
                         false
                     };
 
-                    // --one-fs: don't descend into different filesystems.
-                    // If volume cannot be determined, conservatively don't descend.
                     let descend = descend
                         && match common::check_one_fs(state.root_device, &entry.path) {
                             common::OnefsCheck::Proceed => true,
@@ -246,25 +246,26 @@ impl<'a> StreamingEngine<'a> {
                     count_stats(&entry, stats);
                     state.count += 1;
 
-                    // Emit NTFS Alternate Data Streams for non-descended entries
+                    // ADS or recursive descent: push is_last for child level
                     if config.show_streams && !descend {
                         let streams = crate::platform::get_alternate_streams(&entry.path);
                         let num_streams = streams.len();
+                        state.ancestors.push(is_last);
                         for (si, stream) in streams.into_iter().enumerate() {
                             if state.should_stop() {
                                 state.truncated = true;
+                                state.ancestors.pop();
                                 return Ok(());
                             }
                             let mut ads_entry =
                                 Entry::from_ads(&entry.path, stream.name, stream.size, depth + 1);
                             ads_entry.is_last = si == num_streams - 1;
-                            let mut ads_ancestors = ancestors_last.to_vec();
-                            ads_ancestors.push(is_last);
-                            ads_entry.ancestors_last = ads_ancestors;
+                            ads_entry.ancestors_last = state.ancestors.clone();
                             self.entry_writer.write_entry(writer, &ads_entry, config)?;
                             count_stats(&ads_entry, stats);
                             state.count += 1;
                         }
+                        state.ancestors.pop();
                     }
 
                     if descend {
@@ -272,19 +273,17 @@ impl<'a> StreamingEngine<'a> {
                         let child_name_str = child_name.to_string_lossy();
                         let child_parent_matched =
                             parent_matched || config.filter.dir_matches_include(&child_name_str);
-                        let mut child_ancestors = ancestors_last.to_vec();
-                        child_ancestors.push(is_last);
+                        state.ancestors.push(is_last);
                         self.emit_children(
                             &entry.path,
                             depth + 1,
-                            &child_ancestors,
                             child_parent_matched,
                             writer,
                             stats,
                             errors,
-                            needs_file_id,
                             state,
                         )?;
+                        state.ancestors.pop();
                         if state.truncated {
                             return Ok(());
                         }
