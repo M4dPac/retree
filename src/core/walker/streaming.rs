@@ -135,6 +135,36 @@ impl<'a> StreamingEngine<'a> {
         })
     }
 
+    /// Emit NTFS Alternate Data Streams for an entry.
+    ///
+    /// Each stream is written as a child at `depth + 1`.
+    /// Caller must push/pop `state.ancestors` around this call.
+    fn emit_ads<W: Write>(
+        &self,
+        entry: &Entry,
+        depth: usize,
+        config: &Config,
+        writer: &mut W,
+        stats: &mut TreeStats,
+        state: &mut StreamState,
+    ) -> Result<(), TreeError> {
+        let streams = crate::platform::get_alternate_streams(&entry.path);
+        let num_streams = streams.len();
+        for (si, stream) in streams.into_iter().enumerate() {
+            if state.should_stop() {
+                state.truncated = true;
+                return Ok(());
+            }
+            let mut ads_entry = Entry::from_ads(&entry.path, stream.name, stream.size, depth + 1);
+            ads_entry.is_last = si == num_streams - 1;
+            ads_entry.ancestors_last = state.ancestors.clone();
+            self.entry_writer.write_entry(writer, &ads_entry, config)?;
+            count_stats(&ads_entry, stats);
+            state.count += 1;
+        }
+        Ok(())
+    }
+
     /// Read, filter, sort, and emit children of a single directory,
     /// then recursively descend into subdirectories (DFS).
     #[allow(clippy::too_many_arguments)]
@@ -246,26 +276,17 @@ impl<'a> StreamingEngine<'a> {
                     count_stats(&entry, stats);
                     state.count += 1;
 
-                    // ADS or recursive descent: push is_last for child level
+                    // ADS and recursive descent use push/pop on state.ancestors.
+                    // The `let r = f(); pop(); r?;` pattern ensures pop() executes
+                    // even when f() returns Err (output I/O failure).
                     if config.show_streams && !descend {
-                        let streams = crate::platform::get_alternate_streams(&entry.path);
-                        let num_streams = streams.len();
                         state.ancestors.push(is_last);
-                        for (si, stream) in streams.into_iter().enumerate() {
-                            if state.should_stop() {
-                                state.truncated = true;
-                                state.ancestors.pop();
-                                return Ok(());
-                            }
-                            let mut ads_entry =
-                                Entry::from_ads(&entry.path, stream.name, stream.size, depth + 1);
-                            ads_entry.is_last = si == num_streams - 1;
-                            ads_entry.ancestors_last = state.ancestors.clone();
-                            self.entry_writer.write_entry(writer, &ads_entry, config)?;
-                            count_stats(&ads_entry, stats);
-                            state.count += 1;
-                        }
+                        let r = self.emit_ads(&entry, depth, config, writer, stats, state);
                         state.ancestors.pop();
+                        r?;
+                        if state.truncated {
+                            return Ok(());
+                        }
                     }
 
                     if descend {
@@ -274,7 +295,7 @@ impl<'a> StreamingEngine<'a> {
                         let child_parent_matched =
                             parent_matched || config.filter.dir_matches_include(&child_name_str);
                         state.ancestors.push(is_last);
-                        self.emit_children(
+                        let r = self.emit_children(
                             &entry.path,
                             depth + 1,
                             child_parent_matched,
@@ -282,8 +303,9 @@ impl<'a> StreamingEngine<'a> {
                             stats,
                             errors,
                             state,
-                        )?;
+                        );
                         state.ancestors.pop();
+                        r?;
                         if state.truncated {
                             return Ok(());
                         }
