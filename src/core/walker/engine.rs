@@ -122,28 +122,31 @@ pub struct TraversalResult {
 //
 
 pub struct OrderedEngine {
-    parallel: bool,
     pool: Option<rayon::ThreadPool>,
-    max_entries: Option<usize>,
 }
 
 impl OrderedEngine {
     pub fn new(config: &Config) -> Self {
         let pool = if config.parallel {
-            let mut builder = rayon::ThreadPoolBuilder::new().stack_size(8 * 1024 * 1024); // Match main thread stck (8 MiB)
+            let mut builder = rayon::ThreadPoolBuilder::new().stack_size(8 * 1024 * 1024); // 8 MiB — match main thread stack
             if let Some(n) = config.threads {
                 builder = builder.num_threads(n);
             }
-            builder.build().ok()
+            match builder.build() {
+                Ok(pool) => Some(pool),
+                Err(e) => {
+                    crate::error::diag_warn(format_args!(
+                        "--parallel: thread pool creation failed, falling back to sequential: {}",
+                        e
+                    ));
+                    None
+                }
+            }
         } else {
             None
         };
 
-        Self {
-            parallel: config.parallel,
-            pool,
-            max_entries: config.max_entries,
-        }
+        Self { pool }
     }
 
     pub fn traverse<P: AsRef<Path>>(&self, root: P, config: &Config) -> TraversalResult {
@@ -166,56 +169,42 @@ impl OrderedEngine {
 
         let dir_limiter = DirReadLimiter::new(config.queue_cap.unwrap_or(64));
 
-        let root_node = if self.parallel {
-            match &self.pool {
-                Some(pool) => {
-                    // Create mutex-wrapped shared state for parallel workers
-                    let errors_mutex = Mutex::new(Vec::new());
-                    let visited_mutex = Mutex::new(visited);
+        // Dispatch: pool present → parallel, otherwise → sequential.
+        // Sequential path is written once (was duplicated before).
+        let root_node = match &self.pool {
+            Some(pool) => {
+                let errors_mutex = Mutex::new(Vec::new());
+                let visited_mutex = Mutex::new(visited);
 
-                    let result = {
-                        let ctx = ParallelCtx {
-                            config,
-                            errors: &errors_mutex,
-                            visited: &visited_mutex,
-                            dir_limiter: &dir_limiter,
-                            root_device,
-                        };
-                        pool.install(|| build_node_parallel_inner(root_path, 0, &ctx, false))
-                    };
-
-                    // Recover errors from mutex (handles poison)
-                    match errors_mutex.into_inner() {
-                        Ok(errs) => errors.extend(errs),
-                        Err(poisoned) => errors.extend(poisoned.into_inner()),
-                    }
-                    result
-                }
-                // Pool creation failed — fall back to sequential
-                None => {
-                    let mut visited = visited;
-                    build_node_sequential(
-                        root_path,
-                        0,
+                let result = {
+                    let ctx = ParallelCtx {
                         config,
-                        &mut errors,
-                        &mut visited,
-                        false,
+                        errors: &errors_mutex,
+                        visited: &visited_mutex,
+                        dir_limiter: &dir_limiter,
                         root_device,
-                    )
+                    };
+                    pool.install(|| build_node_parallel_inner(root_path, 0, &ctx, false))
+                };
+
+                match errors_mutex.into_inner() {
+                    Ok(errs) => errors.extend(errs),
+                    Err(poisoned) => errors.extend(poisoned.into_inner()),
                 }
+                result
             }
-        } else {
-            let mut visited = visited;
-            build_node_sequential(
-                root_path,
-                0,
-                config,
-                &mut errors,
-                &mut visited,
-                false,
-                root_device,
-            )
+            None => {
+                let mut visited = visited;
+                build_node_sequential(
+                    root_path,
+                    0,
+                    config,
+                    &mut errors,
+                    &mut visited,
+                    false,
+                    root_device,
+                )
+            }
         };
 
         let root_node = match root_node {
@@ -229,7 +218,9 @@ impl OrderedEngine {
             }
         };
 
-        let truncated = self
+        // In ordered mode the full tree is always built; max_entries only
+        // sets a flag for renderers.  Streaming mode stops traversal early.
+        let truncated = config
             .max_entries
             .is_some_and(|max| root_node.count_nodes().saturating_sub(1) > max);
 
@@ -408,24 +399,24 @@ fn build_node_parallel_inner(
         return Some(common::leaf_node(entry));
     }
 
-    // Acquire backpressure permit — limits concurrent read_dir operations.
-    let dir_guard = ctx.dir_limiter.acquire();
-    let dir_entries = match common::read_sorted_children(path, ctx.config) {
-        common::ReadDirResult::Entries(entries) => {
-            drop(dir_guard);
-            entries
-        }
-        common::ReadDirResult::ReadError(e) => {
-            push_error(ctx.errors, TreeError::from_io(path.to_path_buf(), e));
-            return Some(common::leaf_node(entry));
-        }
-        common::ReadDirResult::FilelimitExceeded(total) => {
-            drop(dir_guard);
-            entry.filelimit_exceeded = Some(total);
-            return Some(common::leaf_node(entry));
+    // Backpressure: _guard released when block exits (or on early return).
+    let dir_entries = {
+        let _guard = ctx.dir_limiter.acquire();
+        match common::read_sorted_children(path, ctx.config) {
+            common::ReadDirResult::Entries(entries) => entries,
+            common::ReadDirResult::ReadError(e) => {
+                push_error(ctx.errors, TreeError::from_io(path.to_path_buf(), e));
+                return Some(common::leaf_node(entry));
+            }
+            common::ReadDirResult::FilelimitExceeded(total) => {
+                entry.filelimit_exceeded = Some(total);
+                return Some(common::leaf_node(entry));
+            }
         }
     };
 
+    // rayon's par_iter preserves element order for indexed sources,
+    // so children appear in the same sorted order as dir_entries.
     let children: Vec<Tree> = dir_entries
         .par_iter()
         .filter_map(|dir_entry| {
