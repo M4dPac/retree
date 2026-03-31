@@ -484,3 +484,162 @@ fn build_node_parallel_inner(
 
     Some(Tree { entry, children })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ═══════════════════════════════════════
+    // DirReadLimiter
+    // ═══════════════════════════════════════
+
+    #[test]
+    fn limiter_zero_becomes_one() {
+        let limiter = DirReadLimiter::new(0);
+        assert_eq!(limiter.max, 1, "max=0 must clamp to 1 to prevent deadlock");
+    }
+
+    #[test]
+    fn limiter_acquire_up_to_max() {
+        let limiter = DirReadLimiter::new(3);
+        let _g1 = limiter.acquire();
+        let _g2 = limiter.acquire();
+        let _g3 = limiter.acquire();
+        // All 3 acquired without blocking
+    }
+
+    #[test]
+    fn limiter_release_unblocks_waiter() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let limiter = Arc::new(DirReadLimiter::new(1));
+        let g1 = limiter.acquire(); // holds the only permit
+
+        let limiter2 = Arc::clone(&limiter);
+        let handle = thread::spawn(move || {
+            let _g2 = limiter2.acquire(); // blocks until g1 released
+            42
+        });
+
+        drop(g1); // release → unblock thread
+        assert_eq!(handle.join().unwrap(), 42);
+    }
+
+    #[test]
+    fn limiter_guard_drops_on_scope_exit() {
+        let limiter = DirReadLimiter::new(1);
+        {
+            let _g = limiter.acquire();
+        } // guard dropped
+        let _g2 = limiter.acquire(); // must not block
+    }
+
+    // ═══════════════════════════════════════
+    // push_error
+    // ═══════════════════════════════════════
+
+    #[test]
+    fn push_error_basic() {
+        let errors = Mutex::new(Vec::new());
+        push_error(&errors, TreeError::Generic("a".into()));
+        push_error(&errors, TreeError::Generic("b".into()));
+        assert_eq!(errors.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn push_error_recovers_from_poison() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let errors = Arc::new(Mutex::new(Vec::new()));
+        let errors2 = Arc::clone(&errors);
+
+        // Poison the mutex
+        let _ = thread::spawn(move || {
+            let _guard = errors2.lock().unwrap();
+            panic!("intentional poison");
+        })
+        .join();
+
+        // push_error must not panic on poisoned mutex
+        push_error(&errors, TreeError::Generic("recovered".into()));
+
+        match errors.lock() {
+            Err(poisoned) => assert_eq!(poisoned.into_inner().len(), 1),
+            Ok(_) => panic!("mutex should be poisoned"),
+        };
+    }
+
+    // ═══════════════════════════════════════
+    // check_visited
+    // ═══════════════════════════════════════
+
+    #[test]
+    fn check_visited_new_returns_false() {
+        let visited = Mutex::new(HashSet::new());
+        let key = common::VisitedKey::Path(std::path::PathBuf::from("/a"));
+        assert!(!check_visited(&visited, key), "first insert → false");
+    }
+
+    #[test]
+    fn check_visited_duplicate_returns_true() {
+        let visited = Mutex::new(HashSet::new());
+        let k1 = common::VisitedKey::Path(std::path::PathBuf::from("/a"));
+        let k2 = common::VisitedKey::Path(std::path::PathBuf::from("/a"));
+        assert!(!check_visited(&visited, k1));
+        assert!(check_visited(&visited, k2), "duplicate → true");
+    }
+
+    #[test]
+    fn check_visited_recovers_from_poison() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let visited = Arc::new(Mutex::new(HashSet::new()));
+        let visited2 = Arc::clone(&visited);
+
+        let _ = thread::spawn(move || {
+            let _guard = visited2.lock().unwrap();
+            panic!("intentional poison");
+        })
+        .join();
+
+        let key = common::VisitedKey::Path(std::path::PathBuf::from("/x"));
+        // Must not panic
+        assert!(!check_visited(&visited, key));
+    }
+
+    // ═══════════════════════════════════════
+    // OrderedEngine
+    // ═══════════════════════════════════════
+
+    #[test]
+    fn engine_no_pool_without_parallel() {
+        let config = crate::config::Config::default();
+        let engine = OrderedEngine::new(&config);
+        assert!(engine.pool.is_none());
+    }
+
+    #[test]
+    fn engine_creates_pool_with_parallel() {
+        let config = Config {
+            parallel: true,
+            ..Default::default()
+        };
+        let engine = OrderedEngine::new(&config);
+        assert!(engine.pool.is_some());
+    }
+
+    #[test]
+    fn engine_pool_respects_threads() {
+        let config = Config {
+            parallel: true,
+            threads: Some(2),
+            ..Default::default()
+        };
+        let engine = OrderedEngine::new(&config);
+        assert!(engine.pool.is_some());
+        assert_eq!(engine.pool.as_ref().unwrap().current_num_threads(), 2);
+    }
+}
