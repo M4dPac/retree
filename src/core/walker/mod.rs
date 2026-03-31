@@ -1,3 +1,25 @@
+//! Tree traversal engines.
+//!
+//! Three execution modes, chosen in `app::run`:
+//!
+//! | Mode | Engine | When | Memory | Output |
+//! |------|--------|------|--------|--------|
+//! | Sequential | `OrderedEngine` (pool=None) | default | O(tree) | full tree → render |
+//! | Parallel  | `OrderedEngine` (pool=Some) | `--parallel` | O(tree) | full tree → render |
+//! | Streaming | `StreamingEngine` | `--streaming` + text + !prune | O(depth) | DFS inline write |
+//!
+//! **Sequential vs Parallel** share the same `OrderedEngine` struct.
+//! The parallel path uses rayon `par_iter` on each directory's sorted children,
+//! preserving deterministic (sorted) output order.  `DirReadLimiter` provides
+//! backpressure to bound concurrent `read_dir` calls.
+//!
+//! **Streaming** writes entries as they are discovered (DFS), computing
+//! `is_last`/`ancestors_last` on the fly.  It uses `EntryWriter` trait to
+//! decouple traversal from rendering.  Memory usage is O(depth) vs O(tree).
+//!
+//! `--max-entries` semantics differ: streaming stops traversal early;
+//! ordered mode builds the full tree and sets a `truncated` flag for renderers.
+
 mod common;
 mod engine;
 pub mod streaming;
