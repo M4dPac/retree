@@ -23,6 +23,11 @@ use crate::core::tree::Tree;
 /// Limits the number of concurrent `read_dir` + collect operations
 /// in parallel mode.  Provides backpressure to prevent excessive
 /// file-descriptor usage and memory spikes on wide trees.
+///
+/// **Deadlock-freedom:** the guard is held only during `read_sorted_children`
+/// (block scope) and released before `par_iter` spawns child work.  Since
+/// child directories acquire their own permits *after* the parent releases,
+/// all rayon workers always make progress.  `max` is clamped to ≥ 1.
 struct DirReadLimiter {
     state: Mutex<usize>,
     cvar: Condvar,
