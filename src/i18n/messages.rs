@@ -115,11 +115,9 @@ pub enum MessageKey {
     ErrSymlinkLoop,
     ErrSymlinkError,
     ErrPathTooLong,
-    ErrInvalidName,
     ErrReservedName,
     ErrIo,
     ErrInvalidPattern,
-    ErrConfig,
 
     // Misc
     BrokenLink,
@@ -278,11 +276,9 @@ fn get_message_en(key: MessageKey) -> &'static str {
         MessageKey::ErrSymlinkLoop => "'{}': Symbolic link loop detected",
         MessageKey::ErrSymlinkError => "'{}': {}",
         MessageKey::ErrPathTooLong => "'{}': Path too long",
-        MessageKey::ErrInvalidName => "'{}': Invalid filename encoding",
         MessageKey::ErrReservedName => "Reserved Windows device name (skipped): '{}'",
         MessageKey::ErrIo => "'{}': {}",
         MessageKey::ErrInvalidPattern => "Invalid pattern: {}",
-        MessageKey::ErrConfig => "Invalid configuration: {}",
 
         // Misc
         MessageKey::BrokenLink => "broken",
@@ -437,11 +433,9 @@ fn get_message_ru(key: MessageKey) -> &'static str {
         MessageKey::ErrSymlinkLoop => "'{}': Обнаружен цикл символических ссылок",
         MessageKey::ErrSymlinkError => "'{}': {}",
         MessageKey::ErrPathTooLong => "'{}': Слишком длинный путь",
-        MessageKey::ErrInvalidName => "'{}': Некорректная кодировка имени файла",
         MessageKey::ErrReservedName => "Зарезервированное имя устройства Windows (пропущено): '{}'",
         MessageKey::ErrIo => "'{}': {}",
         MessageKey::ErrInvalidPattern => "Некорректный шаблон: {}",
-        MessageKey::ErrConfig => "Ошибка конфигурации: {}",
 
         // Misc
         MessageKey::BrokenLink => "битая ссылка",

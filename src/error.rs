@@ -17,8 +17,6 @@ pub enum TreeError {
     #[error("{}", fmt_path(MessageKey::ErrNotDirectory, .0))]
     NotDirectory(PathBuf),
 
-    /// Reserved for future symlink-loop detection.
-    #[allow(dead_code)]
     #[error("{}", fmt_path(MessageKey::ErrSymlinkLoop, .0))]
     SymlinkLoop(PathBuf),
 
@@ -28,11 +26,6 @@ pub enum TreeError {
     #[error("{}", fmt_path(MessageKey::ErrPathTooLong, .0))]
     PathTooLong(PathBuf),
 
-    /// Reserved for filename encoding validation.
-    #[allow(dead_code)]
-    #[error("{}", fmt_path(MessageKey::ErrInvalidName, .0))]
-    InvalidName(PathBuf),
-
     #[error("{}", fmt_path(MessageKey::ErrReservedName, .0))]
     ReservedName(PathBuf),
 
@@ -41,11 +34,6 @@ pub enum TreeError {
 
     #[error("{}", fmt_str(MessageKey::ErrInvalidPattern, .0))]
     InvalidPattern(String),
-
-    /// Reserved for configuration validation errors.
-    #[allow(dead_code)]
-    #[error("{}", fmt_str(MessageKey::ErrConfig, .0))]
-    Config(String),
 
     #[error("{0}")]
     Generic(String),
@@ -185,13 +173,6 @@ mod tests {
         let err = TreeError::InvalidPattern("[invalid".into());
         let msg = err.to_string();
         assert!(msg.contains("[invalid"), "got: {msg}");
-    }
-
-    #[test]
-    fn config_error_contains_message() {
-        let err = TreeError::Config("bad value".into());
-        let msg = err.to_string();
-        assert!(msg.contains("bad value"), "got: {msg}");
     }
 
     #[test]
