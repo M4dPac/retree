@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - prevent traversal stalls by releasing directory limiter guard correctly
+- Emit warning when streaming mode fails and falls back to full traversal
 
 ## [0.5.0] - 2026-03-30
 

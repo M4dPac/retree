@@ -165,9 +165,11 @@ fn render_tree<W: Write>(
                 }
                 return Ok(());
             }
-            Err(_) => {
-                // Streaming failed — reset stats before falling through
-                // to prevent double-counting if streaming partially updated them.
+            Err(e) => {
+                diag_warn(format_args!(
+                    "streaming mode failed, falling back to full traversal: {}",
+                    e
+                ));
                 *stats = TreeStats::default();
             }
         }
