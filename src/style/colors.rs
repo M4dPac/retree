@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 
-use crate::core::entry::{Entry as TreeEntry, EntryType};
+use crate::core::entry::{Entry, EntryType};
 
 #[derive(Debug, Clone)]
 pub struct ColorScheme {
@@ -53,7 +53,7 @@ impl ColorScheme {
         }
     }
 
-    pub fn get_color(&self, entry: &TreeEntry) -> String {
+    pub fn get_color(&self, entry: &Entry) -> String {
         // Check entry type first
         let type_key = match &entry.entry_type {
             EntryType::Directory => "di",

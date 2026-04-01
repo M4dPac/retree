@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use crate::core::entry::{Entry as TreeEntry, EntryType};
+use crate::core::entry::{Entry, EntryType};
 use clap::ValueEnum;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
@@ -219,7 +219,7 @@ impl IconSet {
         }
     }
 
-    pub fn get_icon(&self, entry: &TreeEntry) -> String {
+    pub fn get_icon(&self, entry: &Entry) -> String {
         match self.style {
             IconStyle::Nerd => self.get_nerd_icon(entry),
             IconStyle::Unicode => self.get_unicode_icon(entry),
@@ -227,7 +227,7 @@ impl IconSet {
         }
     }
 
-    fn get_nerd_icon(&self, entry: &TreeEntry) -> String {
+    fn get_nerd_icon(&self, entry: &Entry) -> String {
         let name = entry.name_str();
 
         // Check special types first
@@ -276,7 +276,7 @@ impl IconSet {
         "\u{f016}".to_string()
     }
 
-    fn get_unicode_icon(&self, entry: &TreeEntry) -> String {
+    fn get_unicode_icon(&self, entry: &Entry) -> String {
         match &entry.entry_type {
             EntryType::Directory => "📁".to_string(),
             EntryType::Symlink { broken: true, .. } => "🔗".to_string(),
@@ -302,7 +302,7 @@ impl IconSet {
         }
     }
 
-    fn get_ascii_icon(&self, entry: &TreeEntry) -> String {
+    fn get_ascii_icon(&self, entry: &Entry) -> String {
         match &entry.entry_type {
             EntryType::Directory => "[D]".to_string(),
             EntryType::Symlink { .. } | EntryType::Junction { .. } => "[L]".to_string(),
