@@ -70,7 +70,7 @@ impl JsonRenderer {
         }
     }
 
-    /// Recursively convert a Node tree into JsonEntry with stats counting.
+    /// Recursively convert a Tree into JsonEntry with stats counting.
     fn node_to_json_entry(
         node: &Tree,
         config: &Config,
