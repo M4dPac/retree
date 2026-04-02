@@ -89,7 +89,7 @@ fn fill_recursive(path: &Path, target: usize, counter: &AtomicUsize, depth: usiz
 // ── Runner ─────────────────────────────────────────────────────────
 
 pub fn run_rtree(path: &Path, extra_args: &[&str]) {
-    let status = Command::new(env!("CARGO_BIN_EXE_rtree"))
+    let status = Command::new(env!("CARGO_BIN_EXE_rt"))
         .arg(path)
         .arg("--noreport")
         .args(extra_args)
