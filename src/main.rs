@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -21,6 +21,13 @@ fn main() -> ExitCode {
 
     // 4. Обычный парсинг.
     let args = rtree::cli::Args::parse();
+
+    // 4a. Если запрошены completions — вывести и выйти.
+    if let Some(shell) = args.completions {
+        let mut cmd = rtree::cli::Args::command();
+        clap_complete::generate(shell, &mut cmd, "rt", &mut std::io::stdout());
+        return ExitCode::SUCCESS;
+    }
 
     // 5. Запуск на потоке с гарантированным стеком 8 МиБ.
     //    Windows выделяет main-thread всего 1 МиБ (vs 8 МиБ на Linux/macOS).

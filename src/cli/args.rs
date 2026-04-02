@@ -363,6 +363,10 @@ pub struct Args {
         help_heading = "Listing Options"
     )]
     pub max_entries: Option<usize>,
+
+    /// Generate shell completions and exit
+    #[arg(long = "completions", value_name = "SHELL", hide = true, value_enum)]
+    pub completions: Option<clap_complete::Shell>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
