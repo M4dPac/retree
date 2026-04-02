@@ -63,6 +63,10 @@ strum = { version = "0.28", features = ["derive"] }
 [features]
 tree_compat = []
 
+[[bin]]
+name = "rt"
+path = "src/main.rs"
+
 [profile.release]
 lto = true
 codegen-units = 1
