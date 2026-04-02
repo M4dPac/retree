@@ -114,20 +114,22 @@ jobs:
         if: matrix.archive == 'zip'
         shell: pwsh
         run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
           $staging = "rtree-${{ matrix.target }}"
           New-Item -ItemType Directory -Path $staging
           Copy-Item "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$staging/"
           Copy-Item @("README.md", "README.en.md", "LICENSE") "$staging/"
-          Compress-Archive -Path "$staging" -DestinationPath "rtree-${{ matrix.target }}.zip"
+          Compress-Archive -Path "$staging" -DestinationPath "rtree-$version-${{ matrix.target }}.zip"
 
       - name: Package (Unix)
         if: matrix.archive == 'tar.gz'
         run: |
+          version="${GITHUB_REF_NAME#v}"
           staging="rtree-${{ matrix.target }}"
           mkdir "$staging"
           cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$staging/"
           cp README.md README.en.md LICENSE "$staging/"
-          tar czf "rtree-${{ matrix.target }}.tar.gz" "$staging"
+          tar czf "rtree-$version-${{ matrix.target }}.tar.gz" "$staging"
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
