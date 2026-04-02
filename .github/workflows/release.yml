@@ -25,11 +25,25 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
         with:
-          components: clippy
+          components: clippy, rustfmt
 
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           key: verify-${{ matrix.os }}
+
+      - name: Verify tag matches Cargo.toml version
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          CARGO_VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)"/\1/')
+          TAG_VERSION=${GITHUB_REF_NAME#v}
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match Cargo.toml version $CARGO_VERSION"
+            exit 1
+          fi
+
+      - name: Check formatting
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo fmt --check
 
       - name: Install cargo-audit
         if: matrix.os == 'ubuntu-latest'
@@ -100,15 +114,20 @@ jobs:
         if: matrix.archive == 'zip'
         shell: pwsh
         run: |
-          Compress-Archive `
-            -Path "target/${{ matrix.target }}/release/${{ matrix.bin }}" `
-            -DestinationPath "rtree-${{ matrix.target }}.zip"
+          $staging = "rtree-${{ matrix.target }}"
+          New-Item -ItemType Directory -Path $staging
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$staging/"
+          Copy-Item @("README.md", "README.en.md", "LICENSE") "$staging/"
+          Compress-Archive -Path "$staging" -DestinationPath "rtree-${{ matrix.target }}.zip"
 
       - name: Package (Unix)
         if: matrix.archive == 'tar.gz'
         run: |
-          cd target/${{ matrix.target }}/release
-          tar czf ../../../rtree-${{ matrix.target }}.tar.gz "${{ matrix.bin }}"
+          staging="rtree-${{ matrix.target }}"
+          mkdir "$staging"
+          cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$staging/"
+          cp README.md README.en.md LICENSE "$staging/"
+          tar czf "rtree-${{ matrix.target }}.tar.gz" "$staging"
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
