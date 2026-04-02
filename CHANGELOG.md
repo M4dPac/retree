@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-04-02
+
 ### Performance
 
 - Reuse traversal engine across multiple input paths to avoid recreating the rayon thread pool per path
