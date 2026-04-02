@@ -58,8 +58,8 @@ run "check" cargo check
 run "check --locked" cargo check --locked
 run "fmt" cargo fmt --all -- --check
 
-# run "clippy targets features" cargo clippy --locked --all-targets --all-features -- -D warnings -W clippy::unwrap_used
-run "clippy" cargo clippy --locked -- -D warnings -W clippy::unwrap_used
+run "clippy lib+bins" cargo clippy --locked --lib --bins -- -D warnings -W clippy::unwrap_used
+run "clippy tests+bench" cargo clippy --locked --tests --benches -- -D warnings
 run "tests" cargo test --locked
 run "tests tree_compat" cargo test --locked --features tree_compat
 run "build --release --locked" cargo build --release --locked

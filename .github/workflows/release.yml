@@ -47,9 +47,13 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: cargo deny check
 
-      - name: Clippy
+      - name: Clippy lib+bins
         if: matrix.os == 'ubuntu-latest'
-        run: cargo clippy --locked -- -D warnings -W clippy::unwrap_used
+        run: cargo clippy --locked --lib --bins -- -D warnings -W clippy::unwrap_used
+
+      - name: Clippy tests+bench
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo clippy --locked --tests --benches -- -D warnings
 
       - name: Tests
         run: cargo test --locked
