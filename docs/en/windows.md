@@ -1,6 +1,6 @@
 # 🪟 Windows Specifics
 
-rtree provides full NTFS support and handles Windows-specific filesystem features.
+rt provides full NTFS support and handles Windows-specific filesystem features.
 
 ---
 
@@ -23,7 +23,7 @@ rtree provides full NTFS support and handles Windows-specific filesystem feature
 Show NTFS Alternate Data Streams:
 
 ```powershell
-rtree --show-streams
+rt --show-streams
 ```
 
 ---
@@ -33,7 +33,7 @@ rtree --show-streams
 Show junction point targets:
 
 ```powershell
-rtree --show-junctions
+rt --show-junctions
 ```
 
 ---
@@ -43,7 +43,7 @@ rtree --show-junctions
 By default, the `-a` flag shows all files including system files. To hide system files even when using `-a`:
 
 ```powershell
-rtree -a --hide-system
+rt -a --hide-system
 ```
 
 ---
@@ -51,7 +51,7 @@ rtree -a --hide-system
 ## Long paths (> 260 characters)
 
 ```powershell
-rtree --long-paths "\\?\C:\Very\Long\Path\..."
+rt --long-paths "\\?\C:\Very\Long\Path\..."
 ```
 
 > To make this work correctly, enable long path support in the Windows registry. See [troubleshooting.md](troubleshooting.md) for details.
@@ -62,10 +62,10 @@ rtree --long-paths "\\?\C:\Very\Long\Path\..."
 
 ```powershell
 # Windows attributes (default)
-rtree -p --permissions windows
+rt -p --permissions windows
 
 # POSIX format
-rtree -p --permissions posix
+rt -p --permissions posix
 ```
 
 **Example output** (`--permissions windows`):
@@ -83,7 +83,7 @@ Attributes: `R` — read-only, `H` — hidden, `S` — system, `A` — archive.
 ## UNC paths
 
 ```powershell
-rtree \\server\share\folder
+rt \\server\share\folder
 ```
 
 ---

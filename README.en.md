@@ -45,7 +45,7 @@ cd rtree
 cargo build --release
 ```
 
-The binary will be at `target/release/rtree`.
+The binary will be at `target/release/rt`.
 
 ### 🔐 Release verification
 
@@ -84,31 +84,31 @@ cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \
 
 ```bash
 # Show current directory
-rtree
+rt
 
 # Show hidden files
-rtree -a
+rt -a
 
 # Limit depth
-rtree -L 2
+rt -L 2
 
 # Directories only
-rtree -d
+rt -d
 
 # Colors and icons
-rtree -C --icons always
+rt -C --icons always
 
 # JSON output
-rtree -J > tree.json
+rt -J > tree.json
 
 # Pretty-printed JSON
-rtree --json-pretty > tree.json
+rt --json-pretty > tree.json
 
 # Parallel mode (auto-detect threads)
-rtree --parallel
+rt --parallel
 
 # Parallel mode with explicit thread count
-rtree --parallel --threads 4
+rt --parallel --threads 4
 ```
 
 ---
@@ -116,7 +116,7 @@ rtree --parallel --threads 4
 ## 📚 Usage
 
 ```
-rtree [OPTIONS] [PATH...]
+rt [OPTIONS] [PATH...]
 ```
 
 ### Common options
@@ -151,7 +151,7 @@ rtree [OPTIONS] [PATH...]
 
 ## ⚡ Performance
 
-rtree uses Rayon (work-stealing), lazy metadata loading, optimized sorting, and streaming output.
+rt uses Rayon (work-stealing), lazy metadata loading, optimized sorting, and streaming output.
 
 Real benchmark results (median time, Criterion, `release` mode, Windows/NTFS, end-to-end):
 

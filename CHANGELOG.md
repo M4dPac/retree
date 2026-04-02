@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 
 - Rename primary CLI command from `rtree` to `rt`
+- Rename CLI tool and binary from `rtree` to `rt`
 
 ## [0.5.2] - 2026-04-02
 

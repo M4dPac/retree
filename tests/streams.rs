@@ -44,7 +44,7 @@ mod windows_ads {
             &[("Zone.Identifier", b"[ZoneTransfer]\r\nZoneId=3\r\n")],
         );
 
-        Command::cargo_bin("rtree")
+        Command::cargo_bin("rt")
             .unwrap()
             .args(["--show-streams", "--no-icons"])
             .arg(dir.path())
@@ -62,7 +62,7 @@ mod windows_ads {
             &[("stream_a", b"aaa"), ("stream_b", b"bbb")],
         );
 
-        let output = Command::cargo_bin("rtree")
+        let output = Command::cargo_bin("rt")
             .unwrap()
             .args(["--show-streams", "--no-icons"])
             .arg(dir.path())
@@ -87,7 +87,7 @@ mod windows_ads {
         let dir = TempDir::new().unwrap();
         create_file_with_ads(dir.path(), "secret.txt", &[("hidden", b"data")]);
 
-        Command::cargo_bin("rtree")
+        Command::cargo_bin("rt")
             .unwrap()
             .arg("--no-icons")
             .arg(dir.path())
@@ -101,7 +101,7 @@ mod windows_ads {
         let dir = TempDir::new().unwrap();
         create_file_with_ads(dir.path(), "sized.txt", &[("info", b"0123456789")]);
 
-        let output = Command::cargo_bin("rtree")
+        let output = Command::cargo_bin("rt")
             .unwrap()
             .args(["--show-streams", "--size", "--no-icons"])
             .arg(dir.path())
@@ -118,7 +118,7 @@ mod windows_ads {
         let dir = TempDir::new().unwrap();
         fs::write(dir.path().join("clean.txt"), b"no streams here").unwrap();
 
-        Command::cargo_bin("rtree")
+        Command::cargo_bin("rt")
             .unwrap()
             .args(["--show-streams", "--no-icons"])
             .arg(dir.path())
@@ -133,7 +133,7 @@ mod windows_ads {
         let dir = TempDir::new().unwrap();
         create_file_with_ads(dir.path(), "par.txt", &[("meta", b"parallel")]);
 
-        Command::cargo_bin("rtree")
+        Command::cargo_bin("rt")
             .unwrap()
             .args(["--show-streams", "--parallel", "--no-icons"])
             .arg(dir.path())
@@ -147,7 +147,7 @@ mod windows_ads {
         let dir = TempDir::new().unwrap();
         let file = create_file_with_ads(dir.path(), "fp.txt", &[("data", b"x")]);
 
-        let output = Command::cargo_bin("rtree")
+        let output = Command::cargo_bin("rt")
             .unwrap()
             .args(["--show-streams", "--full-path", "--no-icons"])
             .arg(dir.path())

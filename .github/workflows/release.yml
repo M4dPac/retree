@@ -81,19 +81,19 @@ jobs:
         include:
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            bin: rtree.exe
+            bin: rt.exe
             archive: zip
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
-            bin: rtree
+            bin: rt
             archive: tar.gz
           - target: x86_64-apple-darwin
             os: macos-15-intel
-            bin: rtree
+            bin: rt
             archive: tar.gz
           - target: aarch64-apple-darwin
             os: macos-latest
-            bin: rtree
+            bin: rt
             archive: tar.gz
     runs-on: ${{ matrix.os }}
     steps:

@@ -12,9 +12,9 @@ pub fn rtree_path() -> PathBuf {
     let mut p = std::env::current_exe().unwrap();
     p.pop();
     p.pop();
-    let name = format!("rtree{}", std::env::consts::EXE_SUFFIX);
+    let name = format!("rt{}", std::env::consts::EXE_SUFFIX);
     p.push(name);
-    assert!(p.exists(), "rtree binary not found at {:?}", p);
+    assert!(p.exists(), "rt binary not found at {:?}", p);
     p
 }
 

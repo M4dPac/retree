@@ -9,8 +9,8 @@ Install a [Nerd Font](https://www.nerdfonts.com/) and select it in your terminal
 If Nerd Font is not needed, use the Unicode or ASCII style instead:
 
 ```bash
-rtree --icon-style unicode
-rtree --icon-style ascii
+rt --icon-style unicode
+rt --icon-style ascii
 ```
 
 ---
@@ -20,7 +20,7 @@ rtree --icon-style ascii
 Force color output with the `-C` flag:
 
 ```bash
-rtree -C
+rt -C
 ```
 
 Also check that the `NO_COLOR` variable is not set:
@@ -56,7 +56,7 @@ reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v LongPathsEnabled /
 Then use the `--long-paths` flag:
 
 ```bash
-rtree --long-paths "\\?\C:\Very\Long\Path\..."
+rt --long-paths "\\?\C:\Very\Long\Path\..."
 ```
 
 ---
@@ -66,7 +66,7 @@ rtree --long-paths "\\?\C:\Very\Long\Path\..."
 Specify encoding explicitly:
 
 ```bash
-rtree --charset utf-8
+rt --charset utf-8
 ```
 
 On Windows, make sure the terminal uses UTF-8:
@@ -83,8 +83,8 @@ chcp 65001
 Specify the language explicitly via flag or environment variable:
 
 ```bash
-rtree --lang en
-rtree --lang ru
+rt --lang en
+rt --lang ru
 ```
 
 ```bash

@@ -1,6 +1,6 @@
 # 🔤 Icons
 
-rtree supports 3 icon styles:
+rt supports 3 icon styles:
 
 | Style     | Flag                   |
 | --------- | ---------------------- |
@@ -12,13 +12,13 @@ Controlling icon display:
 
 ```bash
 # Always show icons
-rtree --icons always
+rt --icons always
 
 # Disable icons
-rtree --no-icons
+rt --no-icons
 
 # Choose a style
-rtree --icons always --icon-style unicode
+rt --icons always --icon-style unicode
 ```
 
 ---

@@ -1,7 +1,7 @@
 # 📖 CLI Reference
 
 ```
-rtree [OPTIONS] [PATH...]
+rt [OPTIONS] [PATH...]
 ```
 
 If no path is given, the current directory is used. Multiple paths can be specified to display multiple trees.

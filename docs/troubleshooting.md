@@ -9,8 +9,8 @@
 Если Nerd Font не нужен, используйте Unicode или ASCII стиль:
 
 ```bash
-rtree --icon-style unicode
-rtree --icon-style ascii
+rt --icon-style unicode
+rt --icon-style ascii
 ```
 
 ---
@@ -20,7 +20,7 @@ rtree --icon-style ascii
 Принудительно включите цвета флагом `-C`:
 
 ```bash
-rtree -C
+rt -C
 ```
 
 Также проверьте, что переменная `NO_COLOR` не установлена:
@@ -56,7 +56,7 @@ reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v LongPathsEnabled /
 Затем используйте флаг `--long-paths`:
 
 ```bash
-rtree --long-paths "\\?\C:\Very\Long\Path\..."
+rt --long-paths "\\?\C:\Very\Long\Path\..."
 ```
 
 ---
@@ -66,7 +66,7 @@ rtree --long-paths "\\?\C:\Very\Long\Path\..."
 Явно укажите кодировку:
 
 ```bash
-rtree --charset utf-8
+rt --charset utf-8
 ```
 
 На Windows убедитесь, что терминал использует UTF-8:
@@ -83,8 +83,8 @@ chcp 65001
 Укажите язык явно через флаг или переменную окружения:
 
 ```bash
-rtree --lang en
-rtree --lang ru
+rt --lang en
+rt --lang ru
 ```
 
 ```bash

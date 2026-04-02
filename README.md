@@ -45,7 +45,7 @@ cd rtree
 cargo build --release
 ```
 
-Бинарный файл будет в `target/release/rtree`.
+Бинарный файл будет в `target/release/rt`.
 
 ### 🔐 Верификация релизов
 
@@ -84,31 +84,31 @@ cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \
 
 ```bash
 # Показать текущий каталог
-rtree
+rt
 
 # Показать скрытые файлы
-rtree -a
+rt -a
 
 # Ограничить глубину
-rtree -L 2
+rt -L 2
 
 # Только каталоги
-rtree -d
+rt -d
 
 # Цвета и иконки
-rtree -C --icons always
+rt -C --icons always
 
 # JSON-вывод
-rtree -J > tree.json
+rt -J > tree.json
 
 # Форматированный JSON
-rtree --json-pretty > tree.json
+rt --json-pretty > tree.json
 
 # Параллельный режим (авто-определение потоков)
-rtree --parallel
+rt --parallel
 
 # Параллельный режим с явным числом потоков
-rtree --parallel --threads 4
+rt --parallel --threads 4
 ```
 
 ---
@@ -116,7 +116,7 @@ rtree --parallel --threads 4
 ## 📚 Использование
 
 ```
-rtree [OPTIONS] [PATH...]
+rt [OPTIONS] [PATH...]
 ```
 
 ### Часто используемые опции
@@ -151,7 +151,7 @@ rtree [OPTIONS] [PATH...]
 
 ## ⚡ Производительность
 
-rtree использует Rayon (work-stealing), ленивую загрузку метаданных, оптимизированную сортировку и потоковый вывод.
+rt использует Rayon (work-stealing), ленивую загрузку метаданных, оптимизированную сортировку и потоковый вывод.
 
 Результаты реальных бенчмарков (median time, Criterion, режим `release`, Windows/NTFS, end-to-end):
 

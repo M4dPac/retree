@@ -1,6 +1,6 @@
 # 🔤 Иконки
 
-rtree поддерживает 3 стиля иконок:
+rt поддерживает 3 стиля иконок:
 
 | Стиль     | Флаг                   |
 | --------- | ---------------------- |
@@ -12,13 +12,13 @@ rtree поддерживает 3 стиля иконок:
 
 ```bash
 # Включить иконки всегда
-rtree --icons always
+rt --icons always
 
 # Отключить иконки
-rtree --no-icons
+rt --no-icons
 
 # Выбрать стиль
-rtree --icons always --icon-style unicode
+rt --icons always --icon-style unicode
 ```
 
 ---

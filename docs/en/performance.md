@@ -1,6 +1,6 @@
 # ⚡ Performance
 
-rtree is optimized for efficient traversal of large directory trees.
+rt is optimized for efficient traversal of large directory trees.
 
 > **Test environment:** Windows, NTFS, end-to-end measurement (including process startup).  
 > Times are median values from Criterion / hyperfine.
@@ -11,13 +11,13 @@ rtree is optimized for efficient traversal of large directory trees.
 
 ```bash
 # Auto-detect threads (based on CPU core count)
-rtree --parallel
+rt --parallel
 
 # Explicit thread count
-rtree --parallel --threads 4
+rt --parallel --threads 4
 
 # Configure internal queue capacity
-rtree --parallel --queue-cap 8192
+rt --parallel --queue-cap 8192
 ```
 
 Parallel mode uses Rayon with a work-stealing algorithm for load balancing.
