@@ -1,6 +1,6 @@
 /// -v, -t, -c, -U, -r, --dirsfirst, --filesfirst, --sort=*
 mod common;
-use common::{rtree, CLEAN};
+use common::{retree, CLEAN};
 
 use std::fs;
 use tempfile::tempdir;
@@ -18,7 +18,7 @@ fn test_version_sort_order() {
     fs::write(p.join("file2.txt"), "").unwrap();
     fs::write(p.join("file10.txt"), "").unwrap();
 
-    let output = rtree().args(["-v"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-v"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let pos1 = stdout.find("file1.txt").unwrap();
@@ -47,7 +47,7 @@ fn test_time_sort_order() {
     std::thread::sleep(std::time::Duration::from_millis(1100));
     fs::write(p.join("new.txt"), "new").unwrap();
 
-    let output = rtree().args(["-t"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-t"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let pos_old = stdout.find("old.txt").expect("old.txt not found");
@@ -70,7 +70,7 @@ fn test_ctime_sort_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree().arg("-c").arg(dir.path()).assert().success();
+    retree().arg("-c").arg(dir.path()).assert().success();
 }
 
 // ============================================================================
@@ -82,7 +82,7 @@ fn test_unsorted_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree().arg("-U").arg(dir.path()).assert().success();
+    retree().arg("-U").arg(dir.path()).assert().success();
 }
 
 // ============================================================================
@@ -97,7 +97,7 @@ fn test_reverse_sort_order() {
     fs::write(p.join("aaa.txt"), "").unwrap();
     fs::write(p.join("zzz.txt"), "").unwrap();
 
-    let output = rtree().args(["-r"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-r"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let pos_z = stdout.find("zzz.txt").unwrap();
@@ -123,7 +123,7 @@ fn test_dirs_first_order() {
     fs::write(p.join("aaa_file.txt"), "").unwrap();
     fs::create_dir(p.join("subdir")).unwrap();
 
-    let output = rtree()
+    let output = retree()
         .arg("--dirsfirst")
         .args(CLEAN)
         .arg(p)
@@ -150,7 +150,7 @@ fn test_files_first_order() {
     fs::create_dir(p.join("aaa_dir")).unwrap();
     fs::write(p.join("zzz_file.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .arg("--filesfirst")
         .args(CLEAN)
         .arg(p)
@@ -182,7 +182,7 @@ fn test_sort_name() {
     fs::write(p.join("aaa.txt"), "").unwrap();
     fs::write(p.join("ccc.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["--sort=name"])
         .args(CLEAN)
         .arg(p)
@@ -211,7 +211,7 @@ fn test_sort_size() {
     fs::write(p.join("small.txt"), "a").unwrap();
     fs::write(p.join("large.txt"), "a]".repeat(1000)).unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["--sort=size"])
         .args(CLEAN)
         .arg(p)
@@ -235,7 +235,7 @@ fn test_sort_mtime() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--sort=mtime"])
         .arg(dir.path())
         .assert()
@@ -247,7 +247,7 @@ fn test_sort_ctime() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--sort=ctime"])
         .arg(dir.path())
         .assert()
@@ -263,7 +263,7 @@ fn test_sort_version() {
     fs::write(p.join("v2.txt"), "").unwrap();
     fs::write(p.join("v10.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["--sort=version"])
         .args(CLEAN)
         .arg(p)
@@ -289,7 +289,7 @@ fn test_sort_none() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--sort=none"])
         .arg(dir.path())
         .assert()
@@ -298,5 +298,5 @@ fn test_sort_none() {
 
 #[test]
 fn test_sort_invalid_value() {
-    rtree().args(["--sort=invalid", "."]).assert().failure();
+    retree().args(["--sort=invalid", "."]).assert().failure();
 }

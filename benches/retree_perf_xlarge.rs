@@ -4,7 +4,7 @@ use std::time::Duration;
 #[path = "common/mod.rs"]
 mod common;
 
-use common::{run_rtree, tree_1m};
+use common::{run_retree, tree_1m};
 
 fn bench_xlarge_1m(c: &mut Criterion) {
     let t = tree_1m();
@@ -15,11 +15,11 @@ fn bench_xlarge_1m(c: &mut Criterion) {
     group.warm_up_time(Duration::from_secs(10));
 
     group.bench_function("seq_plain", |b| {
-        b.iter(|| run_rtree(&t.path, &[]));
+        b.iter(|| run_retree(&t.path, &[]));
     });
 
     group.bench_function("par_auto", |b| {
-        b.iter(|| run_rtree(&t.path, &["--parallel"]));
+        b.iter(|| run_retree(&t.path, &["--parallel"]));
     });
 
     group.finish();

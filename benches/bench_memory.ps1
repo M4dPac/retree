@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Measure peak memory usage of rtree (sequential / streaming / parallel).
+    Measure peak memory usage of retree (sequential / streaming / parallel).
 .DESCRIPTION
     Uses System.Diagnostics.Process.PeakWorkingSet64 — same value as
     "Peak Working Set" in Task Manager.
     Requires persistent bench trees in target\bench_trees\.
-    Run 'cargo bench --bench rtree_perf' first to create them.
+    Run 'cargo bench --bench retree_perf' first to create them.
 .EXAMPLE
     .\benches\bench_memory.ps1
     .\benches\bench_memory.ps1 -Sizes 10k,100k
@@ -22,7 +22,7 @@ $ErrorActionPreference = "Stop"
 # ── Paths ─────────────────────────────────────────────────────────────
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$rtree       = Join-Path $projectRoot "target\release\rtree.exe"
+$retree       = Join-Path $projectRoot "target\release\rt.exe"
 $outFile     = Join-Path $projectRoot "target\bench_memory.md"
 
 $treeMap = @{
@@ -34,7 +34,7 @@ $treeMap = @{
 
 # ── Build ─────────────────────────────────────────────────────────────
 
-Write-Host "`nBuilding rtree (release)..." -ForegroundColor Cyan
+Write-Host "`nBuilding retree (release)..." -ForegroundColor Cyan
 Push-Location $projectRoot
 $ErrorActionPreference = "Continue"
 cargo build --release 2>&1 | Out-Null
@@ -47,8 +47,8 @@ if ($buildExit -ne 0) {
 }
 Pop-Location
 
-if (-not (Test-Path $rtree)) {
-    Write-Host "Binary not found: $rtree" -ForegroundColor Red
+if (-not (Test-Path $retree)) {
+    Write-Host "Binary not found: $retree" -ForegroundColor Red
     exit 1
 }
 
@@ -64,7 +64,7 @@ foreach ($size in $Sizes) {
     $marker = Join-Path $projectRoot "target\bench_trees\$($treeMap[$size].Path)\.tree_ready"
     if (-not (Test-Path $marker)) {
         Write-Host "Tree '$size' not found. Run first:" -ForegroundColor Red
-        Write-Host "  cargo bench --bench rtree_perf" -ForegroundColor Yellow
+        Write-Host "  cargo bench --bench retree_perf" -ForegroundColor Yellow
         exit 1
     }
 }
@@ -120,7 +120,7 @@ function Measure-RtreeMemory {
         $proc.Dispose()
 
         if ($exitCode -ne 0) {
-            Write-Host "  rtree exited with code $exitCode" -ForegroundColor Red
+            Write-Host "  retree exited with code $exitCode" -ForegroundColor Red
             return $null
         }
 
@@ -156,7 +156,7 @@ foreach ($size in $Sizes) {
         Write-Host "  $($mode.Name)..." -NoNewline -ForegroundColor White
 
         $result = Measure-RtreeMemory `
-            -ExePath   $rtree `
+            -ExePath   $retree `
             -TreePath  $treePath `
             -ExtraArgs $mode.Args `
             -Runs      $Runs
@@ -224,7 +224,7 @@ foreach ($group in ($allResults | Group-Object Size)) {
 
 # ── Export markdown ───────────────────────────────────────────────────
 
-$md  = @("# rtree benchmark - peak memory (PeakWorkingSet64)", "")
+$md  = @("# retree benchmark - peak memory (PeakWorkingSet64)", "")
 $md += "| Size | Mode | Avg MB | Min MB | Max MB |"
 $md += "|------|------|-------:|-------:|-------:|"
 

@@ -1,11 +1,11 @@
 [package]
-name = "rtree"
+name = "retree"
 version = "0.5.2"
 edition = "2021"
 rust-version = "1.80"
 description = "Fast, cross-platform GNU tree compatible directory listing"
 license = "MIT"
-repository = "https://github.com/M4dPac/rtree"
+repository = "https://github.com/M4dPac/retree"
 keywords = ["tree", "directory", "cli", "windows"]
 categories = ["command-line-utilities", "filesystem"]
 include = [
@@ -74,9 +74,9 @@ panic = "abort"
 strip = true
 
 [[bench]]
-name = "rtree_perf"
+name = "retree_perf"
 harness = false
 
 [[bench]]
-name = "rtree_perf_xlarge"
+name = "retree_perf_xlarge"
 harness = false

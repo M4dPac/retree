@@ -34,7 +34,7 @@ pub fn persistent_tree(name: &str, num_files: usize) -> SharedTree {
         generate_test_tree(&base, num_files).unwrap();
         fs::write(&marker, format!("{}", num_files)).unwrap();
         // Warm FS cache
-        run_rtree(&base, &[]);
+        run_retree(&base, &[]);
         eprintln!("[bench] Tree ready.");
     }
 
@@ -88,7 +88,7 @@ fn fill_recursive(path: &Path, target: usize, counter: &AtomicUsize, depth: usiz
 
 // ── Runner ─────────────────────────────────────────────────────────
 
-pub fn run_rtree(path: &Path, extra_args: &[&str]) {
+pub fn run_retree(path: &Path, extra_args: &[&str]) {
     let status = Command::new(env!("CARGO_BIN_EXE_rt"))
         .arg(path)
         .arg("--noreport")
@@ -96,7 +96,7 @@ pub fn run_rtree(path: &Path, extra_args: &[&str]) {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .expect("failed to execute rtree");
+        .expect("failed to execute retree");
     assert!(status.success());
 }
 

@@ -4,14 +4,14 @@ use std::process::ExitCode;
 fn main() -> ExitCode {
     // 1. Определяем язык ДО полного парсинга clap.
     //    Это нужно, чтобы --help вывелся сразу на нужном языке.
-    let lang = rtree::cli::detect_language_early();
+    let lang = retree::cli::detect_language_early();
 
     // 2. Инициализируем i18n-систему с определённым языком.
-    rtree::i18n::init(Some(lang.code()));
+    retree::i18n::init(Some(lang.code()));
 
     // 3. Если передан --help / -h — выводим локализованный help и выходим.
-    if rtree::cli::has_help_flag() {
-        let mut cmd = rtree::cli::build_localized_command(lang);
+    if retree::cli::has_help_flag() {
+        let mut cmd = retree::cli::build_localized_command(lang);
         if cmd.print_help().is_err() {
             return ExitCode::from(1);
         }
@@ -20,11 +20,11 @@ fn main() -> ExitCode {
     }
 
     // 4. Обычный парсинг.
-    let args = rtree::cli::Args::parse();
+    let args = retree::cli::Args::parse();
 
     // 4a. Если запрошены completions — вывести и выйти.
     if let Some(shell) = args.completions {
-        let mut cmd = rtree::cli::Args::command();
+        let mut cmd = retree::cli::Args::command();
         clap_complete::generate(shell, &mut cmd, "rt", &mut std::io::stdout());
         return ExitCode::SUCCESS;
     }
@@ -38,15 +38,15 @@ fn main() -> ExitCode {
     let fallback_args = args.clone();
 
     let builder = std::thread::Builder::new()
-        .name("rtree-main".into())
+        .name("retree-main".into())
         .stack_size(STACK_SIZE);
 
-    match builder.spawn(move || rtree::app::run(args)) {
+    match builder.spawn(move || retree::app::run(args)) {
         Ok(handle) => match handle.join() {
             Ok(code) => code,
             Err(_) => ExitCode::from(1),
         },
         // Thread creation failed — run on current thread (best effort)
-        Err(_) => rtree::app::run(fallback_args),
+        Err(_) => retree::app::run(fallback_args),
     }
 }

@@ -1,6 +1,6 @@
 /// Integration tests for --max-entries flag
 mod common;
-use common::{rtree, CLEAN};
+use common::{retree, CLEAN};
 
 use std::fs;
 use tempfile::tempdir;
@@ -19,7 +19,7 @@ fn test_max_entries_truncates_output() {
         fs::write(p.join(format!("file_{:02}.txt", i)), "").unwrap();
     }
 
-    let output = rtree()
+    let output = retree()
         .args(CLEAN)
         .args(["--max-entries", "5"])
         .arg(p)
@@ -54,7 +54,7 @@ fn test_max_entries_no_truncation_within_limit() {
     fs::write(p.join("b.txt"), "").unwrap();
     fs::write(p.join("c.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(CLEAN)
         .args(["--max-entries", "10"])
         .arg(p)
@@ -86,7 +86,7 @@ fn test_max_entries_one() {
         fs::write(p.join(format!("file_{}.txt", i)), "").unwrap();
     }
 
-    let output = rtree()
+    let output = retree()
         .args(CLEAN)
         .args(["--max-entries", "1"])
         .arg(p)
@@ -125,7 +125,7 @@ fn test_max_entries_with_subdirectories() {
     fs::write(p.join("dir_b/f3.txt"), "").unwrap();
     fs::write(p.join("root.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(CLEAN)
         .args(["--max-entries", "3"])
         .arg(p)
@@ -160,7 +160,7 @@ fn test_max_entries_exit_code_zero() {
         fs::write(p.join(format!("f{}.txt", i)), "").unwrap();
     }
 
-    rtree()
+    retree()
         .args(CLEAN)
         .args(["--max-entries", "2"])
         .arg(p)
@@ -181,7 +181,7 @@ fn test_without_max_entries_shows_all() {
         fs::write(p.join(format!("item_{}.txt", i)), "").unwrap();
     }
 
-    let output = rtree().args(CLEAN).arg(p).assert().success();
+    let output = retree().args(CLEAN).arg(p).assert().success();
 
     let stderr = common::output_stderr(&output);
     assert!(
@@ -211,7 +211,7 @@ fn test_max_entries_exact_boundary_no_truncation() {
     fs::write(p.join("three.txt"), "").unwrap();
 
     // Limit set above entry count — no truncation
-    let output = rtree()
+    let output = retree()
         .args(CLEAN)
         .args(["--max-entries", "4"])
         .arg(p)
@@ -240,7 +240,7 @@ fn test_max_entries_at_exact_count_no_truncation() {
     fs::write(p.join("three.txt"), "").unwrap();
 
     // Limit == entry count → all entries shown, nothing truncated
-    let output = rtree()
+    let output = retree()
         .args(CLEAN)
         .args(["--max-entries", "3"])
         .arg(p)
@@ -272,7 +272,7 @@ fn test_max_entries_zero_means_unlimited() {
     fs::write(p.join("b.txt"), "").unwrap();
     fs::write(p.join("c.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(CLEAN)
         .args(["--max-entries", "0"])
         .arg(p)
@@ -299,7 +299,7 @@ fn test_max_entries_zero_means_unlimited_streaming() {
     fs::write(p.join("x.txt"), "").unwrap();
     fs::write(p.join("y.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(CLEAN)
         .args(["--max-entries", "0", "--streaming"])
         .arg(p)

@@ -18,7 +18,7 @@ fn test_streaming_flag_smoke() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("hello.txt"), "").unwrap();
 
-    common::rtree()
+    common::retree()
         .args(common::CLEAN)
         .arg("--streaming")
         .arg(dir.path())
@@ -36,8 +36,8 @@ fn test_streaming_basic_execution() {
     fs::write(p.join("file1.txt"), "content").unwrap();
     fs::write(p.join("subdir/file2.txt"), "content").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
-    let normal = common::run_rtree(p, &["--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_retree(p, &["--noreport"]);
 
     assert_eq!(
         streaming, normal,
@@ -55,7 +55,7 @@ fn test_streaming_empty_directory() {
     let dir = tempdir().unwrap();
     let p = dir.path();
 
-    let output = common::run_rtree(p, &["--streaming"]);
+    let output = common::run_retree(p, &["--streaming"]);
     let dir_name = p.file_name().unwrap().to_string_lossy();
     assert!(
         output.starts_with(&*dir_name),
@@ -80,7 +80,7 @@ fn test_streaming_flat_directory_lists_children() {
     fs::write(p.join("file1.txt"), "").unwrap();
     fs::write(p.join("file2.txt"), "").unwrap();
 
-    let output = common::run_rtree(p, &["--streaming", "--noreport"]);
+    let output = common::run_retree(p, &["--streaming", "--noreport"]);
 
     assert!(
         output.contains("file1.txt"),
@@ -117,7 +117,7 @@ fn test_streaming_flat_directory_sort_order() {
     fs::write(p.join("apple.txt"), "").unwrap();
     fs::write(p.join("banana.txt"), "").unwrap();
 
-    let output = common::run_rtree(p, &["--streaming", "--noreport"]);
+    let output = common::run_retree(p, &["--streaming", "--noreport"]);
     let names = common::extract_names(&output);
 
     assert_eq!(
@@ -143,8 +143,8 @@ fn test_streaming_nested_execution() {
     fs::write(p.join("a/top.txt"), "").unwrap();
     fs::write(p.join("root.txt"), "").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
-    let normal = common::run_rtree(p, &["--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_retree(p, &["--noreport"]);
 
     assert_eq!(
         streaming, normal,
@@ -162,7 +162,7 @@ fn test_streaming_depth_first_order_basic() {
     fs::write(p.join("alpha/inside.txt"), "").unwrap();
     fs::write(p.join("beta.txt"), "").unwrap();
 
-    let output = common::run_rtree(p, &["--streaming", "--noreport"]);
+    let output = common::run_retree(p, &["--streaming", "--noreport"]);
     let names = common::extract_names(&output);
 
     assert_eq!(
@@ -186,8 +186,8 @@ fn test_streaming_last_branch_rendering_basic() {
     fs::write(p.join("aaa.txt"), "").unwrap();
     fs::write(p.join("zzz.txt"), "").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
-    let normal = common::run_rtree(p, &["--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_retree(p, &["--noreport"]);
 
     assert_eq!(streaming, normal, "branch chars should match normal mode");
     assert!(
@@ -213,8 +213,8 @@ fn test_streaming_indentation_basic() {
     fs::create_dir(p.join("dir_b")).unwrap();
     fs::write(p.join("dir_b/child.txt"), "").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
-    let normal = common::run_rtree(p, &["--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_retree(p, &["--noreport"]);
 
     assert_eq!(streaming, normal, "indentation should match normal mode");
 
@@ -239,8 +239,8 @@ fn test_streaming_nested_indentation_basic() {
     fs::create_dir(p.join("dir_b")).unwrap();
     fs::write(p.join("dir_b/leaf.txt"), "").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
-    let normal = common::run_rtree(p, &["--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_retree(p, &["--noreport"]);
 
     assert_eq!(
         streaming, normal,
@@ -262,8 +262,8 @@ fn test_streaming_show_all() {
     fs::write(p.join(".hidden"), "").unwrap();
     fs::write(p.join("visible.txt"), "").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "-a", "--noreport"]);
-    let normal = common::run_rtree(p, &["-a", "--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "-a", "--noreport"]);
+    let normal = common::run_retree(p, &["-a", "--noreport"]);
     assert_eq!(streaming, normal, "-a streaming should match normal");
 }
 
@@ -277,8 +277,8 @@ fn test_streaming_dirs_only() {
     fs::write(p.join("file.txt"), "").unwrap();
     fs::write(p.join("subdir/inner.txt"), "").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "-d", "--noreport"]);
-    let normal = common::run_rtree(p, &["-d", "--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "-d", "--noreport"]);
+    let normal = common::run_retree(p, &["-d", "--noreport"]);
     assert_eq!(streaming, normal, "-d streaming should match normal");
 }
 
@@ -291,8 +291,8 @@ fn test_streaming_depth_limit() {
     fs::create_dir_all(p.join("l1/l2/l3")).unwrap();
     fs::write(p.join("l1/l2/l3/deep.txt"), "").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "-L", "2", "--noreport"]);
-    let normal = common::run_rtree(p, &["-L", "2", "--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "-L", "2", "--noreport"]);
+    let normal = common::run_retree(p, &["-L", "2", "--noreport"]);
     assert_eq!(streaming, normal, "-L 2 streaming should match normal");
 }
 
@@ -306,8 +306,8 @@ fn test_streaming_pattern_include() {
     fs::write(p.join("file.txt"), "").unwrap();
     fs::write(p.join("other.rs"), "").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "-P", "*.rs", "--noreport"]);
-    let normal = common::run_rtree(p, &["-P", "*.rs", "--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "-P", "*.rs", "--noreport"]);
+    let normal = common::run_retree(p, &["-P", "*.rs", "--noreport"]);
     assert_eq!(streaming, normal, "-P streaming should match normal");
 }
 
@@ -320,8 +320,8 @@ fn test_streaming_exclude() {
     fs::write(p.join("keep.rs"), "").unwrap();
     fs::write(p.join("skip.txt"), "").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "-I", "*.txt", "--noreport"]);
-    let normal = common::run_rtree(p, &["-I", "*.txt", "--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "-I", "*.txt", "--noreport"]);
+    let normal = common::run_retree(p, &["-I", "*.txt", "--noreport"]);
     assert_eq!(streaming, normal, "-I streaming should match normal");
 }
 
@@ -338,7 +338,7 @@ fn test_streaming_filelimit() {
     fs::create_dir(p.join("small")).unwrap();
     fs::write(p.join("small/ok.txt"), "").unwrap();
 
-    let output = common::run_rtree(p, &["--streaming", "--filelimit", "2", "--noreport"]);
+    let output = common::run_retree(p, &["--streaming", "--filelimit", "2", "--noreport"]);
 
     // Core behavior: children of big dir are skipped
     assert!(output.contains("big"), "big dir shown:\n{}", output);
@@ -362,8 +362,8 @@ fn test_streaming_sort_order_matches_regular_basic() {
     fs::write(p.join("apple/a.txt"), "").unwrap();
     fs::write(p.join("banana.txt"), "").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
-    let normal = common::run_rtree(p, &["--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_retree(p, &["--noreport"]);
     assert_eq!(
         streaming, normal,
         "sort order streaming should match normal"
@@ -385,7 +385,7 @@ fn test_streaming_max_entries_truncates() {
     }
 
     let (stdout, stderr, code) =
-        common::run_rtree_full(p, &["--streaming", "--max-entries", "5", "--noreport"]);
+        common::run_retree_full(p, &["--streaming", "--max-entries", "5", "--noreport"]);
     assert_eq!(code, Some(0), "exit 0 on truncation");
     assert!(
         stderr.contains("output truncated at 5 entries (--max-entries)"),
@@ -408,7 +408,8 @@ fn test_streaming_max_entries_no_truncation() {
     fs::write(p.join("a.txt"), "").unwrap();
     fs::write(p.join("b.txt"), "").unwrap();
 
-    let (stdout, stderr, code) = common::run_rtree_full(p, &["--streaming", "--max-entries", "10"]);
+    let (stdout, stderr, code) =
+        common::run_retree_full(p, &["--streaming", "--max-entries", "10"]);
     assert_eq!(code, Some(0));
     assert!(
         !stderr.contains("truncated"),
@@ -433,7 +434,7 @@ fn test_streaming_max_entries_nested() {
     fs::write(p.join("root.txt"), "").unwrap();
 
     let (stdout, stderr, _) =
-        common::run_rtree_full(p, &["--streaming", "--max-entries", "3", "--noreport"]);
+        common::run_retree_full(p, &["--streaming", "--max-entries", "3", "--noreport"]);
     assert!(
         stderr.contains("output truncated at 3 entries (--max-entries)"),
         "truncation expected, stderr: {stderr}"
@@ -460,8 +461,8 @@ fn test_streaming_prune_falls_back_to_normal() {
     fs::create_dir(p.join("filled")).unwrap();
     fs::write(p.join("filled/file.txt"), "").unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "--prune", "--noreport"]);
-    let normal = common::run_rtree(p, &["--prune", "--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "--prune", "--noreport"]);
+    let normal = common::run_retree(p, &["--prune", "--noreport"]);
 
     assert_eq!(
         streaming, normal,
@@ -493,8 +494,8 @@ fn test_streaming_symlink_display() {
     fs::write(p.join("target.txt"), "hello").unwrap();
     std::os::unix::fs::symlink("target.txt", p.join("link.txt")).unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "--noreport"]);
-    let normal = common::run_rtree(p, &["--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "--noreport"]);
+    let normal = common::run_retree(p, &["--noreport"]);
 
     assert_eq!(streaming, normal, "symlink display should match normal");
     assert!(
@@ -515,8 +516,8 @@ fn test_streaming_symlink_cycle() {
     fs::write(p.join("subdir/file.txt"), "").unwrap();
     std::os::unix::fs::symlink(p, p.join("subdir/loop")).unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "-l", "--noreport"]);
-    let normal = common::run_rtree(p, &["-l", "--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "-l", "--noreport"]);
+    let normal = common::run_retree(p, &["-l", "--noreport"]);
 
     assert_eq!(
         streaming, normal,
@@ -564,8 +565,8 @@ fn test_streaming_comprehensive_matches_normal() {
         let mut streaming_args: Vec<&str> = vec!["--streaming"];
         streaming_args.extend_from_slice(flags);
 
-        let streaming = common::run_rtree(p, &streaming_args);
-        let normal = common::run_rtree(p, flags);
+        let streaming = common::run_retree(p, &streaming_args);
+        let normal = common::run_retree(p, flags);
 
         assert_eq!(
             streaming, normal,
@@ -605,8 +606,8 @@ fn test_streaming_metadata_flags_match_normal() {
         let mut streaming_args: Vec<&str> = vec!["--streaming"];
         streaming_args.extend_from_slice(flags);
 
-        let streaming = common::run_rtree(p, &streaming_args);
-        let normal = common::run_rtree(p, flags);
+        let streaming = common::run_retree(p, &streaming_args);
+        let normal = common::run_retree(p, flags);
 
         assert_eq!(
             streaming, normal,
@@ -624,8 +625,8 @@ fn test_streaming_si_units() {
 
     fs::write(p.join("data.bin"), vec![0u8; 2048]).unwrap();
 
-    let streaming = common::run_rtree(p, &["--streaming", "-h", "--si", "--noreport"]);
-    let normal = common::run_rtree(p, &["-h", "--si", "--noreport"]);
+    let streaming = common::run_retree(p, &["--streaming", "-h", "--si", "--noreport"]);
+    let normal = common::run_retree(p, &["-h", "--si", "--noreport"]);
 
     assert_eq!(streaming, normal, "--si streaming should match normal");
 }

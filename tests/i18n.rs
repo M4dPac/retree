@@ -1,6 +1,6 @@
 /// --lang en/ru, склонения, TREE_LANG
 mod common;
-use common::rtree;
+use common::retree;
 
 use predicates::prelude::*;
 use std::fs;
@@ -14,7 +14,7 @@ fn test_report_in_english() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--lang", "en"])
         .arg(p)
         .assert()
@@ -31,7 +31,7 @@ fn test_report_in_russian() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--lang", "ru"])
         .arg(p)
         .assert()
@@ -47,7 +47,7 @@ fn test_russian_plural_one_file() {
 
     fs::write(p.join("single.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--lang", "ru"])
         .arg(p)
         .assert()
@@ -64,7 +64,7 @@ fn test_russian_plural_few_files() {
         fs::write(p.join(format!("f{}.txt", i)), "").unwrap();
     }
 
-    rtree()
+    retree()
         .args(["--lang", "ru"])
         .arg(p)
         .assert()
@@ -81,7 +81,7 @@ fn test_russian_plural_many_files() {
         fs::write(p.join(format!("f{}.txt", i)), "").unwrap();
     }
 
-    rtree()
+    retree()
         .args(["--lang", "ru"])
         .arg(p)
         .assert()
@@ -97,7 +97,7 @@ fn test_tree_lang_env_switches_language() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .env("TREE_LANG", "ru")
         .arg(p)
         .assert()

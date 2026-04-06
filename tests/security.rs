@@ -12,7 +12,7 @@
 
 mod common;
 
-use common::{run_rtree, run_rtree_args_full, run_rtree_command, run_rtree_full};
+use common::{run_retree, run_retree_args_full, run_retree_command, run_retree_full};
 use tempfile::TempDir;
 
 // ============================================================================
@@ -26,7 +26,7 @@ fn safe_print_replaces_ansi_escape() {
     let name = "\x1b[31mRED\x1b[0m";
     std::fs::write(dir.path().join(name), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-q"]);
+    let stdout = run_retree(dir.path(), &["-q"]);
 
     assert!(
         !stdout.contains('\x1b'),
@@ -45,7 +45,7 @@ fn literal_mode_passes_ansi() {
     let name = "\x1b[31mRED\x1b[0m";
     std::fs::write(dir.path().join(name), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-N"]);
+    let stdout = run_retree(dir.path(), &["-N"]);
 
     assert!(
         stdout.contains("\x1b[31m"),
@@ -70,7 +70,7 @@ fn sequential_symlink_cycle_shows_files() {
     unix_fs::symlink(&shared, dir.path().join("link1")).unwrap();
     unix_fs::symlink(&shared, dir.path().join("link2")).unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-l", "-a"]);
+    let stdout = run_retree(dir.path(), &["-l", "-a"]);
 
     assert!(stdout.contains("file.txt"), "files must be visible");
     let recursive_count =
@@ -94,7 +94,7 @@ fn parallel_symlink_cycle_shows_files() {
     unix_fs::symlink(&shared, dir.path().join("link1")).unwrap();
     unix_fs::symlink(&shared, dir.path().join("link2")).unwrap();
 
-    let stdout = run_rtree(dir.path(), &["--parallel", "-l", "-a"]);
+    let stdout = run_retree(dir.path(), &["--parallel", "-l", "-a"]);
 
     assert!(
         stdout.contains("file.txt"),
@@ -116,7 +116,7 @@ fn direct_loop_no_hang() {
     let dir = TempDir::new().unwrap();
     unix_fs::symlink(dir.path(), dir.path().join("self_loop")).unwrap();
 
-    let mut cmd = run_rtree_command(dir.path(), &["-l", "-a"]);
+    let mut cmd = run_retree_command(dir.path(), &["-l", "-a"]);
 
     cmd.timeout(std::time::Duration::from_secs(5))
         .assert()
@@ -141,7 +141,7 @@ fn deep_tree_sequential() {
     }
     std::fs::write(p.join("bottom.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &[]);
+    let stdout = run_retree(dir.path(), &[]);
     assert!(
         stdout.contains("bottom.txt"),
         "bottom.txt must appear in {}-level deep tree",
@@ -159,7 +159,7 @@ fn deep_tree_parallel_no_crash() {
     }
     std::fs::write(p.join("bottom.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["--parallel"]);
+    let stdout = run_retree(dir.path(), &["--parallel"]);
 
     assert!(
         stdout.contains("bottom.txt"),
@@ -184,7 +184,7 @@ fn non_utf8_excluded_by_wildcard() {
         std::fs::write(dir.path().join(bad_name), b"").unwrap();
     }
 
-    let stdout = run_rtree(dir.path(), &["-a", "-I", "*"]);
+    let stdout = run_retree(dir.path(), &["-a", "-I", "*"]);
 
     assert!(
         !stdout.contains("normal"),
@@ -207,7 +207,7 @@ fn html_href_url_encoded() {
     std::fs::write(dir.path().join("my file.txt"), b"").unwrap();
     std::fs::write(dir.path().join("50%off.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-H", "."]);
+    let stdout = run_retree(dir.path(), &["-H", "."]);
 
     assert!(
         stdout.contains("report%232024.txt"),
@@ -229,7 +229,7 @@ fn javascript_url_rejected() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("test.txt"), b"").unwrap();
 
-    let (stdout, stderr, _code) = run_rtree_full(dir.path(), &["-H", "javascript:alert(1)"]);
+    let (stdout, stderr, _code) = run_retree_full(dir.path(), &["-H", "javascript:alert(1)"]);
 
     assert!(
         stderr.contains("warning"),
@@ -251,7 +251,7 @@ fn bidi_chars_sanitized_with_safe_print() {
     std::fs::write(dir.path().join("\u{202E}reversed.txt"), b"").unwrap();
     std::fs::write(dir.path().join("join\u{200D}er.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-q"]);
+    let stdout = run_retree(dir.path(), &["-q"]);
 
     assert!(
         stdout.contains("?reversed.txt"),
@@ -273,7 +273,7 @@ fn html_strips_bidi_from_filenames() {
     std::fs::write(dir.path().join("test\u{202E}gpj.exe"), b"").unwrap();
     std::fs::write(dir.path().join("join\u{200D}er.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-H", "."]);
+    let stdout = run_retree(dir.path(), &["-H", "."]);
 
     // Bidi override and ZWJ must be stripped from HTML output
     assert!(
@@ -300,7 +300,7 @@ fn xml_strips_bidi_from_filenames() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("test\u{202E}gpj.exe"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-X"]);
+    let stdout = run_retree(dir.path(), &["-X"]);
 
     assert!(
         !stdout.contains('\u{202E}'),
@@ -317,7 +317,7 @@ fn html_escapes_ampersand_in_filenames() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("Tom & Jerry.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-H", ".", "--nolinks"]);
+    let stdout = run_retree(dir.path(), &["-H", ".", "--nolinks"]);
 
     assert!(
         stdout.contains("Tom &amp; Jerry.txt"),
@@ -334,7 +334,7 @@ fn xml_escapes_ampersand_in_filenames() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("Tom & Jerry.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-X"]);
+    let stdout = run_retree(dir.path(), &["-X"]);
 
     assert!(
         stdout.contains("Tom &amp; Jerry.txt"),
@@ -351,7 +351,7 @@ fn html_title_with_special_chars_escaped() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("file.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-H", ".", "-T", "A&B 'quoted' <tag>"]);
+    let stdout = run_retree(dir.path(), &["-H", ".", "-T", "A&B 'quoted' <tag>"]);
 
     assert!(
         stdout.contains("A&amp;B &#39;quoted&#39; &lt;tag&gt;"),
@@ -368,7 +368,7 @@ fn html_base_url_with_ampersand_encoded() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("file.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-H", "http://example.com?a=1&b=2"]);
+    let stdout = run_retree(dir.path(), &["-H", "http://example.com?a=1&b=2"]);
 
     assert!(
         stdout.contains("http://example.com?a=1&amp;b=2"),
@@ -381,7 +381,7 @@ fn html_filename_with_apostrophe_escaped() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("it's here.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-H", ".", "--nolinks"]);
+    let stdout = run_retree(dir.path(), &["-H", ".", "--nolinks"]);
 
     assert!(
         stdout.contains("it&#39;s here.txt"),
@@ -395,7 +395,7 @@ fn html_filename_with_apostrophe_escaped() {
 
 #[test]
 fn threads_zero_rejected() {
-    let (_stdout, stderr, code) = run_rtree_args_full(&["--parallel", "--threads", "0", "."]);
+    let (_stdout, stderr, code) = run_retree_args_full(&["--parallel", "--threads", "0", "."]);
 
     assert_ne!(code, Some(0), "threads=0 must be rejected");
     assert!(
@@ -406,7 +406,7 @@ fn threads_zero_rejected() {
 
 #[test]
 fn queue_cap_zero_rejected() {
-    let (_stdout, stderr, code) = run_rtree_args_full(&["--parallel", "--queue-cap", "0", "."]);
+    let (_stdout, stderr, code) = run_retree_args_full(&["--parallel", "--queue-cap", "0", "."]);
 
     assert_ne!(code, Some(0), "queue-cap=0 must be rejected");
     assert!(
@@ -433,7 +433,7 @@ fn access_denied_continues_tree() {
     perms.set_mode(0o000);
     std::fs::set_permissions(&sub, perms).unwrap();
 
-    let (_stdout, stderr, code) = run_rtree_full(dir.path(), &["-a"]);
+    let (_stdout, stderr, code) = run_retree_full(dir.path(), &["-a"]);
 
     let mut perms = std::fs::metadata(&sub).unwrap().permissions();
     perms.set_mode(0o755);
@@ -443,7 +443,7 @@ fn access_denied_continues_tree() {
         stderr.contains("Permission denied") || stderr.contains("error 13"),
         "stderr must report access denied"
     );
-    assert!(code.is_some(), "rtree must exit cleanly");
+    assert!(code.is_some(), "retree must exit cleanly");
 }
 
 // ============================================================================
@@ -462,8 +462,8 @@ fn parallel_and_sequential_same_file_count() {
         std::fs::write(sub.join(format!("g{}.txt", i)), b"").unwrap();
     }
 
-    let seq = run_rtree(dir.path(), &[]);
-    let par = run_rtree(dir.path(), &["--parallel"]);
+    let seq = run_retree(dir.path(), &[]);
+    let par = run_retree(dir.path(), &["--parallel"]);
 
     let seq_last = common::last_nonempty_line(&seq);
     let par_last = common::last_nonempty_line(&par);
@@ -494,7 +494,7 @@ fn executable_bit_detected_on_unix() {
     std::fs::write(dir.path().join("readme.txt"), b"").unwrap();
     std::fs::write(dir.path().join("program.exe"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-F"]);
+    let stdout = run_retree(dir.path(), &["-F"]);
 
     assert!(
         stdout.contains("script.sh*"),
@@ -523,7 +523,7 @@ fn windows_executable_by_extension() {
     std::fs::write(dir.path().join("script.bat"), b"").unwrap();
     std::fs::write(dir.path().join("readme.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-F"]);
+    let stdout = run_retree(dir.path(), &["-F"]);
     assert!(
         stdout.contains("app.exe*"),
         ".exe must get * marker on Windows"
@@ -556,7 +556,7 @@ fn junction_cycle_no_infinite_recursion() {
         .output()
         .expect("mklink /J failed");
 
-    let stdout = run_rtree(dir.path(), &["-a"]);
+    let stdout = run_retree(dir.path(), &["-a"]);
     assert!(
         stdout.contains("data.txt"),
         "junction target contents must be visible"
@@ -571,7 +571,7 @@ fn one_fs_stops_at_junction_to_other_volume() {
     // This test requires two different volumes (e.g. C: and D:)
     // Skip if only one volume available
     let dir = TempDir::new().unwrap();
-    let stdout = run_rtree(dir.path(), &["-x"]);
+    let stdout = run_retree(dir.path(), &["-x"]);
     // Just verify --one-fs doesn't crash
     assert!(
         stdout.contains("0"),
@@ -594,10 +594,10 @@ fn long_path_with_flag() {
     // Try to create a file at the bottom
     let _ = std::fs::write(p.join("deep.txt"), b"test");
 
-    let (stdout, _stderr, code) = run_rtree_full(dir.path(), &["--long-paths"]);
+    let (stdout, _stderr, code) = run_retree_full(dir.path(), &["--long-paths"]);
     assert!(
         code == Some(0) || code == Some(1),
-        "rtree must not crash with long paths"
+        "retree must not crash with long paths"
     );
     // With --long-paths, the deep file should be reachable
     if p.to_string_lossy().len() > 260 {
@@ -616,7 +616,7 @@ fn show_streams_flag_accepted() {
     std::fs::write(dir.path().join("test.txt"), b"data").unwrap();
 
     // --show-streams should be accepted without crash
-    let (_stdout, _stderr, code) = run_rtree_full(dir.path(), &["--show-streams"]);
+    let (_stdout, _stderr, code) = run_retree_full(dir.path(), &["--show-streams"]);
     assert!(
         code == Some(0) || code == Some(1),
         "--show-streams must not crash"
@@ -631,12 +631,12 @@ fn reserved_names_skipped_on_windows() {
     std::fs::write(dir.path().join("normal.txt"), b"").unwrap();
 
     // These creations will likely fail on Windows (redirected to devices)
-    // but the test verifies rtree doesn't hang if they somehow exist
+    // but the test verifies retree doesn't hang if they somehow exist
     for name in ["CON", "NUL", "PRN", "AUX", "COM1", "LPT1"] {
         let _ = std::fs::write(dir.path().join(name), b"x");
     }
 
-    let mut cmd = run_rtree_command(dir.path(), &["-a"]);
+    let mut cmd = run_retree_command(dir.path(), &["-a"]);
     let assert = cmd
         .timeout(std::time::Duration::from_secs(5))
         .assert()
@@ -664,7 +664,7 @@ fn parallel_junction_no_crash() {
         .arg(dir.path())
         .output();
 
-    let mut cmd = run_rtree_command(dir.path(), &["--parallel", "-a"]);
+    let mut cmd = run_retree_command(dir.path(), &["--parallel", "-a"]);
     cmd.timeout(std::time::Duration::from_secs(10))
         .assert()
         .success();
@@ -679,7 +679,7 @@ fn html_href_uses_forward_slash() {
     std::fs::create_dir(&sub).unwrap();
     std::fs::write(sub.join("file.txt"), b"").unwrap();
 
-    let stdout = run_rtree(dir.path(), &["-H", "."]);
+    let stdout = run_retree(dir.path(), &["-H", "."]);
     // href should use / not backslash
     assert!(
         !stdout.contains("href=\".\\"),
@@ -693,7 +693,7 @@ fn html_href_uses_forward_slash() {
 
 #[test]
 fn reserved_name_detection_correctness() {
-    use rtree::platform::is_reserved_windows_name;
+    use retree::platform::is_reserved_windows_name;
 
     // Positive: must detect
     let reserved = [
@@ -762,11 +762,11 @@ fn traverse_dir_with_reserved_names_no_crash() {
     }
     std::fs::write(dir.path().join("normal.txt"), b"ok").expect("write");
 
-    let (stdout, stderr, code) = run_rtree_full(dir.path(), &["-a"]);
+    let (stdout, stderr, code) = run_retree_full(dir.path(), &["-a"]);
 
     assert!(
         code == Some(0) || code == Some(1),
-        "rtree must not crash on reserved names, code={code:?}"
+        "retree must not crash on reserved names, code={code:?}"
     );
     assert!(
         stdout.contains("normal.txt"),
@@ -801,8 +801,8 @@ fn traverse_reserved_names_parallel_consistent() {
     }
     std::fs::write(dir.path().join("safe.txt"), b"ok").expect("write");
 
-    let (seq_out, _, _) = run_rtree_full(dir.path(), &["-a"]);
-    let (par_out, _, _) = run_rtree_full(dir.path(), &["--parallel", "-a"]);
+    let (seq_out, _, _) = run_retree_full(dir.path(), &["-a"]);
+    let (par_out, _, _) = run_retree_full(dir.path(), &["--parallel", "-a"]);
 
     let seq_last = common::last_nonempty_line(&seq_out);
     let par_last = common::last_nonempty_line(&par_out);
@@ -835,7 +835,7 @@ fn mutual_symlink_cycle_detected() {
     unix_fs::symlink(&b, a.join("to_b")).unwrap();
     unix_fs::symlink(&a, b.join("to_a")).unwrap();
 
-    let mut cmd = run_rtree_command(dir.path(), &["-l", "-a"]);
+    let mut cmd = run_retree_command(dir.path(), &["-l", "-a"]);
     let assert = cmd
         .timeout(std::time::Duration::from_secs(5))
         .assert()
@@ -868,7 +868,7 @@ fn mutual_symlink_cycle_parallel() {
     unix_fs::symlink(&b, a.join("to_b")).unwrap();
     unix_fs::symlink(&a, b.join("to_a")).unwrap();
 
-    let mut cmd = run_rtree_command(dir.path(), &["--parallel", "-l", "-a"]);
+    let mut cmd = run_retree_command(dir.path(), &["--parallel", "-l", "-a"]);
     cmd.timeout(std::time::Duration::from_secs(5))
         .assert()
         .success();
@@ -889,7 +889,7 @@ fn mutual_symlink_cycle_streaming() {
     unix_fs::symlink(&b, a.join("to_b")).unwrap();
     unix_fs::symlink(&a, b.join("to_a")).unwrap();
 
-    let mut cmd = run_rtree_command(dir.path(), &["--streaming", "-l", "-a"]);
+    let mut cmd = run_retree_command(dir.path(), &["--streaming", "-l", "-a"]);
     cmd.timeout(std::time::Duration::from_secs(5))
         .assert()
         .success();
@@ -911,7 +911,7 @@ fn triple_symlink_same_target_file_id_dedup() {
         unix_fs::symlink(&shared, dir.path().join(name)).unwrap();
     }
 
-    let stdout = run_rtree(dir.path(), &["-l", "-a"]);
+    let stdout = run_retree(dir.path(), &["-l", "-a"]);
 
     let payload_count = stdout.matches("payload.txt").count();
     let recursive_count =
@@ -935,11 +935,11 @@ fn long_paths_relative_root_resolves() {
     std::fs::write(dir.path().join("test.txt"), b"data").unwrap();
 
     // Use relative path "." after cd into temp dir
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_rtree"))
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_rt"))
         .args(["--long-paths", "--no-icons", "."])
         .current_dir(dir.path())
         .output()
-        .expect("rtree failed to start");
+        .expect("retree failed to start");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
@@ -980,7 +980,7 @@ fn chain_symlink_cycle_three_way_terminates() {
         &["-l", "-a", "--parallel"],
         &["-l", "-a", "--streaming"],
     ] {
-        let mut cmd = run_rtree_command(dir.path(), extra);
+        let mut cmd = run_retree_command(dir.path(), extra);
         let assert = cmd
             .timeout(std::time::Duration::from_secs(10))
             .assert()
@@ -1026,7 +1026,7 @@ fn non_utf8_filename_in_html_no_crash() {
     std::fs::write(dir.path().join(bad_name), b"").unwrap();
     std::fs::write(dir.path().join("good.txt"), b"").unwrap();
 
-    let (stdout, _, code) = run_rtree_full(dir.path(), &["-H", ".", "--nolinks"]);
+    let (stdout, _, code) = run_retree_full(dir.path(), &["-H", ".", "--nolinks"]);
 
     assert!(
         code == Some(0) || code == Some(1),

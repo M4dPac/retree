@@ -1,6 +1,6 @@
 /// -o, -H, -T, --nolinks, --hintro/--houtro, -X, -J
 mod common;
-use common::rtree;
+use common::retree;
 
 use predicates::prelude::*;
 use std::fs;
@@ -18,7 +18,7 @@ fn test_output_file_created_with_content() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    rtree()
+    retree()
         .args(["-o", output_path.to_str().unwrap()])
         .arg(p)
         .assert()
@@ -45,7 +45,7 @@ fn test_html_output_structure() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["-H", "http://localhost"])
         .arg(p)
         .assert()
@@ -65,7 +65,7 @@ fn test_html_contains_links_by_default() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["-H", "http://localhost"])
         .arg(p)
         .assert()
@@ -90,7 +90,7 @@ fn test_html_title() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["-H", "http://localhost", "-T", "My Custom Title"])
         .arg(p)
         .assert()
@@ -114,7 +114,7 @@ fn test_nolinks_removes_hyperlinks() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["-H", "http://localhost", "--nolinks"])
         .arg(p)
         .assert()
@@ -141,7 +141,7 @@ fn test_html_intro_file() {
     fs::write(&intro_path, "<!-- CUSTOM INTRO MARKER -->").unwrap();
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    rtree()
+    retree()
         .args([
             "-H",
             "http://localhost",
@@ -163,7 +163,7 @@ fn test_html_outro_file() {
     fs::write(&outro_path, "<!-- CUSTOM OUTRO MARKER -->").unwrap();
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    rtree()
+    retree()
         .args([
             "-H",
             "http://localhost",
@@ -187,7 +187,7 @@ fn test_xml_output_structure() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree().arg("-X").arg(p).assert().success();
+    let output = retree().arg("-X").arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     assert!(
@@ -218,7 +218,7 @@ fn test_json_output_structure() {
     fs::write(p.join("file.txt"), "content").unwrap();
     fs::write(p.join("subdir/nested.txt"), "content").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["-J", "--lang", "en"])
         .arg(p)
         .assert()
@@ -274,7 +274,7 @@ fn test_json_hierarchy_correct() {
     fs::write(p.join("a/b/deep.txt"), "").unwrap();
     fs::write(p.join("root.txt"), "").unwrap();
 
-    let output = rtree().args(["-J"]).arg(p).assert().success();
+    let output = retree().args(["-J"]).arg(p).assert().success();
 
     let json: serde_json::Value = common::output_json(&output);
     let root_contents = json[0]["contents"].as_array().unwrap();
@@ -311,7 +311,11 @@ fn test_json_noreport() {
 
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree().args(["-J", "--noreport"]).arg(p).assert().success();
+    let output = retree()
+        .args(["-J", "--noreport"])
+        .arg(p)
+        .assert()
+        .success();
 
     let json: serde_json::Value = common::output_json(&output);
     let arr = json.as_array().unwrap();
@@ -331,7 +335,7 @@ fn test_json_dirs_only() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree().args(["-J", "-d"]).arg(p).assert().success();
+    let output = retree().args(["-J", "-d"]).arg(p).assert().success();
 
     let json: serde_json::Value = common::output_json(&output);
 

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Benchmark rtree on 1M files using hyperfine.
+    Benchmark retree on 1M files using hyperfine.
 .DESCRIPTION
     Compares sequential / parallel / streaming modes, thread scaling,
     and output formats. Requires hyperfine.
@@ -14,10 +14,10 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $treePath    = Join-Path $projectRoot "target\bench_trees\xlarge_1m"
-$rtree       = Join-Path $projectRoot "target\release\rtree.exe"
+$retree       = Join-Path $projectRoot "target\release\rt.exe"
 $outFile     = Join-Path $projectRoot "target\bench_1m.md"
 
-$r = "`"$rtree`""
+$r = "`"$retree`""
 $t = "`"$treePath`""
 
 # -- Prerequisites ---------------------------------------------------
@@ -31,7 +31,7 @@ if (-not (Get-Command hyperfine -ErrorAction SilentlyContinue)) {
 
 # -- Build -----------------------------------------------------------
 
-Write-Host "`nBuilding rtree (release)..." -ForegroundColor Cyan
+Write-Host "`nBuilding retree (release)..." -ForegroundColor Cyan
 Push-Location $projectRoot
 $ErrorActionPreference = "Continue"
 cargo build --release 2>&1 | Out-Null
@@ -45,8 +45,8 @@ if ($buildExit -ne 0) {
 Pop-Location
 Write-Host "Build OK." -ForegroundColor Green
 
-if (-not (Test-Path $rtree)) {
-    Write-Host "Binary not found: $rtree" -ForegroundColor Red
+if (-not (Test-Path $retree)) {
+    Write-Host "Binary not found: $retree" -ForegroundColor Red
     exit 1
 }
 
@@ -55,10 +55,10 @@ if (-not (Test-Path $rtree)) {
 if (-not (Test-Path (Join-Path $treePath ".tree_ready"))) {
     Write-Host "`n1M tree not found. Creating (one-time, may take a while)..." -ForegroundColor Yellow
     Push-Location $projectRoot
-    cargo bench --bench rtree_perf_xlarge -- "seq_plain"
+    cargo bench --bench retree_perf_xlarge -- "seq_plain"
     Pop-Location
     if (-not (Test-Path (Join-Path $treePath ".tree_ready"))) {
-        Write-Host "Tree creation failed. Check that bench_trees are persisted in rtree_perf.rs." -ForegroundColor Red
+        Write-Host "Tree creation failed. Check that bench_trees are persisted in retree_perf.rs." -ForegroundColor Red
         exit 1
     }
 }
@@ -67,7 +67,7 @@ Write-Host "Tree found : $treePath" -ForegroundColor Green
 
 # -- Helper : run one hyperfine section and append to $outFile -------
 
-$tmpMd = Join-Path $env:TEMP "rtree_bench_section.md"
+$tmpMd = Join-Path $env:TEMP "retree_bench_section.md"
 
 function Invoke-Section {
     param(
@@ -89,7 +89,7 @@ function Invoke-Section {
 
 # -- Init output file ------------------------------------------------
 
-"# rtree benchmark - 1M files`n" | Set-Content -Path $outFile -Encoding UTF8
+"# retree benchmark - 1M files`n" | Set-Content -Path $outFile -Encoding UTF8
 
 # -- Benchmark 1 : mode comparison -----------------------------------
 

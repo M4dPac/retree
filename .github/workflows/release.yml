@@ -119,28 +119,28 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}".TrimStart('v')
-          $staging = "rtree-$version-${{ matrix.target }}"
+          $staging = "retree-$version-${{ matrix.target }}"
           New-Item -ItemType Directory -Path $staging
           Copy-Item "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$staging/"
           Copy-Item @("README.md", "README.en.md", "LICENSE", "CHANGELOG.md") "$staging/"
-          Compress-Archive -Path "$staging" -DestinationPath "rtree-$version-${{ matrix.target }}.zip"
+          Compress-Archive -Path "$staging" -DestinationPath "retree-$version-${{ matrix.target }}.zip"
 
       - name: Package (Unix)
         if: matrix.archive == 'tar.gz'
         run: |
           version="${GITHUB_REF_NAME#v}"
-          staging="rtree-$version-${{ matrix.target }}"
+          staging="retree-$version-${{ matrix.target }}"
           mkdir "$staging"
           cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$staging/"
           cp README.md README.en.md LICENSE CHANGELOG.md "$staging/"
-          tar czf "rtree-$version-${{ matrix.target }}.tar.gz" "$staging"
+          tar czf "retree-$version-${{ matrix.target }}.tar.gz" "$staging"
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
-          name: rtree-${{ matrix.target }}
+          name: retree-${{ matrix.target }}
           path: |
-            rtree-*.zip
-            rtree-*.tar.gz
+            retree-*.zip
+            retree-*.tar.gz
 
   release:
     name: Publish Release
@@ -155,7 +155,7 @@ jobs:
 
       - name: Generate SHA256 checksums
         run: |
-          sha256sum rtree-*.zip rtree-*.tar.gz > SHA256SUMS.txt
+          sha256sum retree-*.zip retree-*.tar.gz > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Install cosign
@@ -181,4 +181,4 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             --title "${{ github.ref_name }}" \
             --notes-file release_notes.md \
-            rtree-*.zip rtree-*.tar.gz SHA256SUMS.txt SHA256SUMS.txt.bundle
+            retree-*.zip retree-*.tar.gz SHA256SUMS.txt SHA256SUMS.txt.bundle

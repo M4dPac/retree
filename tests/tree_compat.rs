@@ -1,6 +1,6 @@
-//! Compatibility tests: compare rtree output with system `tree` command.
+//! Compatibility tests: compare retree output with system `tree` command.
 //!
-//! These tests create known directory structures and verify that rtree
+//! These tests create known directory structures and verify that retree
 //! produces identical output to the system `tree` for all compatible flags.
 //!
 //! Requirements:
@@ -32,13 +32,13 @@ fn has_tree() -> bool {
         .unwrap_or(false)
 }
 
-/// Get rtree binary path (built by cargo test).
-fn rtree_path() -> PathBuf {
+/// Get retree binary path (built by cargo test).
+fn retree_path() -> PathBuf {
     let mut p = std::env::current_exe().unwrap();
     p.pop(); // remove test binary name
     p.pop(); // remove 'deps'
-    p.push("rtree");
-    assert!(p.exists(), "rtree binary not found at {:?}", p);
+    p.push("rt");
+    assert!(p.exists(), "rt binary not found at {:?}", p);
     p
 }
 
@@ -190,17 +190,17 @@ fn run_tree_lenient(dir: &Path, extra_args: &[&str]) -> String {
     String::from_utf8(out.stdout).expect("tree output not UTF-8")
 }
 
-/// Run rtree binary.
+/// Run retree binary.
 ///
 /// Always adds `--no-icons --lang en -n` for consistent comparison with tree.
 /// - `--no-icons`: tree doesn't have icons
 /// - `--lang en`: force English report format
 /// - `-n`: no color (same as tree)
-fn run_rtree(dir: &Path, extra_args: &[&str]) -> String {
+fn run_retree(dir: &Path, extra_args: &[&str]) -> String {
     let name = dir.file_name().unwrap();
     let parent = dir.parent().unwrap();
 
-    let out = Command::new(rtree_path())
+    let out = Command::new(retree_path())
         .current_dir(parent)
         .arg(name)
         .args(["--no-icons", "--lang", "en", "-n"])
@@ -208,22 +208,22 @@ fn run_rtree(dir: &Path, extra_args: &[&str]) -> String {
         .env("LC_ALL", "en_US.UTF-8")
         .env("TREE_LANG", "en")
         .output()
-        .expect("failed to execute rtree");
+        .expect("failed to execute retree");
 
     if !out.status.success() {
         panic!(
-            "rtree failed (status {:?}):\nstderr: {}",
+            "retree failed (status {:?}):\nstderr: {}",
             out.status,
             String::from_utf8_lossy(&out.stderr)
         );
     }
 
-    String::from_utf8(out.stdout).expect("rtree output not UTF-8")
+    String::from_utf8(out.stdout).expect("retree output not UTF-8")
 }
 
 /// Normalize output for comparison:
 /// - replace non-breaking spaces (U+00A0) with regular spaces
-///   (GNU tree uses NBSP in tree-drawing, rtree uses regular spaces)
+///   (GNU tree uses NBSP in tree-drawing, retree uses regular spaces)
 /// - trim trailing whitespace on each line
 /// - remove trailing empty lines
 fn normalize(s: &str) -> String {
@@ -236,11 +236,11 @@ fn normalize(s: &str) -> String {
         .to_string()
 }
 
-/// Assert that tree and rtree produce identical normalized output.
+/// Assert that tree and retree produce identical normalized output.
 /// On mismatch, prints detailed line-by-line diff.
-fn assert_match(tree_out: &str, rtree_out: &str, description: &str) {
+fn assert_match(tree_out: &str, retree_out: &str, description: &str) {
     let t = normalize(tree_out);
-    let r = normalize(rtree_out);
+    let r = normalize(retree_out);
 
     if t == r {
         return;
@@ -257,7 +257,7 @@ fn assert_match(tree_out: &str, rtree_out: &str, description: &str) {
     for (i, line) in t_lines.iter().enumerate() {
         eprintln!("{:3}| {}", i + 1, line);
     }
-    eprintln!("--- rtree ({} lines) ---", r_lines.len());
+    eprintln!("--- retree ({} lines) ---", r_lines.len());
     for (i, line) in r_lines.iter().enumerate() {
         eprintln!("{:3}| {}", i + 1, line);
     }
@@ -268,7 +268,7 @@ fn assert_match(tree_out: &str, rtree_out: &str, description: &str) {
         if tl != rl {
             eprintln!("  line {}:", i + 1);
             eprintln!("    tree:  {:?}", tl);
-            eprintln!("    rtree: {:?}", rl);
+            eprintln!("    retree: {:?}", rl);
         }
     }
 
@@ -278,7 +278,7 @@ fn assert_match(tree_out: &str, rtree_out: &str, description: &str) {
 /// Helper: run both commands with same flags and assert exact match.
 fn compare(dir: &Path, args: &[&str], description: &str) {
     let t = run_tree(dir, args);
-    let r = run_rtree(dir, args);
+    let r = run_retree(dir, args);
     assert_match(&t, &r, description);
 }
 
@@ -287,11 +287,11 @@ fn compare_json(dir: &Path, args: &[&str], description: &str) {
     let mut tree_args = vec!["-J"];
     tree_args.extend_from_slice(args);
 
-    let mut rtree_args = vec!["-J"];
-    rtree_args.extend_from_slice(args);
+    let mut retree_args = vec!["-J"];
+    retree_args.extend_from_slice(args);
 
     let t = run_tree(dir, &tree_args);
-    let r = run_rtree(dir, &rtree_args);
+    let r = run_retree(dir, &retree_args);
 
     let t_json: serde_json::Value = serde_json::from_str(&t).unwrap_or_else(|e| {
         panic!(
@@ -301,14 +301,14 @@ fn compare_json(dir: &Path, args: &[&str], description: &str) {
     });
     let r_json: serde_json::Value = serde_json::from_str(&r).unwrap_or_else(|e| {
         panic!(
-            "rtree JSON parse error for {}:\n{}\nraw output:\n{}",
+            "retree JSON parse error for {}:\n{}\nraw output:\n{}",
             description, e, r
         )
     });
 
     assert_eq!(
         t_json, r_json,
-        "\nJSON mismatch for: {}\n--- tree ---\n{}\n--- rtree ---\n{}",
+        "\nJSON mismatch for: {}\n--- tree ---\n{}\n--- retree ---\n{}",
         description, t, r
     );
 }
@@ -318,11 +318,11 @@ fn compare_xml(dir: &Path, args: &[&str], description: &str) {
     let mut tree_args = vec!["-X"];
     tree_args.extend_from_slice(args);
 
-    let mut rtree_args = vec!["-X"];
-    rtree_args.extend_from_slice(args);
+    let mut retree_args = vec!["-X"];
+    retree_args.extend_from_slice(args);
 
     let t = run_tree(dir, &tree_args);
-    let r = run_rtree(dir, &rtree_args);
+    let r = run_retree(dir, &retree_args);
 
     let normalize_xml = |s: &str| -> String {
         s.lines()
@@ -337,7 +337,7 @@ fn compare_xml(dir: &Path, args: &[&str], description: &str) {
 
     assert_eq!(
         t_norm, r_norm,
-        "\nXML mismatch for: {}\n--- tree ---\n{}\n--- rtree ---\n{}",
+        "\nXML mismatch for: {}\n--- tree ---\n{}\n--- retree ---\n{}",
         description, t, r
     );
 }
@@ -348,7 +348,7 @@ fn compare_xml(dir: &Path, args: &[&str], description: &str) {
 /// but the listed entries must be the same.
 fn compare_structure(dir: &Path, args: &[&str], description: &str) {
     let t = run_tree(dir, args);
-    let r = run_rtree(dir, args);
+    let r = run_retree(dir, args);
 
     let extract_names = |s: &str| -> Vec<String> {
         s.lines()
@@ -373,7 +373,7 @@ fn compare_structure(dir: &Path, args: &[&str], description: &str) {
 
     assert_eq!(
         t_names, r_names,
-        "\nStructure mismatch for: {}\ntree names:  {:?}\nrtree names: {:?}\n--- tree ---\n{}\n--- rtree ---\n{}",
+        "\nStructure mismatch for: {}\ntree names:  {:?}\nretree names: {:?}\n--- tree ---\n{}\n--- retree ---\n{}",
         description, t_names, r_names, t, r
     );
 }
@@ -634,7 +634,7 @@ fn compat_filelimit() {
 
     let args = &["--filelimit", "4", "--noreport"];
     let t = run_tree_lenient(&root, args);
-    let r = run_rtree(&root, args);
+    let r = run_retree(&root, args);
     assert_match(&t, &r, "--filelimit 4 --noreport");
 }
 
@@ -875,7 +875,7 @@ fn compat_report_plural() {
     fs::write(root.join("sub/c.txt"), "").unwrap();
 
     let t = run_tree(&root, &[]);
-    let r = run_rtree(&root, &[]);
+    let r = run_retree(&root, &[]);
 
     let get_report = |s: &str| -> String {
         s.lines()
@@ -889,7 +889,7 @@ fn compat_report_plural() {
     assert_eq!(
         get_report(&t),
         get_report(&r),
-        "Report format mismatch (plural):\n  tree:  {:?}\n  rtree: {:?}\n\ntree full:\n{}\nrtree full:\n{}",
+        "Report format mismatch (plural):\n  tree:  {:?}\n  retree: {:?}\n\ntree full:\n{}\nretree full:\n{}",
         get_report(&t),
         get_report(&r),
         t,
@@ -908,7 +908,7 @@ fn compat_report_singular() {
     fs::write(root.join("dir/file.txt"), "").unwrap();
 
     let t = run_tree(&root, &[]);
-    let r = run_rtree(&root, &[]);
+    let r = run_retree(&root, &[]);
 
     let get_report = |s: &str| -> String {
         s.lines()
@@ -922,7 +922,7 @@ fn compat_report_singular() {
     assert_eq!(
         get_report(&t),
         get_report(&r),
-        "Report format mismatch (singular):\n  tree:  {:?}\n  rtree: {:?}",
+        "Report format mismatch (singular):\n  tree:  {:?}\n  retree: {:?}",
         get_report(&t),
         get_report(&r)
     );
@@ -939,7 +939,7 @@ fn compat_report_zero_files() {
     fs::create_dir(root.join("b")).unwrap();
 
     let t = run_tree(&root, &[]);
-    let r = run_rtree(&root, &[]);
+    let r = run_retree(&root, &[]);
 
     let get_report = |s: &str| -> String {
         s.lines()

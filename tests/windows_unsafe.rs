@@ -31,7 +31,7 @@ fn win_file_id_for_existing_file() {
     let file = dir.path().join("test.txt");
     fs::write(&file, b"content").expect("write");
 
-    let info = rtree::platform::get_file_id(&file);
+    let info = retree::platform::get_file_id(&file);
     assert!(info.is_some());
     let info = info.expect("some");
     assert!(info.file_id > 0);
@@ -47,22 +47,22 @@ fn win_file_id_hardlinks() {
     fs::write(&orig, b"shared").expect("write");
     fs::hard_link(&orig, &link).expect("hard_link");
 
-    let a = rtree::platform::get_file_id(&orig).expect("id orig");
-    let b = rtree::platform::get_file_id(&link).expect("id link");
+    let a = retree::platform::get_file_id(&orig).expect("id orig");
+    let b = retree::platform::get_file_id(&link).expect("id link");
     assert_eq!(a.file_id, b.file_id);
     assert!(a.number_of_links >= 2);
 }
 
 #[test]
 fn win_file_id_nonexistent_returns_none() {
-    let info = rtree::platform::get_file_id(Path::new(r"C:\__no_such__\f.txt"));
+    let info = retree::platform::get_file_id(Path::new(r"C:\__no_such__\f.txt"));
     assert!(info.is_none());
 }
 
 #[test]
 fn win_raw_attributes_directory_bit() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let attrs = rtree::platform::get_file_attributes_raw(dir.path());
+    let attrs = retree::platform::get_file_attributes_raw(dir.path());
     assert!(attrs.is_some());
     // FILE_ATTRIBUTE_DIRECTORY = 0x10
     assert_ne!(attrs.expect("some") & 0x10, 0);
@@ -73,7 +73,7 @@ fn win_raw_attributes_file_no_dir_bit() {
     let dir = tempfile::tempdir().expect("tempdir");
     let f = dir.path().join("f.txt");
     fs::write(&f, b"x").expect("write");
-    let attrs = rtree::platform::get_file_attributes_raw(&f).expect("attrs");
+    let attrs = retree::platform::get_file_attributes_raw(&f).expect("attrs");
     assert_eq!(attrs & 0x10, 0);
 }
 
@@ -83,13 +83,13 @@ fn win_raw_attributes_file_no_dir_bit() {
 
 #[test]
 fn win_enable_ansi_no_panic() {
-    rtree::platform::enable_ansi();
+    retree::platform::enable_ansi();
 }
 
 #[test]
 fn win_is_tty_no_panic() {
     // CI has piped stdout → typically false, but must not crash
-    let _ = rtree::platform::is_tty();
+    let _ = retree::platform::is_tty();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -98,7 +98,7 @@ fn win_is_tty_no_panic() {
 
 #[test]
 fn win_language_id_nonzero() {
-    let id = rtree::platform::detect_system_language_id();
+    let id = retree::platform::detect_system_language_id();
     assert!(id.is_some());
     assert_ne!(id.expect("some"), 0);
 }
@@ -113,14 +113,14 @@ fn win_file_owner_resolves() {
     let f = dir.path().join("owned.txt");
     fs::write(&f, b"x").expect("write");
 
-    let owner = rtree::platform::get_file_owner(&f);
+    let owner = retree::platform::get_file_owner(&f);
     assert!(owner.is_some(), "owner must resolve");
     assert!(!owner.expect("some").is_empty());
 }
 
 #[test]
 fn win_file_owner_nonexistent() {
-    let owner = rtree::platform::get_file_owner(Path::new(r"C:\__no_such__\x.txt"));
+    let owner = retree::platform::get_file_owner(Path::new(r"C:\__no_such__\x.txt"));
     assert!(owner.is_none());
 }
 
@@ -130,7 +130,7 @@ fn win_file_group_resolves_or_none() {
     let f = dir.path().join("g.txt");
     fs::write(&f, b"x").expect("write");
 
-    if let Some(g) = rtree::platform::get_file_group(&f) {
+    if let Some(g) = retree::platform::get_file_group(&f) {
         assert!(!g.is_empty());
     }
     // None is acceptable on some Windows configs
@@ -143,7 +143,7 @@ fn win_file_group_resolves_or_none() {
 #[test]
 fn win_junction_target_none_for_regular_dir() {
     let dir = tempfile::tempdir().expect("tempdir");
-    assert!(rtree::platform::get_junction_target(dir.path()).is_none());
+    assert!(retree::platform::get_junction_target(dir.path()).is_none());
 }
 
 #[test]
@@ -161,7 +161,7 @@ fn win_junction_target_resolves() {
         .expect("mklink");
     assert!(out.status.success(), "mklink /J failed");
 
-    let resolved = rtree::platform::get_junction_target(&junc);
+    let resolved = retree::platform::get_junction_target(&junc);
     assert!(resolved.is_some(), "must resolve junction target");
 }
 
@@ -180,7 +180,7 @@ fn win_junction_has_reparse_attribute() {
         .expect("mklink");
     assert!(out.status.success());
 
-    let attrs = rtree::platform::get_file_attributes_raw(&junc).expect("attrs");
+    let attrs = retree::platform::get_file_attributes_raw(&junc).expect("attrs");
     // FILE_ATTRIBUTE_REPARSE_POINT = 0x400
     assert_ne!(attrs & 0x400, 0);
 }
@@ -198,7 +198,7 @@ fn win_symlink_file_detected_as_reparse() {
 
     match std::os::windows::fs::symlink_file(&target, &link) {
         Ok(_) => {
-            let attrs = rtree::platform::get_file_attributes_raw(&link).expect("attrs");
+            let attrs = retree::platform::get_file_attributes_raw(&link).expect("attrs");
             assert_ne!(attrs & 0x400, 0, "symlink must be reparse point");
         }
         Err(e) => {
@@ -216,7 +216,7 @@ fn win_symlink_dir_detected_as_reparse() {
 
     match std::os::windows::fs::symlink_dir(&target, &link) {
         Ok(_) => {
-            let attrs = rtree::platform::get_file_attributes_raw(&link).expect("attrs");
+            let attrs = retree::platform::get_file_attributes_raw(&link).expect("attrs");
             assert_ne!(attrs & 0x400, 0);
         }
         Err(e) => {
@@ -232,35 +232,35 @@ fn win_symlink_dir_detected_as_reparse() {
 #[test]
 fn win_long_path_prefix_regular() {
     let p = Path::new(r"C:\Users\test\file.txt");
-    let lp = rtree::platform::to_long_path(p, true);
+    let lp = retree::platform::to_long_path(p, true);
     assert!(lp.to_string_lossy().starts_with(r"\\?\"));
 }
 
 #[test]
 fn win_long_path_disabled() {
     let p = Path::new(r"C:\Users\test\file.txt");
-    let lp = rtree::platform::to_long_path(p, false);
+    let lp = retree::platform::to_long_path(p, false);
     assert_eq!(lp, p);
 }
 
 #[test]
 fn win_long_path_no_double_prefix() {
     let p = Path::new(r"\\?\C:\Data");
-    let lp = rtree::platform::to_long_path(p, true);
+    let lp = retree::platform::to_long_path(p, true);
     assert_eq!(lp, p, "must not double-prefix");
 }
 
 #[test]
 fn win_long_path_device_path_unchanged() {
     let p = Path::new(r"\\.\PhysicalDrive0");
-    let lp = rtree::platform::to_long_path(p, true);
+    let lp = retree::platform::to_long_path(p, true);
     assert_eq!(lp, p, "device paths must pass through");
 }
 
 #[test]
 fn win_long_path_unc() {
     let p = Path::new(r"\\server\share\dir");
-    let lp = rtree::platform::to_long_path(p, true);
+    let lp = retree::platform::to_long_path(p, true);
     let s = lp.to_string_lossy();
     assert!(
         s.starts_with(r"\\?\UNC\"),
@@ -272,7 +272,7 @@ fn win_long_path_unc() {
 #[test]
 fn win_long_path_relative_unchanged() {
     let p = Path::new(r"relative\path");
-    let lp = rtree::platform::to_long_path(p, true);
+    let lp = retree::platform::to_long_path(p, true);
     assert_eq!(lp, p);
 }
 
@@ -291,7 +291,7 @@ fn win_long_path_deep_nesting_file_ops() {
         "path must exceed MAX_PATH"
     );
 
-    let long = rtree::platform::to_long_path(&deep, true);
+    let long = retree::platform::to_long_path(&deep, true);
 
     match fs::create_dir_all(&long) {
         Ok(_) => {
@@ -316,7 +316,7 @@ fn win_ads_empty_for_plain_file() {
     let f = dir.path().join("plain.txt");
     fs::write(&f, b"hello").expect("write");
 
-    let streams = rtree::platform::get_alternate_streams(&f);
+    let streams = retree::platform::get_alternate_streams(&f);
     assert!(streams.is_empty());
 }
 
@@ -329,7 +329,7 @@ fn win_ads_creation_and_enum() {
     let ads_path = format!("{}:secret", f.display());
     match fs::write(&ads_path, b"hidden_data") {
         Ok(_) => {
-            let streams = rtree::platform::get_alternate_streams(&f);
+            let streams = retree::platform::get_alternate_streams(&f);
             assert_eq!(streams.len(), 1);
             assert_eq!(streams[0].name, "secret");
             assert_eq!(streams[0].size, 11);
@@ -342,7 +342,7 @@ fn win_ads_creation_and_enum() {
 
 #[test]
 fn win_ads_nonexistent_returns_empty() {
-    let streams = rtree::platform::get_alternate_streams(Path::new(r"C:\__no_such_42__"));
+    let streams = retree::platform::get_alternate_streams(Path::new(r"C:\__no_such_42__"));
     assert!(streams.is_empty());
 }
 
@@ -355,7 +355,7 @@ fn win_is_executable_by_extension() {
     for ext in &["exe", "bat", "cmd", "com", "ps1", "vbs", "js", "msi"] {
         let p = format!("test.{ext}");
         assert!(
-            rtree::platform::is_executable(Path::new(&p)),
+            retree::platform::is_executable(Path::new(&p)),
             "{ext} should be executable"
         );
     }
@@ -366,7 +366,7 @@ fn win_is_not_executable_by_extension() {
     for ext in &["txt", "rs", "md", "toml", "lock", "yml"] {
         let p = format!("test.{ext}");
         assert!(
-            !rtree::platform::is_executable(Path::new(&p)),
+            !retree::platform::is_executable(Path::new(&p)),
             "{ext} should NOT be executable"
         );
     }
@@ -374,7 +374,7 @@ fn win_is_not_executable_by_extension() {
 
 #[test]
 fn win_no_extension_not_executable() {
-    assert!(!rtree::platform::is_executable(Path::new("no_ext")));
+    assert!(!retree::platform::is_executable(Path::new("no_ext")));
 }
 
 // ═══════════════════════════════════════════════════════
@@ -390,8 +390,8 @@ fn win_handle_leak_stress_attributes() {
     fs::write(&f, b"x").expect("write");
 
     for _ in 0..2000 {
-        let _ = rtree::platform::get_file_id(&f);
-        let _ = rtree::platform::get_file_attributes_raw(&f);
+        let _ = retree::platform::get_file_id(&f);
+        let _ = retree::platform::get_file_attributes_raw(&f);
     }
 }
 
@@ -402,8 +402,8 @@ fn win_handle_leak_stress_permissions() {
     fs::write(&f, b"x").expect("write");
 
     for _ in 0..1000 {
-        let _ = rtree::platform::get_file_owner(&f);
-        let _ = rtree::platform::get_file_group(&f);
+        let _ = retree::platform::get_file_owner(&f);
+        let _ = retree::platform::get_file_group(&f);
     }
 }
 
@@ -411,7 +411,7 @@ fn win_handle_leak_stress_permissions() {
 fn win_handle_leak_stress_junction() {
     let dir = tempfile::tempdir().expect("tempdir");
     for _ in 0..1000 {
-        let _ = rtree::platform::get_junction_target(dir.path());
+        let _ = retree::platform::get_junction_target(dir.path());
     }
 }
 
@@ -422,6 +422,6 @@ fn win_handle_leak_stress_streams() {
     fs::write(&f, b"x").expect("write");
 
     for _ in 0..1000 {
-        let _ = rtree::platform::get_alternate_streams(&f);
+        let _ = retree::platform::get_alternate_streams(&f);
     }
 }

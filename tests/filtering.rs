@@ -1,6 +1,6 @@
 /// -P, -I, --matchdirs, --ignore-case, --prune
 mod common;
-use common::rtree;
+use common::retree;
 
 use predicates::prelude::*;
 use std::fs;
@@ -19,7 +19,7 @@ fn test_pattern_include_glob() {
     fs::write(p.join("file.txt"), "").unwrap();
     fs::write(p.join("other.rs"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["-P", "*.rs"])
         .arg(p)
         .assert()
@@ -41,7 +41,7 @@ fn test_exclude_pattern() {
     fs::write(p.join("keep.rs"), "").unwrap();
     fs::write(p.join("skip.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["-I", "*.txt"])
         .arg(p)
         .assert()
@@ -59,7 +59,7 @@ fn test_exclude_multiple_patterns() {
     fs::write(p.join("skip.txt"), "").unwrap();
     fs::write(p.join("skip.log"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["-I", "*.txt", "-I", "*.log"])
         .arg(p)
         .assert()
@@ -86,7 +86,7 @@ fn test_matchdirs_shows_all_children_of_matched_dir() {
     fs::write(p.join("include_me/file.txt"), "").unwrap();
     fs::write(p.join("exclude_me/file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["-P", "include_*", "--matchdirs"])
         .arg(p)
         .assert()
@@ -110,7 +110,7 @@ fn test_matchdirs_prune_removes_unmatched_empty_dirs() {
     fs::write(p.join("include_me/file.txt"), "").unwrap();
     fs::write(p.join("exclude_me/file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["-P", "include_*", "--matchdirs", "--prune"])
         .arg(p)
         .assert()
@@ -132,7 +132,7 @@ fn test_ignore_case_pattern() {
     fs::write(p.join("FILE.RS"), "").unwrap();
     fs::write(p.join("other.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["-P", "*.rs", "--ignore-case"])
         .arg(p)
         .assert()
@@ -154,7 +154,7 @@ fn test_prune_hides_empty_dirs() {
     fs::create_dir(p.join("filled")).unwrap();
     fs::write(p.join("filled/file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .arg("--prune")
         .arg(p)
         .assert()

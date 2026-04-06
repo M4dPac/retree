@@ -1,4 +1,4 @@
-//! rtree - GNU tree compatible directory listing utility.
+//! retree - GNU tree compatible directory listing utility.
 //!
 //! This crate provides both a library API and CLI for displaying
 //! directory structures in a tree-like format.

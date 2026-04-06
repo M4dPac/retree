@@ -7,7 +7,7 @@ BOLD=$'\033[1m'
 NC=$'\033[0m'
 
 TARGET_DIR="${CARGO_TARGET_DIR:-target}"
-RUN_TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/rtree-checks.XXXXXX")"
+RUN_TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/retree-checks.XXXXXX")"
 
 export TMPDIR="$RUN_TMPDIR"
 export TMP="$RUN_TMPDIR"

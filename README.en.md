@@ -82,6 +82,8 @@ cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \
 
 ## 🚀 Quick start
 
+> 💡 **Note:** For maximum typing speed in the terminal, the utility uses the short command `rt` (adjacent keys on the keyboard).
+
 ```bash
 # Show current directory
 rt
@@ -151,7 +153,7 @@ rt [OPTIONS] [PATH...]
 
 ## ⚡ Performance
 
-rt uses Rayon (work-stealing), lazy metadata loading, optimized sorting, and streaming output.
+retree uses Rayon (work-stealing), lazy metadata loading, optimized sorting, and streaming output.
 
 Real benchmark results (median time, Criterion, `release` mode, Windows/NTFS, end-to-end):
 
@@ -181,18 +183,18 @@ More details: 👉 [Benchmarks](docs/en/performance.md)
 ## 📊 Comparison with GNU tree
 
 | Feature            | GNU tree | retree |
-| ------------------ | :------: | :---: |
-| Colors             |    ✅    |  ✅   |
-| JSON               |    ✅    |  ✅   |
-| XML                |    ✅    |  ✅   |
-| HTML               |    ✅    |  ✅   |
-| Parallel traversal |    ❌    |  ✅   |
-| Icons              |    ❌    |  ✅   |
-| NTFS ADS           |    ❌    |  ✅   |
-| Junction points    |    ❌    |  ✅   |
-| Long paths         |    ❌    |  ✅   |
-| Streaming output   |    ❌    |  ✅   |
-| Multilingual UI    |    ❌    |  ✅   |
+| ------------------ | :------: | :----: |
+| Colors             |    ✅    |   ✅   |
+| JSON               |    ✅    |   ✅   |
+| XML                |    ✅    |   ✅   |
+| HTML               |    ✅    |   ✅   |
+| Parallel traversal |    ❌    |   ✅   |
+| Icons              |    ❌    |   ✅   |
+| NTFS ADS           |    ❌    |   ✅   |
+| Junction points    |    ❌    |   ✅   |
+| Long paths         |    ❌    |   ✅   |
+| Streaming output   |    ❌    |   ✅   |
+| Multilingual UI    |    ❌    |   ✅   |
 
 ---
 

@@ -100,14 +100,14 @@ impl TreeError {
 // Diagnostic output helpers
 // ═══════════════════════════════════════
 
-/// Print a diagnostic error to stderr: `rtree: <message>`.
+/// Print a diagnostic error to stderr: `retree: <message>`.
 pub fn diag_error(msg: impl std::fmt::Display) {
-    eprintln!("rtree: {}", msg);
+    eprintln!("retree: {}", msg);
 }
 
-/// Print a diagnostic warning to stderr: `rtree: warning: <message>`.
+/// Print a diagnostic warning to stderr: `retree: warning: <message>`.
 pub fn diag_warn(msg: impl std::fmt::Display) {
-    eprintln!("rtree: warning: {}", msg);
+    eprintln!("retree: warning: {}", msg);
 }
 
 /// Report traversal errors to stderr. Returns count of hard errors.

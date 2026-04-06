@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rename primary CLI command from `rtree` to `rt`
 - Rename CLI tool and binary from `rtree` to `rt`
 - Rename project from `rtree` to `retree`
+- Rename crate from `rtree` to `retree`
+- Update binary, namespace (`retree::`), and diagnostic prefix to `retree:`
+- Rename benchmark targets to `retree_perf` and `retree_perf_xlarge`
 
 ## [0.5.2] - 2026-04-02
 

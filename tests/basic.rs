@@ -1,6 +1,6 @@
 /// базовая работа, -a, -d, -l, -f, -x, -L, --filelimit, --noreport
 mod common;
-use common::{rtree, CLEAN};
+use common::{retree, CLEAN};
 
 use predicates::prelude::*;
 use std::fs;
@@ -19,7 +19,7 @@ fn test_default_execution() {
     fs::write(p.join("file1.txt"), "content").unwrap();
     fs::write(p.join("subdir/file2.txt"), "content").unwrap();
 
-    rtree()
+    retree()
         .arg(p)
         .assert()
         .success()
@@ -30,7 +30,7 @@ fn test_default_execution() {
 
 #[test]
 fn test_nonexistent_path() {
-    rtree()
+    retree()
         .arg("/nonexistent/path/that/does/not/exist")
         .assert()
         .failure();
@@ -38,7 +38,7 @@ fn test_nonexistent_path() {
 
 #[test]
 fn test_help_flag() {
-    rtree()
+    retree()
         .arg("--help")
         .args(CLEAN)
         .assert()
@@ -49,17 +49,17 @@ fn test_help_flag() {
 
 #[test]
 fn test_version_flag() {
-    rtree()
+    retree()
         .arg("--version")
         .assert()
         .success()
-        .stdout(predicate::str::is_match(r"(?i)rtree\s+\d+\.\d+").unwrap());
+        .stdout(predicate::str::is_match(r"(?i)rt\s+\d+\.\d+").unwrap());
 }
 
 #[test]
 fn test_empty_directory() {
     let dir = tempdir().unwrap();
-    rtree().arg(dir.path()).assert().success();
+    retree().arg(dir.path()).assert().success();
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn test_multiple_paths() {
     fs::write(dir1.path().join("from_dir1.txt"), "").unwrap();
     fs::write(dir2.path().join("from_dir2.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .arg(dir1.path())
         .arg(dir2.path())
         .assert()
@@ -87,7 +87,7 @@ fn test_special_characters_in_filename() {
     fs::write(p.join("file with spaces.txt"), "").unwrap();
     fs::write(p.join("file-with-dashes.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .arg(p)
         .assert()
         .success()
@@ -107,7 +107,7 @@ fn test_all_flag_hides_dotfiles_by_default() {
     fs::write(p.join(".hidden"), "").unwrap();
     fs::write(p.join("visible.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .arg(p)
         .assert()
         .success()
@@ -123,7 +123,7 @@ fn test_all_flag_shows_dotfiles() {
     fs::write(p.join(".hidden"), "").unwrap();
     fs::write(p.join("visible.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .arg("-a")
         .arg(p)
         .assert()
@@ -145,7 +145,7 @@ fn test_dirs_only() {
     fs::write(p.join("file.txt"), "").unwrap();
     fs::write(p.join("subdir/inner.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .arg("-d")
         .arg(p)
         .assert()
@@ -169,7 +169,7 @@ fn test_follow_symlinks_enters_target() {
     fs::write(p.join("real_dir/inside.txt"), "content").unwrap();
     std::os::unix::fs::symlink(p.join("real_dir"), p.join("link_dir")).unwrap();
 
-    rtree()
+    retree()
         .args(["-l"])
         .args(CLEAN)
         .arg(p)
@@ -191,7 +191,7 @@ fn test_follow_symlinks_windows() {
     fs::write(p.join("target/inside.txt"), "content").unwrap();
 
     if symlink_dir(p.join("target"), p.join("link")).is_ok() {
-        rtree()
+        retree()
             .args(["-l"])
             .args(CLEAN)
             .arg(p)
@@ -214,7 +214,7 @@ fn test_full_path_shows_path_prefix() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("subdir/file.txt"), "content").unwrap();
 
-    let output = rtree().args(["-f"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-f"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let file_line = stdout
@@ -238,7 +238,7 @@ fn test_one_fs_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree().arg("-x").arg(dir.path()).assert().success();
+    retree().arg("-x").arg(dir.path()).assert().success();
 }
 
 // ============================================================================
@@ -253,7 +253,7 @@ fn test_max_depth_limits_traversal() {
     fs::create_dir_all(p.join("level1/level2/level3")).unwrap();
     fs::write(p.join("level1/level2/level3/deep.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["-L", "1"])
         .arg(p)
         .assert()
@@ -271,7 +271,7 @@ fn test_max_depth_two() {
 
     fs::create_dir_all(p.join("level1/level2/level3")).unwrap();
 
-    rtree()
+    retree()
         .args(["-L", "2"])
         .arg(p)
         .assert()
@@ -300,7 +300,7 @@ fn test_filelimit_skips_large_dirs() {
     fs::create_dir(p.join("small")).unwrap();
     fs::write(p.join("small/ok.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--filelimit", "2"])
         .arg(p)
         .assert()
@@ -321,7 +321,7 @@ fn test_noreport_omits_statistics() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["--noreport", "--lang", "en"])
         .arg(p)
         .assert()

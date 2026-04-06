@@ -4,11 +4,11 @@ use assert_cmd::assert::Assert;
 use assert_cmd::Command;
 use std::path::{Path, PathBuf};
 
-pub fn rtree() -> Command {
-    Command::new(rtree_path())
+pub fn retree() -> Command {
+    Command::new(retree_path())
 }
 
-pub fn rtree_path() -> PathBuf {
+pub fn retree_path() -> PathBuf {
     let mut p = std::env::current_exe().unwrap();
     p.pop();
     p.pop();
@@ -22,8 +22,8 @@ pub fn rtree_path() -> PathBuf {
 pub const CLEAN: &[&str] = &["-n", "--no-icons", "--noreport", "--lang", "en"];
 
 #[allow(dead_code)]
-pub fn rtree_command(args: &[&str]) -> Command {
-    let mut cmd = Command::new(rtree_path());
+pub fn retree_command(args: &[&str]) -> Command {
+    let mut cmd = Command::new(retree_path());
     cmd.args(args)
         .env("LC_ALL", "en_US.UTF-8")
         .env("TREE_LANG", "en");
@@ -33,7 +33,7 @@ pub fn rtree_command(args: &[&str]) -> Command {
 /// Build argument list for directory-based tests.
 ///
 /// Adds `--no-icons --lang en -n`, then extra arguments, then the target path.
-pub fn rtree_dir_args(dir: &Path, extra_args: &[&str]) -> Vec<String> {
+pub fn retree_dir_args(dir: &Path, extra_args: &[&str]) -> Vec<String> {
     let mut args = vec![
         "--no-icons".to_string(),
         "--lang".to_string(),
@@ -45,38 +45,38 @@ pub fn rtree_dir_args(dir: &Path, extra_args: &[&str]) -> Vec<String> {
     args
 }
 
-/// Build an `rtree` command for a directory-based test.
-pub fn run_rtree_command(dir: &Path, extra_args: &[&str]) -> Command {
-    let args = rtree_dir_args(dir, extra_args);
+/// Build an `retree` command for a directory-based test.
+pub fn run_retree_command(dir: &Path, extra_args: &[&str]) -> Command {
+    let args = retree_dir_args(dir, extra_args);
     let refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    rtree_command(&refs)
+    retree_command(&refs)
 }
 
-/// Run `rtree` and return `(stdout, stderr, exit_code)`.
-pub fn run_rtree_args_full(args: &[&str]) -> (String, String, Option<i32>) {
-    let out = rtree_command(args)
+/// Run `retree` and return `(stdout, stderr, exit_code)`.
+pub fn run_retree_args_full(args: &[&str]) -> (String, String, Option<i32>) {
+    let out = retree_command(args)
         .output()
-        .expect("failed to execute rtree");
+        .expect("failed to execute retree");
 
     let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
     let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
     (stdout, stderr, out.status.code())
 }
 
-/// Run `rtree` on a directory and return `(stdout, stderr, exit_code)`.
-pub fn run_rtree_full(dir: &Path, extra_args: &[&str]) -> (String, String, Option<i32>) {
-    let args = rtree_dir_args(dir, extra_args);
+/// Run `retree` on a directory and return `(stdout, stderr, exit_code)`.
+pub fn run_retree_full(dir: &Path, extra_args: &[&str]) -> (String, String, Option<i32>) {
+    let args = retree_dir_args(dir, extra_args);
     let refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    run_rtree_args_full(&refs)
+    run_retree_args_full(&refs)
 }
 
-/// Run `rtree` on a directory and return stdout only.
+/// Run `retree` on a directory and return stdout only.
 ///
 /// Panics on non-zero exit.
-pub fn run_rtree(dir: &Path, extra_args: &[&str]) -> String {
-    let (stdout, stderr, code) = run_rtree_full(dir, extra_args);
+pub fn run_retree(dir: &Path, extra_args: &[&str]) -> String {
+    let (stdout, stderr, code) = run_retree_full(dir, extra_args);
     if code != Some(0) {
-        panic!("rtree failed (status {:?}):\nstderr: {}", code, stderr);
+        panic!("retree failed (status {:?}):\nstderr: {}", code, stderr);
     }
     stdout
 }

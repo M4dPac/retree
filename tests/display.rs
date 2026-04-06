@@ -1,6 +1,6 @@
 /// -i, -A/-S, цвет, -s/-h/--si, -D/--timefmt, -p/-u/-g, --inodes, --device, -F, -q/-N, --charset, иконки, Windows-флаги, отступы
 mod common;
-use common::{rtree, CLEAN};
+use common::{retree, CLEAN};
 
 use predicates::prelude::*;
 use std::fs;
@@ -18,7 +18,7 @@ fn test_no_indent_removes_tree_chars() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("subdir/file.txt"), "").unwrap();
 
-    let output = rtree().args(["-i"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-i"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
 
@@ -43,7 +43,7 @@ fn test_ansi_line_graphics() {
     fs::write(p.join("file1.txt"), "").unwrap();
     fs::write(p.join("file2.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["-A", "-n", "--no-icons", "--lang", "en"])
         .arg(p)
         .assert()
@@ -63,7 +63,7 @@ fn test_cp437_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree().arg("-S").arg(dir.path()).assert().success();
+    retree().arg("-S").arg(dir.path()).assert().success();
 }
 
 // ============================================================================
@@ -78,7 +78,7 @@ fn test_no_color_strips_ansi_escapes() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree().args(["-n"]).arg(p).assert().success();
+    let output = retree().args(["-n"]).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     assert!(
@@ -96,7 +96,7 @@ fn test_color_always_forces_ansi_escapes() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree().args(["-C"]).arg(p).assert().success();
+    let output = retree().args(["-C"]).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     assert!(
@@ -111,7 +111,7 @@ fn test_color_never() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["--color=never"])
         .arg(dir.path())
         .assert()
@@ -132,7 +132,7 @@ fn test_color_always_via_flag() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree().args(["--color=always"]).arg(p).assert().success();
+    let output = retree().args(["--color=always"]).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     assert!(
@@ -146,7 +146,7 @@ fn test_color_auto_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--color=auto"])
         .arg(dir.path())
         .assert()
@@ -155,7 +155,7 @@ fn test_color_auto_accepted() {
 
 #[test]
 fn test_color_invalid_value() {
-    rtree().args(["--color=invalid", "."]).assert().failure();
+    retree().args(["--color=invalid", "."]).assert().failure();
 }
 
 #[test]
@@ -166,7 +166,7 @@ fn test_no_color_overrides_color_always() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree().args(["-C", "-n"]).arg(p).assert().success();
+    let output = retree().args(["-C", "-n"]).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     assert!(
@@ -184,7 +184,7 @@ fn test_no_color_env_variable() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree().env("NO_COLOR", "1").arg(p).assert().success();
+    let output = retree().env("NO_COLOR", "1").arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     assert!(
@@ -204,7 +204,7 @@ fn test_size_shows_bytes() {
 
     fs::write(p.join("file.txt"), "content").unwrap(); // 7 bytes
 
-    let output = rtree().args(["-s"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-s"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let file_line = stdout
@@ -230,7 +230,7 @@ fn test_human_readable_shows_units() {
 
     fs::write(p.join("big.txt"), "x".repeat(2048)).unwrap();
 
-    let output = rtree().args(["-h"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-h"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let file_line = stdout
@@ -254,7 +254,7 @@ fn test_si_units_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "x".repeat(2048)).unwrap();
 
-    rtree().arg("--si").arg(dir.path()).assert().success();
+    retree().arg("--si").arg(dir.path()).assert().success();
 }
 
 // ============================================================================
@@ -268,7 +268,7 @@ fn test_date_shows_timestamp() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree().args(["-D"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-D"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     assert!(
@@ -291,7 +291,7 @@ fn test_timefmt_custom_format() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["-D", "--timefmt", "%Y/%m/%d"])
         .args(CLEAN)
         .arg(p)
@@ -329,7 +329,7 @@ fn test_permissions_shows_perm_string() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree().args(["-p"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-p"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let file_line = stdout
@@ -364,7 +364,7 @@ fn test_uid_shows_owner() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree().args(["-u"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-u"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let file_line = stdout
@@ -390,7 +390,7 @@ fn test_gid_shows_group() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree().args(["-g"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-g"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let file_line = stdout
@@ -416,7 +416,7 @@ fn test_inodes_shows_number() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["--inodes"])
         .args(CLEAN)
         .arg(p)
@@ -447,7 +447,7 @@ fn test_device_shows_number() {
 
     fs::write(p.join("file.txt"), "content").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["--device"])
         .args(CLEAN)
         .arg(p)
@@ -479,7 +479,7 @@ fn test_classify_appends_slash_to_dirs() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree().args(["-F"]).args(CLEAN).arg(p).assert().success();
+    let output = retree().args(["-F"]).args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     assert!(
@@ -498,7 +498,7 @@ fn test_safe_print_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree().arg("-q").arg(dir.path()).assert().success();
+    retree().arg("-q").arg(dir.path()).assert().success();
 }
 
 #[test]
@@ -506,7 +506,7 @@ fn test_literal_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree().arg("-N").arg(dir.path()).assert().success();
+    retree().arg("-N").arg(dir.path()).assert().success();
 }
 
 #[test]
@@ -514,7 +514,7 @@ fn test_charset_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--charset", "utf-8"])
         .arg(dir.path())
         .assert()
@@ -530,7 +530,7 @@ fn test_icons_auto_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--icons=auto"])
         .arg(dir.path())
         .assert()
@@ -542,7 +542,7 @@ fn test_icons_always_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--icons=always"])
         .arg(dir.path())
         .assert()
@@ -554,7 +554,7 @@ fn test_icons_never_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--icons=never"])
         .arg(dir.path())
         .assert()
@@ -566,7 +566,11 @@ fn test_no_icons_flag() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree().arg("--no-icons").arg(dir.path()).assert().success();
+    retree()
+        .arg("--no-icons")
+        .arg(dir.path())
+        .assert()
+        .success();
 }
 
 #[test]
@@ -574,7 +578,7 @@ fn test_no_icons_overrides_icons_always() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--no-icons", "--icons=always"])
         .arg(dir.path())
         .assert()
@@ -586,7 +590,7 @@ fn test_icon_style_nerd() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--icon-style=nerd"])
         .arg(dir.path())
         .assert()
@@ -598,7 +602,7 @@ fn test_icon_style_unicode() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--icon-style=unicode"])
         .arg(dir.path())
         .assert()
@@ -610,7 +614,7 @@ fn test_icon_style_ascii() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--icon-style=ascii"])
         .arg(dir.path())
         .assert()
@@ -626,7 +630,7 @@ fn test_show_streams_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .arg("--show-streams")
         .arg(dir.path())
         .assert()
@@ -638,7 +642,7 @@ fn test_show_junctions_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .arg("--show-junctions")
         .arg(dir.path())
         .assert()
@@ -650,7 +654,7 @@ fn test_hide_system_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .arg("--hide-system")
         .arg(dir.path())
         .assert()
@@ -662,7 +666,7 @@ fn test_long_paths_accepted() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .arg("--long-paths")
         .arg(dir.path())
         .assert()
@@ -674,7 +678,7 @@ fn test_permissions_mode_posix() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--permissions=posix"])
         .arg(dir.path())
         .assert()
@@ -686,7 +690,7 @@ fn test_permissions_mode_windows() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--permissions=windows"])
         .arg(dir.path())
         .assert()
@@ -695,7 +699,7 @@ fn test_permissions_mode_windows() {
 
 #[test]
 fn test_permissions_mode_invalid() {
-    rtree()
+    retree()
         .args(["--permissions=invalid", "."])
         .assert()
         .failure();
@@ -714,7 +718,7 @@ fn test_tree_indentation_child_under_dir() {
     fs::write(p.join("root_file.txt"), "").unwrap();
     fs::write(p.join("subdir/child_file.txt"), "").unwrap();
 
-    let output = rtree().args(CLEAN).arg(p).assert().success();
+    let output = retree().args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let child_line = stdout
@@ -737,7 +741,7 @@ fn test_tree_deep_indentation() {
     fs::create_dir_all(p.join("a/b/c")).unwrap();
     fs::write(p.join("a/b/c/deep.txt"), "").unwrap();
 
-    let output = rtree().args(CLEAN).arg(p).assert().success();
+    let output = retree().args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let deep_line = stdout
@@ -761,7 +765,7 @@ fn test_last_branch_marker_single_child() {
 
     fs::write(p.join("only_child.txt"), "").unwrap();
 
-    let output = rtree().args(CLEAN).arg(p).assert().success();
+    let output = retree().args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let child_line = stdout
@@ -784,7 +788,7 @@ fn test_branch_markers_multiple_children() {
     fs::write(p.join("aaa.txt"), "").unwrap();
     fs::write(p.join("zzz.txt"), "").unwrap();
 
-    let output = rtree().args(CLEAN).arg(p).assert().success();
+    let output = retree().args(CLEAN).arg(p).assert().success();
 
     let stdout = common::output_stdout(&output);
     let first_line = stdout

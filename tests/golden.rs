@@ -41,7 +41,7 @@ fn make_golden() -> (tempfile::TempDir, std::path::PathBuf) {
 #[test]
 fn golden_text_noreport() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["--noreport"]);
+    let output = common::run_retree(&root, &["--noreport"]);
     let expected = "\
 golden
 ├── Cargo.toml
@@ -57,7 +57,7 @@ golden
 #[test]
 fn golden_text_with_report() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &[]);
+    let output = common::run_retree(&root, &[]);
     let lines: Vec<&str> = output.lines().collect();
 
     assert_eq!(lines[0], "golden");
@@ -75,7 +75,7 @@ fn golden_text_with_report() {
 #[test]
 fn golden_text_dirs_only() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-d", "--noreport"]);
+    let output = common::run_retree(&root, &["-d", "--noreport"]);
     let expected = "\
 golden
 ├── docs
@@ -87,7 +87,7 @@ golden
 #[test]
 fn golden_text_depth_1() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-L", "1", "--noreport"]);
+    let output = common::run_retree(&root, &["-L", "1", "--noreport"]);
     let expected = "\
 golden
 ├── Cargo.toml
@@ -100,7 +100,7 @@ golden
 #[test]
 fn golden_text_reverse() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-r", "--noreport"]);
+    let output = common::run_retree(&root, &["-r", "--noreport"]);
     let expected = "\
 golden
 ├── src
@@ -116,7 +116,7 @@ golden
 #[test]
 fn golden_text_dirsfirst() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["--dirsfirst", "--noreport"]);
+    let output = common::run_retree(&root, &["--dirsfirst", "--noreport"]);
     let expected = "\
 golden
 ├── docs
@@ -132,7 +132,7 @@ golden
 #[test]
 fn golden_text_full_path() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-f", "--noreport"]);
+    let output = common::run_retree(&root, &["-f", "--noreport"]);
     let lines: Vec<&str> = output.lines().collect();
     assert!(lines[0].ends_with("golden"));
     let cargo_line = lines.iter().find(|l| l.contains("Cargo.toml")).unwrap();
@@ -146,7 +146,7 @@ fn golden_text_full_path() {
 #[test]
 fn golden_text_noindent() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-i", "--noreport"]);
+    let output = common::run_retree(&root, &["-i", "--noreport"]);
     assert!(!output.contains('├'));
     assert!(!output.contains('└'));
     assert!(!output.contains('│'));
@@ -166,16 +166,16 @@ fn golden_text_noindent() {
 #[test]
 fn golden_text_streaming_matches_normal() {
     let (_tmp, root) = make_golden();
-    let normal = common::run_rtree(&root, &["--noreport"]);
-    let streaming = common::run_rtree(&root, &["--streaming", "--noreport"]);
+    let normal = common::run_retree(&root, &["--noreport"]);
+    let streaming = common::run_retree(&root, &["--streaming", "--noreport"]);
     assert_eq!(streaming, normal);
 }
 
 #[test]
 fn golden_text_parallel_same_names() {
     let (_tmp, root) = make_golden();
-    let seq = common::run_rtree(&root, &["--noreport"]);
-    let par = common::run_rtree(&root, &["--parallel", "--noreport"]);
+    let seq = common::run_retree(&root, &["--noreport"]);
+    let par = common::run_retree(&root, &["--parallel", "--noreport"]);
     let mut seq_names = common::extract_names(&seq);
     let mut par_names = common::extract_names(&par);
     seq_names.sort();
@@ -190,7 +190,7 @@ fn golden_text_parallel_same_names() {
 #[test]
 fn golden_json_full_structure() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-J"]);
+    let output = common::run_retree(&root, &["-J"]);
     let json: serde_json::Value =
         serde_json::from_str(&output).unwrap_or_else(|e| panic!("JSON parse: {e}\nraw: {output}"));
 
@@ -228,7 +228,7 @@ fn golden_json_full_structure() {
 #[test]
 fn golden_json_noreport() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-J", "--noreport"]);
+    let output = common::run_retree(&root, &["-J", "--noreport"]);
     let json: serde_json::Value = serde_json::from_str(&output).unwrap();
     let arr = json.as_array().unwrap();
     assert!(!arr.iter().any(|e| e["type"] == "report"));
@@ -237,7 +237,7 @@ fn golden_json_noreport() {
 #[test]
 fn golden_json_dirs_only() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-J", "-d", "--noreport"]);
+    let output = common::run_retree(&root, &["-J", "-d", "--noreport"]);
     let json: serde_json::Value = serde_json::from_str(&output).unwrap();
 
     fn has_file(v: &serde_json::Value) -> bool {
@@ -254,7 +254,7 @@ fn golden_json_dirs_only() {
 #[test]
 fn golden_json_depth_1() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-J", "-L", "1", "--noreport"]);
+    let output = common::run_retree(&root, &["-J", "-L", "1", "--noreport"]);
     let json: serde_json::Value = serde_json::from_str(&output).unwrap();
     let contents = json[0]["contents"].as_array().unwrap();
     // At depth 1: Cargo.toml, docs, src (no nested contents)
@@ -275,8 +275,8 @@ fn golden_json_depth_1() {
 #[test]
 fn golden_json_parallel_same_names() {
     let (_tmp, root) = make_golden();
-    let seq = common::run_rtree(&root, &["-J", "--noreport"]);
-    let par = common::run_rtree(&root, &["--parallel", "-J", "--noreport"]);
+    let seq = common::run_retree(&root, &["-J", "--noreport"]);
+    let par = common::run_retree(&root, &["--parallel", "-J", "--noreport"]);
     let seq_json: serde_json::Value = serde_json::from_str(&seq).unwrap();
     let par_json: serde_json::Value = serde_json::from_str(&par).unwrap();
 
@@ -294,7 +294,7 @@ fn golden_json_parallel_same_names() {
 #[test]
 fn golden_xml_structure() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-X"]);
+    let output = common::run_retree(&root, &["-X"]);
 
     assert!(output.starts_with("<?xml"));
     assert!(output.contains("<tree>"));
@@ -314,14 +314,14 @@ fn golden_xml_structure() {
 #[test]
 fn golden_xml_noreport() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-X", "--noreport"]);
+    let output = common::run_retree(&root, &["-X", "--noreport"]);
     assert!(!output.contains("<report>"));
 }
 
 #[test]
 fn golden_xml_dirs_only() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-X", "-d", "--noreport"]);
+    let output = common::run_retree(&root, &["-X", "-d", "--noreport"]);
     assert!(output.contains("name=\"docs\""));
     assert!(output.contains("name=\"src\""));
     assert!(!output.contains("name=\"Cargo.toml\""));
@@ -335,7 +335,7 @@ fn golden_xml_dirs_only() {
 #[test]
 fn golden_html_structure() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-H", "."]);
+    let output = common::run_retree(&root, &["-H", "."]);
 
     assert!(output.contains("<!DOCTYPE html>") || output.contains("<!doctype html>"));
     assert!(output.contains("<html"));
@@ -350,7 +350,7 @@ fn golden_html_structure() {
 #[test]
 fn golden_html_has_links_by_default() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-H", "http://example.com"]);
+    let output = common::run_retree(&root, &["-H", "http://example.com"]);
     assert!(output.contains("<a "));
     assert!(output.contains("http://example.com"));
 }
@@ -358,21 +358,21 @@ fn golden_html_has_links_by_default() {
 #[test]
 fn golden_html_nolinks() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-H", ".", "--nolinks"]);
+    let output = common::run_retree(&root, &["-H", ".", "--nolinks"]);
     assert!(!output.contains("<a "));
 }
 
 #[test]
 fn golden_html_custom_title() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-H", ".", "-T", "My Project"]);
+    let output = common::run_retree(&root, &["-H", ".", "-T", "My Project"]);
     assert!(output.contains("My Project"));
 }
 
 #[test]
 fn golden_html_report() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-H", "."]);
+    let output = common::run_retree(&root, &["-H", "."]);
     assert!(
         output.contains("2 directories") || output.contains("2 director"),
         "HTML should contain dir count"
@@ -393,7 +393,7 @@ fn golden_text_empty_dir() {
     let root = tmp.path().join("empty");
     fs::create_dir(&root).unwrap();
 
-    let output = common::run_rtree(&root, &["--noreport"]);
+    let output = common::run_retree(&root, &["--noreport"]);
     assert_eq!(output, "empty\n");
 }
 
@@ -404,7 +404,7 @@ fn golden_text_single_file() {
     fs::create_dir(&root).unwrap();
     fs::write(root.join("only.txt"), "").unwrap();
 
-    let output = common::run_rtree(&root, &["--noreport"]);
+    let output = common::run_retree(&root, &["--noreport"]);
     let expected = "\
 single
 └── only.txt
@@ -415,7 +415,7 @@ single
 #[test]
 fn golden_text_pattern_include() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-P", "*.rs", "--noreport"]);
+    let output = common::run_retree(&root, &["-P", "*.rs", "--noreport"]);
     // -P shows matching files, all directories are still shown
     assert!(output.contains("lib.rs"));
     assert!(output.contains("main.rs"));
@@ -427,7 +427,7 @@ fn golden_text_pattern_include() {
 #[test]
 fn golden_text_exclude() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-I", "docs", "--noreport"]);
+    let output = common::run_retree(&root, &["-I", "docs", "--noreport"]);
     assert!(!output.contains("docs"));
     assert!(!output.contains("readme.md"));
     assert!(output.contains("src"));
@@ -443,7 +443,7 @@ fn golden_text_prune_empty_dirs() {
     fs::create_dir(root.join("filled")).unwrap();
     fs::write(root.join("filled/data.txt"), "x").unwrap();
 
-    let output = common::run_rtree(&root, &["--prune", "--noreport"]);
+    let output = common::run_retree(&root, &["--prune", "--noreport"]);
     assert!(!output.contains("hollow"));
     assert!(output.contains("filled"));
     assert!(output.contains("data.txt"));
@@ -452,7 +452,7 @@ fn golden_text_prune_empty_dirs() {
 #[test]
 fn golden_text_classify() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-F", "--noreport"]);
+    let output = common::run_retree(&root, &["-F", "--noreport"]);
     assert!(output.contains("docs/"), "dirs get / suffix with -F");
     assert!(output.contains("src/"), "dirs get / suffix with -F");
     // Files without executable bit don't get suffix
@@ -468,7 +468,7 @@ fn golden_text_report_empty() {
     let root = tmp.path().join("reportempty");
     fs::create_dir(&root).unwrap();
 
-    let output = common::run_rtree(&root, &[]);
+    let output = common::run_retree(&root, &[]);
     assert!(output.contains("0 directories, 0 files"));
 }
 
@@ -480,14 +480,14 @@ fn golden_text_report_singular() {
     fs::create_dir(root.join("one_dir")).unwrap();
     fs::write(root.join("one_dir/one_file.txt"), "").unwrap();
 
-    let output = common::run_rtree(&root, &[]);
+    let output = common::run_retree(&root, &[]);
     assert!(output.contains("1 directory, 1 file"));
 }
 
 #[test]
 fn golden_text_with_report_exact() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &[]);
+    let output = common::run_retree(&root, &[]);
     let expected = "\
 golden
 ├── Cargo.toml
@@ -512,7 +512,7 @@ fn golden_json_empty_dir() {
     let root = tmp.path().join("jempty");
     fs::create_dir(&root).unwrap();
 
-    let output = common::run_rtree(&root, &["-J"]);
+    let output = common::run_retree(&root, &["-J"]);
     let json: serde_json::Value = serde_json::from_str(&output).unwrap();
     let arr = json.as_array().unwrap();
     assert_eq!(arr[0]["type"], "directory");
@@ -525,7 +525,7 @@ fn golden_json_empty_dir() {
 #[test]
 fn golden_json_exclude() {
     let (_tmp, root) = make_golden();
-    let output = common::run_rtree(&root, &["-J", "-I", "docs", "--noreport"]);
+    let output = common::run_retree(&root, &["-J", "-I", "docs", "--noreport"]);
     let json: serde_json::Value = serde_json::from_str(&output).unwrap();
     let names = common::collect_all_names(&json);
     assert!(!names.contains(&"docs".to_string()));
@@ -543,7 +543,7 @@ fn golden_xml_empty_dir() {
     let root = tmp.path().join("xempty");
     fs::create_dir(&root).unwrap();
 
-    let output = common::run_rtree(&root, &["-X"]);
+    let output = common::run_retree(&root, &["-X"]);
     assert!(output.contains("<?xml"));
     assert!(output.contains("name=\"xempty\""));
     assert!(output.contains("<directories>0</directories>"));
@@ -557,7 +557,7 @@ fn golden_xml_escapes_special_chars() {
     fs::create_dir(&root).unwrap();
     fs::write(root.join("Tom & Jerry.txt"), "").unwrap();
 
-    let output = common::run_rtree(&root, &["-X", "--noreport"]);
+    let output = common::run_retree(&root, &["-X", "--noreport"]);
     assert!(output.contains("Tom &amp; Jerry.txt"));
     assert!(!output.contains("Tom & Jerry.txt"));
 }

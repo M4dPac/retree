@@ -46,7 +46,7 @@ fn load_optional_file(path: &std::path::Path, flag_name: &str) -> Option<String>
         Ok(content) => Some(content),
         Err(e) => {
             diag_warn(format_args!(
-                "rtree: warning: cannot read {} '{}': {}",
+                "retree: warning: cannot read {} '{}': {}",
                 flag_name,
                 path.display(),
                 e

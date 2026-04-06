@@ -423,6 +423,7 @@ mod tests {
             threads: None,
             queue_cap: Some(64),
             max_entries: None,
+            completions: None,
         }
     }
 

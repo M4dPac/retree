@@ -1,6 +1,6 @@
 /// --parallel, --threads, --queue-cap, эквивалентность с sequential
 mod common;
-use common::{collect_all_names, count_files_and_dirs, extract_names, rtree, CLEAN};
+use common::{collect_all_names, count_files_and_dirs, extract_names, retree, CLEAN};
 
 use predicates::prelude::*;
 use std::fs;
@@ -19,7 +19,7 @@ fn test_parallel_basic() {
     fs::write(p.join("file1.txt"), "").unwrap();
     fs::write(p.join("subdir/file2.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .arg("--parallel")
         .arg(p)
         .assert()
@@ -34,7 +34,7 @@ fn test_parallel_with_threads() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--parallel", "--threads", "4"])
         .arg(dir.path())
         .assert()
@@ -46,7 +46,7 @@ fn test_parallel_with_queue_cap() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--parallel", "--queue-cap", "64"])
         .arg(dir.path())
         .assert()
@@ -57,7 +57,11 @@ fn test_parallel_with_queue_cap() {
 fn test_parallel_empty_dir() {
     let dir = tempdir().unwrap();
 
-    rtree().arg("--parallel").arg(dir.path()).assert().success();
+    retree()
+        .arg("--parallel")
+        .arg(dir.path())
+        .assert()
+        .success();
 }
 
 // ============================================================================
@@ -71,7 +75,7 @@ fn test_parallel_with_depth_limit() {
 
     fs::create_dir_all(p.join("level1/level2/level3")).unwrap();
 
-    rtree()
+    retree()
         .args(["--parallel", "-L", "1"])
         .arg(p)
         .assert()
@@ -88,7 +92,7 @@ fn test_parallel_dirs_only() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("file.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--parallel", "-d"])
         .arg(p)
         .assert()
@@ -105,7 +109,7 @@ fn test_parallel_exclude_filter() {
     fs::write(p.join("keep.rs"), "").unwrap();
     fs::write(p.join("skip.txt"), "").unwrap();
 
-    rtree()
+    retree()
         .args(["--parallel", "-I", "*.txt"])
         .arg(p)
         .assert()
@@ -125,7 +129,11 @@ fn test_parallel_json_output() {
 
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree().args(["--parallel", "-J"]).arg(p).assert().success();
+    let output = retree()
+        .args(["--parallel", "-J"])
+        .arg(p)
+        .assert()
+        .success();
 
     let json: serde_json::Value = common::output_json(&output);
     assert!(json.is_array());
@@ -138,7 +146,11 @@ fn test_parallel_xml_output() {
 
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree().args(["--parallel", "-X"]).arg(p).assert().success();
+    let output = retree()
+        .args(["--parallel", "-X"])
+        .arg(p)
+        .assert()
+        .success();
 
     let stdout = common::output_stdout(&output);
     assert!(stdout.starts_with("<?xml"));
@@ -152,7 +164,7 @@ fn test_parallel_html_output() {
 
     fs::write(p.join("file.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["--parallel", "-H", "http://localhost"])
         .arg(p)
         .assert()
@@ -174,7 +186,7 @@ fn test_parallel_indentation() {
     fs::create_dir(p.join("subdir")).unwrap();
     fs::write(p.join("subdir/child.txt"), "").unwrap();
 
-    let output = rtree()
+    let output = retree()
         .args(["--parallel"])
         .args(CLEAN)
         .arg(p)
@@ -217,11 +229,15 @@ fn test_parallel_sequential_file_count_match() {
     }
     fs::write(p.join("subdir1/nested/deep.txt"), "").unwrap();
 
-    let seq = rtree().args(["-J"]).arg(p).assert().success();
+    let seq = retree().args(["-J"]).arg(p).assert().success();
     let seq_json: serde_json::Value = serde_json::from_slice(&seq.get_output().stdout).unwrap();
     let (seq_files, seq_dirs) = count_files_and_dirs(&seq_json);
 
-    let par = rtree().args(["--parallel", "-J"]).arg(p).assert().success();
+    let par = retree()
+        .args(["--parallel", "-J"])
+        .arg(p)
+        .assert()
+        .success();
     let par_json: serde_json::Value = serde_json::from_slice(&par.get_output().stdout).unwrap();
     let (par_files, par_dirs) = count_files_and_dirs(&par_json);
 
@@ -252,10 +268,14 @@ fn test_parallel_sequential_names_match() {
         }
     }
 
-    let seq = rtree().args(["-J"]).arg(p).assert().success();
+    let seq = retree().args(["-J"]).arg(p).assert().success();
     let seq_json: serde_json::Value = serde_json::from_slice(&seq.get_output().stdout).unwrap();
 
-    let par = rtree().args(["--parallel", "-J"]).arg(p).assert().success();
+    let par = retree()
+        .args(["--parallel", "-J"])
+        .arg(p)
+        .assert()
+        .success();
     let par_json: serde_json::Value = serde_json::from_slice(&par.get_output().stdout).unwrap();
 
     let mut seq_names = collect_all_names(&seq_json);
@@ -284,7 +304,11 @@ fn test_parallel_no_duplicates() {
         fs::write(p.join(format!("a/b/c/f{}.txt", i)), "").unwrap();
     }
 
-    let output = rtree().args(["--parallel", "-J"]).arg(p).assert().success();
+    let output = retree()
+        .args(["--parallel", "-J"])
+        .arg(p)
+        .assert()
+        .success();
     let json: serde_json::Value = common::output_json(&output);
 
     fn collect_paths(entry: &serde_json::Value, prefix: &str, paths: &mut Vec<String>) {
@@ -329,10 +353,10 @@ fn test_parallel_text_same_names_as_sequential() {
     fs::write(p.join("subdir1/file2.txt"), "").unwrap();
     fs::write(p.join("subdir2/file3.txt"), "").unwrap();
 
-    let seq = rtree().args(CLEAN).arg(p).assert().success();
+    let seq = retree().args(CLEAN).arg(p).assert().success();
     let seq_stdout = String::from_utf8(seq.get_output().stdout.clone()).unwrap();
 
-    let par = rtree()
+    let par = retree()
         .args(["--parallel"])
         .args(CLEAN)
         .arg(p)
