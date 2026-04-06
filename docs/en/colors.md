@@ -1,6 +1,6 @@
 # 🎨 Color Configuration
 
-rtree supports the following environment variables:
+retree supports the following environment variables:
 
 - `LS_COLORS` — standard GNU ls format
 - `TREE_COLORS` — takes priority over `LS_COLORS`

@@ -113,19 +113,19 @@ rt --parallel --queue-cap 8192
 
 ```bash
 # Основной набор (100 / 10k / 100k + форматы + опции + streaming)
-cargo bench --bench rtree_perf
+cargo bench --bench retree_perf
 
 # Сохранение baseline для отслеживания регрессий
-cargo bench --bench rtree_perf -- --save-baseline main
+cargo bench --bench retree_perf -- --save-baseline main
 
 # Сравнение с baseline
-cargo bench --bench rtree_perf -- --baseline main
+cargo bench --bench retree_perf -- --baseline main
 ```
 
 ### Criterion (1M файлов, ~2 часа)
 
 ```bash
-cargo bench --bench rtree_perf_xlarge
+cargo bench --bench retree_perf_xlarge
 ```
 
 ### Hyperfine (1M файлов, ~3–5 мин, рекомендуется)

@@ -39,7 +39,7 @@ cargo clippy
 
 ## Benchmarks
 
-rtree uses [Criterion.rs](https://github.com/bheisler/criterion.rs) for reproducible, statistically sound benchmarks.
+retree uses [Criterion.rs](https://github.com/bheisler/criterion.rs) for reproducible, statistically sound benchmarks.
 
 ```bash
 # Run all benchmarks
@@ -63,7 +63,7 @@ HTML reports are generated automatically at `target/criterion/report/index.html`
 ```
 .
 ├── benches
-│   └── rtree_perf.rs
+│   └── retree_perf.rs
 ├── Cargo.lock
 ├── Cargo.toml
 ├── docs

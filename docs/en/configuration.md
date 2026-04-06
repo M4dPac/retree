@@ -1,7 +1,7 @@
 # ⚙️ Configuration
 
 > Configuration file support is not available in the current version.  
-> Support for `~/.rtreerc.toml` is planned for future releases.
+> Support for `~/.retreerc.toml` is planned for future releases.
 
 ---
 

@@ -1,19 +1,19 @@
-# rtree 🌲
+# retree 🌲
 
 [![Rust](https://img.shields.io/badge/rust-1.80%2B-orange.svg)](https://www.rust-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/M4dPac/rtree)
-[![GitHub](https://img.shields.io/github/v/release/M4dPac/rtree?label=latest)](https://github.com/M4dPac/rtree/releases)
-[![Build](https://img.shields.io/badge/status-pre--release-yellow.svg)](https://github.com/M4dPac/rtree)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/M4dPac/retree)
+[![GitHub](https://img.shields.io/github/v/release/M4dPac/retree?label=latest)](https://github.com/M4dPac/retree/releases)
+[![Build](https://img.shields.io/badge/status-pre--release-yellow.svg)](https://github.com/M4dPac/retree)
 
-**rtree** — a modern GNU `tree`-compatible utility for displaying directory structures.  
+**retree** — a modern GNU `tree`-compatible utility for displaying directory structures.  
 Written in Rust. Optimized for Windows. Runs on Windows, Linux, and macOS.
 
 [🇷🇺 Русская версия](README.md)
 
 ---
 
-## 🎯 Why rtree?
+## 🎯 Why retree?
 
 - ✅ GNU `tree` compatibility
 - ⚡ Parallel traversal (up to 6× faster on large trees)
@@ -29,19 +29,19 @@ Written in Rust. Optimized for Windows. Runs on Windows, Linux, and macOS.
 
 ### Binary releases
 
-Download the prebuilt binary from [GitHub Releases](https://github.com/M4dPac/rtree/releases), extract it, and add to `PATH`.
+Download the prebuilt binary from [GitHub Releases](https://github.com/M4dPac/retree/releases), extract it, and add to `PATH`.
 
 ### Cargo
 
 ```bash
-cargo install rtree
+cargo install retree
 ```
 
 ### Build from source
 
 ```bash
-git clone https://github.com/M4dPac/rtree.git
-cd rtree
+git clone https://github.com/M4dPac/retree.git
+cd retree
 cargo build --release
 ```
 
@@ -62,7 +62,7 @@ sha256sum -c SHA256SUMS.txt
 # Verify signature (requires cosign)
 cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp "github\.com/M4dPac/rtree"
+  --certificate-identity-regexp "github\.com/M4dPac/retree"
 ```
 
 **Windows PowerShell:**
@@ -180,7 +180,7 @@ More details: 👉 [Benchmarks](docs/en/performance.md)
 
 ## 📊 Comparison with GNU tree
 
-| Feature            | GNU tree | rtree |
+| Feature            | GNU tree | retree |
 | ------------------ | :------: | :---: |
 | Colors             |    ✅    |  ✅   |
 | JSON               |    ✅    |  ✅   |
@@ -199,7 +199,7 @@ More details: 👉 [Benchmarks](docs/en/performance.md)
 ## 🗺️ Roadmap
 
 - [ ] Stable release on crates.io
-- [ ] Config file (`~/.rtreerc.toml`)
+- [ ] Config file (`~/.retreerc.toml`)
 - [ ] `.gitignore` / `.treeignore` support
 - [ ] Directory size aggregation (`--du`)
 - [ ] Interactive mode

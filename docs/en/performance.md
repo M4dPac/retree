@@ -113,19 +113,19 @@ Measurement: `PeakWorkingSet64` (Windows Task Manager → "Peak Working Set").
 
 ```bash
 # Main suite (100 / 10k / 100k + formats + options + streaming)
-cargo bench --bench rtree_perf
+cargo bench --bench retree_perf
 
 # Save baseline for regression tracking
-cargo bench --bench rtree_perf -- --save-baseline main
+cargo bench --bench retree_perf -- --save-baseline main
 
 # Compare against baseline
-cargo bench --bench rtree_perf -- --baseline main
+cargo bench --bench retree_perf -- --baseline main
 ```
 
 ### Criterion (1M files, ~2 hours)
 
 ```bash
-cargo bench --bench rtree_perf_xlarge
+cargo bench --bench retree_perf_xlarge
 ```
 
 ### Hyperfine (1M files, ~3–5 min, recommended)

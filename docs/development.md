@@ -39,7 +39,7 @@ cargo clippy
 
 ## Бенчмарки
 
-rtree использует [Criterion.rs](https://github.com/bheisler/criterion.rs) для воспроизводимых и статистически корректных бенчмарков.
+retree использует [Criterion.rs](https://github.com/bheisler/criterion.rs) для воспроизводимых и статистически корректных бенчмарков.
 
 ```bash
 # Запуск всех бенчмарков
@@ -63,7 +63,7 @@ HTML-отчёты генерируются автоматически в `target
 ```
 .
 ├── benches
-│   └── rtree_perf.rs
+│   └── retree_perf.rs
 ├── Cargo.lock
 ├── Cargo.toml
 ├── docs

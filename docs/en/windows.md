@@ -92,11 +92,11 @@ rt \\server\share\folder
 
 Windows reserves certain filenames as device names: `CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`. Names with extensions (e.g. `NUL.txt`) are also reserved.
 
-**Behavior:** On Windows, rtree detects reserved names during traversal and **skips** them with a warning to stderr. This prevents the Win32 API from opening a device handle instead of a file, which could return incorrect metadata.
+**Behavior:** On Windows, retree detects reserved names during traversal and **skips** them with a warning to stderr. This prevents the Win32 API from opening a device handle instead of a file, which could return incorrect metadata.
 
 **On Linux/macOS:** These are valid filenames and are listed normally.
 
 **How can such files exist on NTFS?**
 Only via WSL, `\\?\` prefix bypass, or third-party tools.
 
-> The detection function `is_reserved_windows_name()` is available in `rtree::platform` for external use.
+> The detection function `is_reserved_windows_name()` is available in `retree::platform` for external use.
