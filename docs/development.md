@@ -77,7 +77,7 @@ HTML-отчёты генерируются автоматически в `target
 │   ├── README.md
 │   ├── troubleshooting.md
 │   └── windows.md
-├── README.en.md
+├── README.ru.md
 ├── README.md
 ├── src
 │   ├── app

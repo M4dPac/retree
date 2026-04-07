@@ -77,7 +77,7 @@ HTML reports are generated automatically at `target/criterion/report/index.html`
 │   ├── README.md
 │   ├── troubleshooting.md
 │   └── windows.md
-├── README.en.md
+├── README.ru.md
 ├── README.md
 ├── src
 │   ├── app

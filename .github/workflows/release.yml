@@ -122,7 +122,7 @@ jobs:
           $staging = "retree-$version-${{ matrix.target }}"
           New-Item -ItemType Directory -Path $staging
           Copy-Item "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$staging/"
-          Copy-Item @("README.md", "README.en.md", "LICENSE", "CHANGELOG.md") "$staging/"
+          Copy-Item @("README.md", "README.ru.md", "LICENSE", "CHANGELOG.md") "$staging/"
           Compress-Archive -Path "$staging" -DestinationPath "retree-$version-${{ matrix.target }}.zip"
 
       - name: Package (Unix)
@@ -132,7 +132,7 @@ jobs:
           staging="retree-$version-${{ matrix.target }}"
           mkdir "$staging"
           cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$staging/"
-          cp README.md README.en.md LICENSE CHANGELOG.md "$staging/"
+          cp README.md README.ru.md LICENSE CHANGELOG.md "$staging/"
           tar czf "retree-$version-${{ matrix.target }}.tar.gz" "$staging"
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
