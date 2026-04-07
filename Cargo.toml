@@ -6,8 +6,9 @@ rust-version = "1.80"
 description = "Fast, cross-platform GNU tree compatible directory listing"
 license = "MIT"
 repository = "https://github.com/M4dPac/retree"
-keywords = ["tree", "directory", "cli", "windows"]
+keywords = ["tree", "directory", "cli", "windows", "gnu-tree"]
 categories = ["command-line-utilities", "filesystem"]
+authors = ["M4dPac"]
 include = [
   "src/**/*",
   "benches/**/*.rs",

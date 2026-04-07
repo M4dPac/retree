@@ -6,30 +6,30 @@
 [![GitHub](https://img.shields.io/github/v/release/M4dPac/retree?label=latest)](https://github.com/M4dPac/retree/releases)
 [![Build](https://img.shields.io/badge/status-pre--release-yellow.svg)](https://github.com/M4dPac/retree)
 
-**retree** — современная GNU `tree`-совместимая утилита для отображения структуры каталогов.  
-Написана на Rust. Оптимизирована для Windows. Работает на Windows, Linux и macOS.
+**retree** — a modern GNU `tree`-compatible utility for displaying directory structures.  
+Written in Rust. Optimized for Windows. Runs on Windows, Linux, and macOS.
 
-[🇬🇧 English version](README.en.md)
-
----
-
-## 🎯 Почему retree?
-
-- ✅ Совместимость с GNU `tree`
-- ⚡ Параллельный обход (до 6× быстрее на больших деревьях)
-- 🎨 Поддержка `LS_COLORS` и `TREE_COLORS`
-- 🔤 Иконки (Nerd Font / Unicode / ASCII)
-- 📦 Экспорт в JSON / XML / HTML
-- 🪟 Полная поддержка NTFS (ADS, junctions, длинные пути)
-- 🌍 Русский и английский интерфейс
+[🇷🇺 Русская версия](https://github.com/M4dPac/retree/blob/main/README.ru.md)
 
 ---
 
-## 📦 Установка
+## 🎯 Why retree?
 
-### Бинарные релизы
+- ✅ GNU `tree` compatibility
+- ⚡ Parallel traversal (up to 6× faster on large trees)
+- 🎨 `LS_COLORS` and `TREE_COLORS` support
+- 🔤 Icons (Nerd Font / Unicode / ASCII)
+- 📦 Export to JSON / XML / HTML
+- 🪟 Full NTFS support (ADS, junctions, long paths)
+- 🌍 English and Russian interface
 
-Скачайте готовый бинарник с [GitHub Releases](https://github.com/M4dPac/retree/releases), распакуйте и добавьте в `PATH`.
+---
+
+## 📦 Installation
+
+### Binary releases
+
+Download the prebuilt binary from [GitHub Releases](https://github.com/M4dPac/retree/releases), extract it, and add to `PATH`.
 
 ### Cargo
 
@@ -37,7 +37,7 @@
 cargo install retree
 ```
 
-### Сборка из исходников
+### Build from source
 
 ```bash
 git clone https://github.com/M4dPac/retree.git
@@ -45,21 +45,21 @@ cd retree
 cargo build --release
 ```
 
-Бинарный файл будет в `target/release/rt`.
+The binary will be at `target/release/rt`.
 
-### 🔐 Верификация релизов
+### 🔐 Release verification
 
-Каждый релиз включает `SHA256SUMS.txt` с контрольными суммами, подписанный через [Sigstore cosign](https://docs.sigstore.dev/cosign/overview/).
+Every release includes `SHA256SUMS.txt` with checksums, signed via [Sigstore cosign](https://docs.sigstore.dev/cosign/overview/).
 
 **Linux / macOS:**
 
 ```bash
-# Скачайте бинарник, SHA256SUMS.txt и SHA256SUMS.txt.bundle из Releases
+# Download the binary, SHA256SUMS.txt and SHA256SUMS.txt.bundle from Releases
 
-# Проверьте контрольную сумму
+# Verify checksum
 sha256sum -c SHA256SUMS.txt
 
-# Проверьте подпись (требуется cosign)
+# Verify signature (requires cosign)
 cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --certificate-identity-regexp "github\.com/M4dPac/retree"
@@ -68,7 +68,7 @@ cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \
 **Windows PowerShell:**
 
 ```bash
-# Проверьте контрольную сумму
+# Verify checksum
 (Get-Content SHA256SUMS.txt) | ForEach-Object {
     $hash, $file = $_ -split '\s+', 2
     $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
@@ -76,143 +76,142 @@ cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \
 }
 ```
 
-> **Примечание:** ⚠️ Windows .exe пока не подписан Authenticode. Используйте проверку SHA256 + cosign для подтверждения целостности.
+> **Note:** ⚠️ The Windows .exe is not yet Authenticode-signed. Use SHA256 + cosign verification to confirm integrity.
 
 ---
 
-## 🚀 Быстрый старт
+## 🚀 Quick start
 
-> 💡 **На заметку:** Для максимальной скорости набора в терминале утилита использует короткую команду `rt` (буквы находятся рядом на клавиатуре).
+> 💡 **Note:** For maximum typing speed in the terminal, the utility uses the short command `rt` (adjacent keys on the keyboard).
 
 ```bash
-# Показать текущий каталог
+# Show current directory
 rt
 
-# Показать скрытые файлы
+# Show hidden files
 rt -a
 
-# Ограничить глубину
+# Limit depth
 rt -L 2
 
-# Только каталоги
+# Directories only
 rt -d
 
-# Цвета и иконки
+# Colors and icons
 rt -C --icons always
 
-# JSON-вывод
+# JSON output
 rt -J > tree.json
 
-# Форматированный JSON
+# Pretty-printed JSON
 rt --json-pretty > tree.json
 
-# Параллельный режим (авто-определение потоков)
+# Parallel mode (auto-detect threads)
 rt --parallel
 
-# Параллельный режим с явным числом потоков
+# Parallel mode with explicit thread count
 rt --parallel --threads 4
 ```
 
 ---
 
-## 📚 Использование
+## 📚 Usage
 
 ```
 rt [OPTIONS] [PATH...]
 ```
 
-### Часто используемые опции
+### Common options
 
-| Флаг             | Описание                   |
+| Flag             | Description                |
 | ---------------- | -------------------------- |
-| `-a`             | Показать скрытые файлы     |
-| `-d`             | Только каталоги            |
-| `-L N`           | Ограничить глубину         |
-| `-P PATTERN`     | Фильтр по glob             |
-| `-I PATTERN`     | Исключить по glob          |
-| `-h`             | Человекочитаемые размеры   |
-| `-D`             | Дата модификации           |
-| `-J`             | JSON-вывод                 |
-| `--json-pretty`  | Форматированный JSON-вывод |
-| `-C`             | Цвет всегда                |
-| `--icons always` | Включить иконки            |
-| `--parallel`     | Параллельный обход         |
-| `--threads N`    | Число рабочих потоков      |
+| `-a`             | Show hidden files          |
+| `-d`             | Directories only           |
+| `-L N`           | Limit depth                |
+| `-P PATTERN`     | Filter by glob             |
+| `-I PATTERN`     | Exclude by glob            |
+| `-h`             | Human-readable sizes       |
+| `-D`             | Show modification date     |
+| `-J`             | JSON output                |
+| `--json-pretty`  | Pretty-printed JSON output |
+| `-C`             | Always use color           |
+| `--icons always` | Enable icons               |
+| `--parallel`     | Parallel traversal         |
+| `--threads N`    | Number of worker threads   |
 
-### 📖 Полная документация
+### 📖 Full documentation
 
-- 👉 [CLI Reference](docs/cli-reference.md)
-- 🎨 [Настройка цветов](docs/colors.md)
-- 🔤 [Иконки](docs/icons.md)
-- ⚡ [Производительность](docs/performance.md)
-- ⚙️ [Конфигурация](docs/configuration.md)
-- 🪟 [Windows-специфика](docs/windows.md)
-- 🛠️ [Troubleshooting](docs/troubleshooting.md)
-
----
-
-## ⚡ Производительность
-
-retree использует Rayon (work-stealing), ленивую загрузку метаданных, оптимизированную сортировку и потоковый вывод.
-
-Результаты реальных бенчмарков (median time, Criterion, режим `release`, Windows/NTFS, end-to-end):
-
-| Файлов    | Обычный режим | Параллельный (авто) | Streaming |
-| --------- | ------------- | ------------------- | --------- |
-| 100       | ~54 мс        | ~14 мс              | ~54 мс    |
-| 10 000    | ~5.3 с        | ~861 мс             | ~5.7 с    |
-| 100 000   | ~51.5 с       | ~9.4 с              | ~53.5 с   |
-| 1 000 000 | ~576 с        | ~102 с              | ~622 с    |
-
-💾 **Потребление памяти** (PeakWorkingSet64):
-
-| Файлов    | Sequential | Streaming | Экономия |
-| --------- | ---------- | --------- | -------- |
-| 10 000    | 15.6 МБ    | 6.6 МБ    | **58%**  |
-| 100 000   | 100.2 МБ   | 10.4 МБ   | **90%**  |
-| 1 000 000 | 938.9 МБ   | 59.0 МБ   | **94%**  |
-
-> Параллельный режим эффективен начиная с ~1 000 файлов (ускорение до 6×).
-> Streaming-режим не строит дерево в памяти — экономия 90%+ на больших деревьях.
-
-> 💡 **Совет:** для быстрого просмотра первых N записей большого дерева используйте `--streaming --max-entries N` — обход остановится сразу после вывода N записей. В стандартном режиме дерево строится целиком, затем обрезается.
-
-Подробнее: 👉 [Бенчмарки](docs/performance.md)
+- 👉 [CLI Reference](https://github.com/M4dPac/retree/blob/main/docs/en/cli-reference.md)
+- 🎨 [Color configuration](https://github.com/M4dPac/retree/blob/main/docs/en/colors.md)
+- 🔤 [Icons](https://github.com/M4dPac/retree/blob/main/docs/en/icons.md)
+- ⚡ [Performance](https://github.com/M4dPac/retree/blob/main/docs/en/performance.md)
+- ⚙️ [Configuration](https://github.com/M4dPac/retree/blob/main/docs/en/configuration.md)
+- 🪟 [Windows specifics](https://github.com/M4dPac/retree/blob/main/docs/en/windows.md)
+- 🛠️ [Troubleshooting](https://github.com/M4dPac/retree/blob/main/docs/en/troubleshooting.md)
 
 ---
 
-## 📊 Сравнение с GNU tree
+## ⚡ Performance
 
-| Возможность        | GNU tree | retree |
+retree uses Rayon (work-stealing), lazy metadata loading, optimized sorting, and streaming output.
+
+Real benchmark results (median time, Criterion, `release` mode, Windows/NTFS, end-to-end):
+
+| Files     | Sequential | Parallel (auto) | Streaming |
+| --------- | ---------- | --------------- | --------- |
+| 100       | ~54 ms     | ~14 ms          | ~54 ms    |
+| 10 000    | ~5.3 s     | ~861 ms         | ~5.7 s    |
+| 100 000   | ~51.5 s    | ~9.4 s          | ~53.5 s   |
+| 1 000 000 | ~576 s     | ~102 s          | ~622 s    |
+
+💾 **Memory usage** (PeakWorkingSet64):
+
+| Files   | Sequential | Streaming | Savings |
+| ------- | ---------- | --------- | ------- |
+| 10 000  | 15.6 MB    | 6.6 MB    | **58%** |
+| 100 000 | 100.2 MB   | 10.4 MB   | **90%** |
+
+> Parallel mode is effective starting at ~1 000 files (up to 6× speedup).
+> Streaming mode does not build the tree in memory — 90%+ savings on large trees.
+
+> 💡 **Tip:** to quickly preview the first N entries of a large tree, use `--streaming --max-entries N` — traversal stops immediately after outputting N entries. In standard mode, the full tree is built first, then truncated.
+
+More details: 👉 [Benchmarks](https://github.com/M4dPac/retree/blob/main/docs/en/performance.md)
+
+---
+
+## 📊 Comparison with GNU tree
+
+| Feature            | GNU tree | retree |
 | ------------------ | :------: | :----: |
-| Цвета              |    ✅    |   ✅   |
+| Colors             |    ✅    |   ✅   |
 | JSON               |    ✅    |   ✅   |
 | XML                |    ✅    |   ✅   |
 | HTML               |    ✅    |   ✅   |
-| Параллельный обход |    ❌    |   ✅   |
-| Иконки             |    ❌    |   ✅   |
+| Parallel traversal |    ❌    |   ✅   |
+| Icons              |    ❌    |   ✅   |
 | NTFS ADS           |    ❌    |   ✅   |
 | Junction points    |    ❌    |   ✅   |
-| Длинные пути       |    ❌    |   ✅   |
-| Потоковый вывод    |    ❌    |   ✅   |
-| Многоязычность     |    ❌    |   ✅   |
+| Long paths         |    ❌    |   ✅   |
+| Streaming output   |    ❌    |   ✅   |
+| Multilingual UI    |    ❌    |   ✅   |
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] Стабильный релиз на crates.io
-- [ ] Конфигурационный файл (`~/.retree.toml`)
-- [ ] Поддержка `.gitignore` / `.treeignore`
-- [ ] Суммарный размер каталогов (`--du`)
-- [ ] Интерактивный режим
-- [ ] Пакеты для Homebrew / Scoop / Winget
+- [ ] Stable release on crates.io
+- [ ] Config file (`~/.retreerc.toml`)
+- [ ] `.gitignore` / `.treeignore` support
+- [ ] Directory size aggregation (`--du`)
+- [ ] Interactive mode
+- [ ] Homebrew / Scoop / Winget packages
 
 ---
 
-## 🤝 Вклад в проект
+## 🤝 Contributing
 
-PR и issues приветствуются.
+PRs and issues are welcome.
 
 ```bash
 cargo test
@@ -220,14 +219,14 @@ cargo fmt
 cargo clippy
 ```
 
-Подробности: 👉 [Development Guide](docs/development.md)
+Details: 👉 [Development Guide](https://github.com/M4dPac/retree/blob/main/docs/en/development.md)
 
 ---
 
-## 📄 Лицензия
+## 📄 License
 
 [MIT License](LICENSE)
 
 ---
 
-Сделано с ❤️ и 🦀 Rust
+Made with ❤️ and 🦀 Rust

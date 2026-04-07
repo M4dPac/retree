@@ -7,19 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+<!-- ## [0.6.0] - 2026-04-07 -->
+
 ### Added
 
 - Add `rt` binary as a short alias for rtree
-- Add `--completions <SHELL>` flag to generate shell completion scripts
+- Add hidden `--completions <SHELL>` flag to generate shell completion scripts
 
 ### Breaking
 
 - Rename primary CLI command from `rtree` to `rt`
-- Rename CLI tool and binary from `rtree` to `rt`
+- Rename CLI tool and distributed binary from `rtree` to `rt`
 - Rename project from `rtree` to `retree`
 - Rename crate from `rtree` to `retree`
-- Update binary, namespace (`retree::`), and diagnostic prefix to `retree:`
+- Update crate namespace (`retree::`) and diagnostic prefix to `retree:`
 - Rename benchmark targets to `retree_perf` and `retree_perf_xlarge`
+
+### Migration Notes
+
+- Replace `rtree` with `rt` in scripts, aliases, and CI configurations.
+- Update Cargo dependency from:
+
+  ```toml
+  rtree = "..."
+  ```
+
+  to
+
+  ```toml
+  retree = "..."
+  ```
+
+- Update imports:
+
+  ```rust
+  use rtree::...
+  ```
+
+  to
+
+  ```rust
+  use retree::...
+  ```
+
+- If running benchmarks manually, use:
+  ```bash
+  cargo bench --bench retree_perf
+  cargo bench --bench retree_perf_xlarge
+  ```
 
 ## [0.5.2] - 2026-04-02
 
