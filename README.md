@@ -39,6 +39,13 @@ Download the prebuilt binary from [GitHub Releases](https://github.com/M4dPac/re
 cargo install retree
 ```
 
+### Scoop
+
+```powershell
+scoop bucket add retree https://github.com/M4dPac/scoop-retree
+scoop install retree
+```
+
 ### Build from source
 
 ```bash

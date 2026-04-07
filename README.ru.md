@@ -39,6 +39,13 @@
 cargo install retree
 ```
 
+### Scoop
+
+```powershell
+scoop bucket add retree https://github.com/M4dPac/scoop-retree
+scoop install retree
+```
+
 ### Сборка из исходников
 
 ```bash
