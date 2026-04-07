@@ -182,3 +182,18 @@ jobs:
             --title "${{ github.ref_name }}" \
             --notes-file release_notes.md \
             retree-*.zip retree-*.tar.gz SHA256SUMS.txt SHA256SUMS.txt.bundle
+
+  publish-crates-io:
+    name: Publish to crates.io
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo publish --token "$CARGO_REGISTRY_TOKEN"
