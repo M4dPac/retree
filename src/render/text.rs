@@ -142,10 +142,8 @@ impl TextRenderer {
             match &entry.entry_type {
                 EntryType::Directory => name.push('/'),
                 EntryType::Symlink { .. } | EntryType::Junction { .. } => {}
-                EntryType::File => {
-                    if crate::platform::is_executable(&entry.path) {
-                        name.push('*');
-                    }
+                EntryType::File if crate::platform::is_executable(&entry.path) => {
+                    name.push('*');
                 }
                 _ => {}
             }

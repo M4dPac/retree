@@ -60,14 +60,7 @@ impl ColorScheme {
             EntryType::Symlink { broken: false, .. } => "ln",
             EntryType::Symlink { broken: true, .. } => "or",
             EntryType::Junction { .. } => "ln",
-            EntryType::File => {
-                // Check if executable
-                if crate::platform::is_executable(&entry.path) {
-                    "ex"
-                } else {
-                    "fi"
-                }
-            }
+            EntryType::File if crate::platform::is_executable(&entry.path) => "ex",
             _ => "fi",
         };
 
