@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-31
+
 ### Added
 
 - Document installation via Scoop package manager
+- Respect .gitignore and .rtignore files during traversal by default
+- Add --no-ignore flag to disable .gitignore and .rtignore handling
 
 ## [0.6.0] - 2026-04-07
 
