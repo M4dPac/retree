@@ -124,6 +124,28 @@ rt --parallel --threads 4
 
 ---
 
+## 🐚 Автодополнение (Completions)
+
+`retree` умеет генерировать скрипты автодополнения для Bash, Zsh, Fish, PowerShell и Elvish.
+
+```bash
+# Bash
+rt --completions bash > ~/.local/share/bash-completion/completions/rt
+
+# Zsh
+rt --completions zsh > ~/.zfunc/_rt
+
+# Fish
+rt --completions fish > ~/.config/fish/completions/rt.fish
+
+# PowerShell
+rt --completions powershell >> $PROFILE
+```
+
+> 💡 **На заметку:** You may need to restart your shell or source the configuration file for changes to take effect
+
+---
+
 ## 📚 Использование
 
 ```

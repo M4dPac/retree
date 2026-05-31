@@ -147,3 +147,11 @@ More details: [icons.md](icons.md)
 | Flag          | Description                                      |
 | ------------- | ------------------------------------------------ |
 | `--lang LANG` | Interface language: `en` / `ru` (or `TREE_LANG`) |
+
+---
+
+## 🐚 Shell Completions
+
+| Flag                  | Description                      |
+| --------------------- | -------------------------------- |
+| `--completions SHELL` | Generate shell completion script |

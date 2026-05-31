@@ -124,6 +124,28 @@ rt --parallel --threads 4
 
 ---
 
+## 🐚 Shell Completions
+
+`retree` can generate shell completion scripts for Bash, Zsh, Fish, PowerShell, and Elvish.
+
+```bash
+# Bash
+rt --completions bash > ~/.local/share/bash-completion/completions/rt
+
+# Zsh
+rt --completions zsh > ~/.zfunc/_rt
+
+# Fish
+rt --completions fish > ~/.config/fish/completions/rt.fish
+
+# PowerShell
+rt --completions powershell >> $PROFILE
+```
+
+> 💡 \*\*Note: You may need to restart your shell or source the configuration file for changes to take effect
+
+---
+
 ## 📚 Usage
 
 ```
