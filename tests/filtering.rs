@@ -163,3 +163,53 @@ fn test_prune_hides_empty_dirs() {
         .stdout(predicate::str::contains("filled"))
         .stdout(predicate::str::contains("file.txt"));
 }
+
+// ══════════════════════════════════════════════
+// .gitignore / .rtignore
+// ══════════════════════════════════════════════
+
+#[test]
+fn gitignore_hides_files_by_default() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join(".gitignore"), "secret.txt\n").unwrap();
+    std::fs::write(dir.path().join("secret.txt"), "top secret").unwrap();
+    std::fs::write(dir.path().join("public.txt"), "public").unwrap();
+
+    retree()
+        .arg(dir.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("secret.txt").not())
+        .stdout(predicate::str::contains("public.txt"));
+}
+
+#[test]
+fn rtignore_hides_files_by_default() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join(".rtignore"), "secret.txt\n").unwrap();
+    std::fs::write(dir.path().join("secret.txt"), "top secret").unwrap();
+    std::fs::write(dir.path().join("public.txt"), "public").unwrap();
+
+    retree()
+        .arg(dir.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("secret.txt").not())
+        .stdout(predicate::str::contains("public.txt"));
+}
+
+#[test]
+fn no_ignore_shows_gitignored_files() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join(".gitignore"), "secret.txt\n").unwrap();
+    std::fs::write(dir.path().join("secret.txt"), "top secret").unwrap();
+    std::fs::write(dir.path().join("public.txt"), "public").unwrap();
+
+    retree()
+        .arg("--no-ignore")
+        .arg(dir.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("secret.txt"))
+        .stdout(predicate::str::contains("public.txt"));
+}

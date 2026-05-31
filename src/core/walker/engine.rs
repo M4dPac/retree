@@ -173,6 +173,7 @@ impl OrderedEngine {
         }
 
         let dir_limiter = DirReadLimiter::new(config.queue_cap.unwrap_or(64));
+        let ignore = common::IgnoreMatcher::new(!config.no_ignore);
 
         // Dispatch: pool present → parallel, otherwise → sequential.
         // Sequential path is written once (was duplicated before).
@@ -189,7 +190,15 @@ impl OrderedEngine {
                         dir_limiter: &dir_limiter,
                         root_device,
                     };
-                    pool.install(|| build_node_parallel_inner(root_path, 0, &ctx, false))
+                    pool.install(|| {
+                        build_node_parallel_inner(
+                            root_path,
+                            0,
+                            &ctx,
+                            false,
+                            ignore.clone_for_child(),
+                        )
+                    })
                 };
 
                 match errors_mutex.into_inner() {
@@ -208,6 +217,7 @@ impl OrderedEngine {
                     &mut visited,
                     false,
                     root_device,
+                    ignore,
                 )
             }
         };
@@ -243,6 +253,7 @@ impl OrderedEngine {
 // ==============================
 //
 
+#[allow(clippy::too_many_arguments)]
 fn build_node_sequential(
     path: &Path,
     depth: usize,
@@ -251,6 +262,7 @@ fn build_node_sequential(
     visited: &mut HashSet<common::VisitedKey>,
     parent_matched: bool,
     root_device: Option<u64>,
+    mut ignore: common::IgnoreMatcher,
 ) -> Option<Tree> {
     if depth >= common::MAX_INTERNAL_DEPTH {
         errors.push(TreeError::MaxDepthExceeded(path.to_path_buf()));
@@ -294,10 +306,12 @@ fn build_node_sequential(
         }
     };
 
+    ignore.push_dir(path);
+
     let mut children = Vec::with_capacity(dir_entries.len());
 
     for dir_entry in dir_entries {
-        let is_dir = match common::filter_entry(config, &dir_entry, parent_matched) {
+        let is_dir = match common::filter_entry(config, &dir_entry, parent_matched, &ignore) {
             common::FilterResult::Include { is_dir } => is_dir,
             common::FilterResult::Reserved => {
                 errors.push(TreeError::ReservedName(dir_entry.path()));
@@ -328,6 +342,8 @@ fn build_node_sequential(
             let child_name_str = child_name.to_string_lossy();
             let child_parent_matched =
                 parent_matched || config.filter.dir_matches_include(&child_name_str);
+            let mut child_ignore = ignore.clone_for_child();
+            child_ignore.push_dir(&dir_entry.path());
 
             if let Some(child) = build_node_sequential(
                 &dir_entry.path(),
@@ -337,6 +353,7 @@ fn build_node_sequential(
                 visited,
                 child_parent_matched,
                 root_device,
+                child_ignore,
             ) {
                 children.push(child);
             }
@@ -372,6 +389,7 @@ fn build_node_parallel_inner(
     depth: usize,
     ctx: &ParallelCtx<'_>,
     parent_matched: bool,
+    ignore: common::IgnoreMatcher,
 ) -> Option<Tree> {
     if depth >= common::MAX_INTERNAL_DEPTH {
         push_error(ctx.errors, TreeError::MaxDepthExceeded(path.to_path_buf()));
@@ -420,12 +438,20 @@ fn build_node_parallel_inner(
         }
     };
 
+    let mut current_ignore = ignore;
+    current_ignore.push_dir(path);
+
     // rayon's par_iter preserves element order for indexed sources,
     // so children appear in the same sorted order as dir_entries.
     let children: Vec<Tree> = dir_entries
         .par_iter()
         .filter_map(|dir_entry| {
-            let is_dir = match common::filter_entry(ctx.config, dir_entry, parent_matched) {
+            let is_dir = match common::filter_entry(
+                ctx.config,
+                dir_entry,
+                parent_matched,
+                &current_ignore,
+            ) {
                 common::FilterResult::Include { is_dir } => is_dir,
                 common::FilterResult::Reserved => {
                     push_error(ctx.errors, TreeError::ReservedName(dir_entry.path()));
@@ -464,7 +490,15 @@ fn build_node_parallel_inner(
                 let child_name_str = child_name.to_string_lossy();
                 let child_parent_matched =
                     parent_matched || ctx.config.filter.dir_matches_include(&child_name_str);
-                build_node_parallel_inner(&dir_entry.path(), depth + 1, ctx, child_parent_matched)
+                let child_ignore = current_ignore.clone_for_child();
+
+                build_node_parallel_inner(
+                    &dir_entry.path(),
+                    depth + 1,
+                    ctx,
+                    child_parent_matched,
+                    child_ignore,
+                )
             } else {
                 match common::make_file_node(
                     dir_entry,

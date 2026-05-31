@@ -75,6 +75,10 @@ pub fn build_localized_command(lang: Language) -> clap::Command {
             a.help(msg(lang, MessageKey::ArgPrune))
                 .help_heading(msg(lang, MessageKey::HeadingFiltering))
         })
+        .mut_arg("no_ignore", |a| {
+            a.help(msg(lang, MessageKey::ArgNoIgnore))
+                .help_heading(msg(lang, MessageKey::HeadingFiltering))
+        })
         .mut_arg("ctime_sort", |a| {
             a.help(msg(lang, MessageKey::ArgCtimeSort))
                 .help_heading(msg(lang, MessageKey::HeadingFiltering))

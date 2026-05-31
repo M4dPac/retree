@@ -83,6 +83,10 @@ pub struct Args {
     #[arg(long = "prune", help_heading = "Filtering")]
     pub prune: bool,
 
+    /// Do not respect .gitignore and .rtignore files / Не учитывать .gitignore и .rtignore
+    #[arg(long = "no-ignore", help_heading = "Filtering")]
+    pub no_ignore: bool,
+
     // === Sorting Options ===
     /// Natural sort (version sort) / Натуральная сортировка
     #[arg(short = 'v', long = "version-sort", help_heading = "Sorting")]

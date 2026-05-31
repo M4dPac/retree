@@ -132,21 +132,22 @@ rt [OPTIONS] [PATH...]
 
 ### Common options
 
-| Flag             | Description                |
-| ---------------- | -------------------------- |
-| `-a`             | Show hidden files          |
-| `-d`             | Directories only           |
-| `-L N`           | Limit depth                |
-| `-P PATTERN`     | Filter by glob             |
-| `-I PATTERN`     | Exclude by glob            |
-| `-h`             | Human-readable sizes       |
-| `-D`             | Show modification date     |
-| `-J`             | JSON output                |
-| `--json-pretty`  | Pretty-printed JSON output |
-| `-C`             | Always use color           |
-| `--icons always` | Enable icons               |
-| `--parallel`     | Parallel traversal         |
-| `--threads N`    | Number of worker threads   |
+| Flag             | Description                  |
+| ---------------- | ---------------------------- |
+| `-a`             | Show hidden files            |
+| `-d`             | Directories only             |
+| `-L N`           | Limit depth                  |
+| `-P PATTERN`     | Filter by glob               |
+| `-I PATTERN`     | Exclude by glob              |
+| `--no-ignore`    | Disable .gitignore/.rtignore |
+| `-h`             | Human-readable sizes         |
+| `-D`             | Show modification date       |
+| `-J`             | JSON output                  |
+| `--json-pretty`  | Pretty-printed JSON output   |
+| `-C`             | Always use color             |
+| `--icons always` | Enable icons                 |
+| `--parallel`     | Parallel traversal           |
+| `--threads N`    | Number of worker threads     |
 
 ### 📖 Full documentation
 
@@ -203,15 +204,16 @@ More details: 👉 [Benchmarks](https://github.com/M4dPac/retree/blob/main/docs/
 | Junction points    |    ❌    |   ✅   |
 | Long paths         |    ❌    |   ✅   |
 | Streaming output   |    ❌    |   ✅   |
+| .gitignore support |    ❌    |   ✅   |
 | Multilingual UI    |    ❌    |   ✅   |
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] Stable release on crates.io
+- [✓] Release on crates.io
+- [✓] `.gitignore` / `.rtignore` support
 - [ ] Config file (`~/.retreerc.toml`)
-- [ ] `.gitignore` / `.treeignore` support
 - [ ] Directory size aggregation (`--du`)
 - [ ] Interactive mode
 - [ ] Homebrew / Scoop / Winget packages

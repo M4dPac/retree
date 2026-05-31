@@ -49,6 +49,7 @@ pub struct Config {
     // Filtering
     pub filter: Filter,
     pub prune: bool,
+    pub no_ignore: bool,
 
     // Sorting
     pub sort_config: SortConfig,
@@ -233,6 +234,7 @@ impl Config {
 
             filter,
             prune: args.prune,
+            no_ignore: args.no_ignore,
 
             sort_config,
 
@@ -304,6 +306,7 @@ impl Default for Config {
             no_report: false,
             filter: Filter::new(None, &[], false, false).unwrap(),
             prune: false,
+            no_ignore: false,
             sort_config: SortConfig::default(),
             no_indent: false,
             line_style: LineStyle::Ansi,
@@ -371,6 +374,7 @@ mod tests {
             match_dirs: false,
             ignore_case: false,
             prune: false,
+            no_ignore: false,
             version_sort: false,
             time_sort: false,
             ctime_sort: false,

@@ -32,13 +32,14 @@ If no path is given, the current directory is used. Multiple paths can be specif
 
 ## 🔍 Filtering
 
-| Flag         | Long form           | Description                       |
-| ------------ | ------------------- | --------------------------------- |
-| `-P PATTERN` | `--pattern PATTERN` | List only files matching glob     |
-| `-I PATTERN` | `--exclude PATTERN` | Exclude files matching glob       |
-|              | `--matchdirs`       | Apply patterns to directories too |
-|              | `--ignore-case`     | Case-insensitive pattern matching |
-|              | `--prune`           | Do not print empty directories    |
+| Flag         | Long form           | Description                             |
+| ------------ | ------------------- | --------------------------------------- |
+| `-P PATTERN` | `--pattern PATTERN` | List only files matching glob           |
+| `-I PATTERN` | `--exclude PATTERN` | Exclude files matching glob             |
+|              | `--matchdirs`       | Apply patterns to directories too       |
+|              | `--ignore-case`     | Case-insensitive pattern matching       |
+|              | `--prune`           | Do not print empty directories          |
+|              | `--no-ignore`       | Do not respect .gitignore and .rtignore |
 
 ### Glob syntax
 

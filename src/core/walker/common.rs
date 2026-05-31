@@ -3,6 +3,7 @@
 //! Contains filtering, classification, and utility functions
 //! used by both `OrderedEngine` and `StreamingEngine`.
 
+use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use std::fs::{DirEntry, ReadDir};
 use std::path::{Path, PathBuf};
 
@@ -55,6 +56,60 @@ pub enum FilterResult {
     Reserved,
 }
 
+/// Tracks .gitignore and .rtignore rules during traversal.
+///
+/// Maintains a stack of `Gitignore` instances, one for each directory
+/// containing an ignore file. Cloning is cheap and safe for parallel traversal.
+pub struct IgnoreMatcher {
+    enabled: bool,
+    stack: Vec<(PathBuf, Gitignore)>, // (root, gitignore)
+}
+
+impl IgnoreMatcher {
+    pub fn new(enabled: bool) -> Self {
+        Self {
+            enabled,
+            stack: Vec::new(),
+        }
+    }
+
+    /// Create a clone for a child directory (parallel-safe).
+    pub fn clone_for_child(&self) -> Self {
+        Self {
+            enabled: self.enabled,
+            stack: self.stack.clone(),
+        }
+    }
+
+    /// Push ignore rules for the given directory.
+    pub fn push_dir(&mut self, dir: &Path) {
+        if !self.enabled {
+            return;
+        }
+        let mut builder = GitignoreBuilder::new(dir);
+        let _ = builder.add(dir.join(".gitignore"));
+        let _ = builder.add(dir.join(".rtignore"));
+
+        if let Ok(gi) = builder.build() {
+            self.stack.push((dir.to_path_buf(), gi));
+        }
+    }
+
+    /// Check if a path is ignored by any rules in the stack.
+    pub fn is_ignored(&self, path: &Path, is_dir: bool) -> bool {
+        if !self.enabled {
+            return false;
+        }
+        for (root, gi) in &self.stack {
+            let relative_path = path.strip_prefix(root).unwrap_or(path);
+            if gi.matched(relative_path, is_dir).is_ignore() {
+                return true;
+            }
+        }
+        false
+    }
+}
+
 /// Check if configuration requires file ID lookups (inode, device, one-fs).
 pub fn needs_file_id(config: &Config) -> bool {
     config.one_fs || config.show_inodes || config.show_device
@@ -78,7 +133,12 @@ pub fn compute_root_device(config: &Config, root: &Path) -> Option<u64> {
 /// reserved names (e.g., push a warning vs silently skip).
 ///
 /// On `DirEntry::file_type()` failure, returns `Exclude`.
-pub fn filter_entry(config: &Config, de: &DirEntry, parent_matched: bool) -> FilterResult {
+pub fn filter_entry(
+    config: &Config,
+    de: &DirEntry,
+    parent_matched: bool,
+    ignore: &IgnoreMatcher,
+) -> FilterResult {
     // Hidden files
     if !config.show_all && (de.file_name().as_encoded_bytes().first() == Some(&b'.')) {
         return FilterResult::Exclude;
@@ -97,6 +157,11 @@ pub fn filter_entry(config: &Config, de: &DirEntry, parent_matched: bool) -> Fil
         if !is_dir && !is_symlink_to_dir {
             return FilterResult::Exclude;
         }
+    }
+
+    // .gitignore / .rtignore
+    if ignore.is_ignored(&de.path(), is_dir) {
+        return FilterResult::Exclude;
     }
 
     // prune: symlinks to directories are "empty" when not followed — skip them
@@ -709,5 +774,47 @@ mod tests {
         let node = make_recursive_link_node(&de, 2, false, false).unwrap();
         assert!(node.entry.recursive_link);
         assert!(node.children.is_empty());
+    }
+
+    // ══════════════════════════════════════════════
+    // IgnoreMatcher
+    // ══════════════════════════════════════════════
+
+    #[test]
+    fn ignore_matcher_respects_gitignore() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(".gitignore"), "ignored_file.txt\n").unwrap();
+        std::fs::write(dir.path().join("ignored_file.txt"), "").unwrap();
+        std::fs::write(dir.path().join("normal_file.txt"), "").unwrap();
+
+        let mut ignore = IgnoreMatcher::new(true);
+        ignore.push_dir(dir.path());
+
+        assert!(ignore.is_ignored(&dir.path().join("ignored_file.txt"), false));
+        assert!(!ignore.is_ignored(&dir.path().join("normal_file.txt"), false));
+    }
+
+    #[test]
+    fn ignore_matcher_respects_rtignore() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(".rtignore"), "rt_ignored.txt\n").unwrap();
+        std::fs::write(dir.path().join("rt_ignored.txt"), "").unwrap();
+
+        let mut ignore = IgnoreMatcher::new(true);
+        ignore.push_dir(dir.path());
+
+        assert!(ignore.is_ignored(&dir.path().join("rt_ignored.txt"), false));
+    }
+
+    #[test]
+    fn ignore_matcher_disabled() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(".gitignore"), "ignored_file.txt\n").unwrap();
+        std::fs::write(dir.path().join("ignored_file.txt"), "").unwrap();
+
+        let mut ignore = IgnoreMatcher::new(false);
+        ignore.push_dir(dir.path());
+
+        assert!(!ignore.is_ignored(&dir.path().join("ignored_file.txt"), false));
     }
 }

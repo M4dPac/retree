@@ -115,8 +115,19 @@ impl<'a> StreamingEngine<'a> {
             ));
         }
 
+        let ignore = common::IgnoreMatcher::new(!config.no_ignore);
+
         state.visited.insert(common::make_visited_key(root));
-        self.emit_children(root, 1, false, writer, stats, &mut errors, &mut state)?;
+        self.emit_children(
+            root,
+            1,
+            false,
+            writer,
+            stats,
+            &mut errors,
+            &mut state,
+            &ignore,
+        )?;
 
         // Report
         if !config.no_report {
@@ -177,6 +188,7 @@ impl<'a> StreamingEngine<'a> {
         stats: &mut TreeStats,
         errors: &mut Vec<TreeError>,
         state: &mut StreamState,
+        ignore: &common::IgnoreMatcher,
     ) -> Result<(), TreeError> {
         let config = self.config;
 
@@ -194,6 +206,9 @@ impl<'a> StreamingEngine<'a> {
             }
         }
 
+        let mut current_ignore = ignore.clone_for_child();
+        current_ignore.push_dir(dir);
+
         let dir_entries = match common::read_sorted_children(dir, config) {
             common::ReadDirResult::Entries(entries) => entries,
             common::ReadDirResult::ReadError(e) => {
@@ -207,7 +222,7 @@ impl<'a> StreamingEngine<'a> {
         let filtered: Vec<_> = dir_entries
             .iter()
             .filter(
-                |de| match common::filter_entry(config, de, parent_matched) {
+                |de| match common::filter_entry(config, de, parent_matched, &current_ignore) {
                     common::FilterResult::Include { .. } => true,
                     common::FilterResult::Reserved => {
                         errors.push(TreeError::ReservedName(de.path()));
@@ -303,6 +318,7 @@ impl<'a> StreamingEngine<'a> {
                             stats,
                             errors,
                             state,
+                            &current_ignore,
                         );
                         state.ancestors.pop();
                         r?;
